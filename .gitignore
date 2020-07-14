@@ -1,0 +1,57 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.dll
+
+# Visaul Studio
+*.iobj
+*.ipdb
+*.idb
+*.pdb
+*.tlog
+*.log
+*.ilk
+*.user
+*.exp
+*.vc.db
+*.*.manifest
+*.cache
+*.bsc
+*.exe.lnk
+*.vs/*
+
+# Codeblocks
+*.layout
+*.depend
+
+# Ignore VS Code
+/.vscode/*
+
+# Ignore Build CMake dist
+/build/*
+
+# Ignore Bin Debug/Release
+/Bin/Bin/*
+/Bin/CMakeFiles/*
+
+# Ignore Depends
+/Dependencies/*
+!/Dependencies/README.md
