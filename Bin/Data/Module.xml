@@ -1,0 +1,3 @@
+<App name="Proxy" path="A:\HelenaFramework\Bin\Bin">
+    <Module name="TestModule" author="NSOFT | Dev" version="0.1 [MSVC, C++20]"  />
+</App>
