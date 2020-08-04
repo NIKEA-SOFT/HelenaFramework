@@ -1,7 +1,7 @@
 #|--------------------------------
-#| HF TestModule Project
+#| HF TestModuleB Project
 #|--------------------------------
-set(HELENA_MODULE TestModule)
+set(HELENA_MODULE TestModuleB)
 
 file(GLOB_RECURSE HELENA_MODULE_SOURCE *.h *.hpp *.cpp *.cc *.c)
 add_library(${HELENA_MODULE} SHARED ${HELENA_MODULE_SOURCE})
@@ -12,6 +12,7 @@ else(UNIX)
     target_link_libraries(${HELENA_MODULE} pthread dl --coverage)
 endif()
 
+set_target_properties(${HELENA_MODULE} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_MODULE}.pdb" )
 set_target_properties(${HELENA_MODULE} PROPERTIES FOLDER "Module"
     ARCHIVE_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}

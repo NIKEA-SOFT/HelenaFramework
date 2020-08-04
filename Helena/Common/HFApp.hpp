@@ -73,36 +73,32 @@ namespace Helena
         template <typename Module, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         Module* AddModule([[maybe_unused]] Args&&... args) noexcept
         {
-            if constexpr (has_type_index_v<Module>) 
-            {
-                const auto index = TypeIndex<Module>::id();
-                if(!(index < this->m_DynLibs.size())) {
-                    std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add more than one module from one lib!" << std::endl;
-                    return nullptr;
-                }
+            static_assert(has_type_index_v<Module>);
 
-                const auto& pDynLib = this->m_DynLibs[index];
-                if(pDynLib->m_pModule) {
-                    std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: this module alredy has!" << std::endl;
-                    return nullptr;
-                }
-
-                if(pDynLib->m_State != HF_MODULE_STATE::HF_MODULE_INIT) {
-                    std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add module when lib state is not HF_MODULE_INIT" << std::endl;
-                    return nullptr;
-                }
-
-                pDynLib->m_pModule = HF_NEW Module(std::forward<Args>(args)...);
-                if(!pDynLib->m_pModule) {
-                    std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: allocate memory!" << std::endl;
-                    return nullptr;
-                }
-
-                return static_cast<Module*>(pDynLib->m_pModule);
+            const auto index = TypeIndex<Module>::id();
+            if(!(index < this->m_DynLibs.size())) {
+                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add more than one module from one lib!" << std::endl;
+                return nullptr;
             }
 
-            assert(false);
-            return nullptr;
+            const auto& pDynLib = this->m_DynLibs[index];
+            if(pDynLib->m_pModule) {
+                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: this module alredy has!" << std::endl;
+                return nullptr;
+            }
+
+            if(pDynLib->m_State != HF_MODULE_STATE::HF_MODULE_INIT) {
+                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add module when lib state is not HF_MODULE_INIT" << std::endl;
+                return nullptr;
+            }
+
+            pDynLib->m_pModule = HF_NEW Module(std::forward<Args>(args)...);
+            if(!pDynLib->m_pModule) {
+                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: allocate memory!" << std::endl;
+                return nullptr;
+            }
+
+            return static_cast<Module*>(pDynLib->m_pModule);
         }
 
         /**
@@ -120,29 +116,36 @@ namespace Helena
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         Module* GetModule() noexcept 
         {
-            if constexpr (has_type_index_v<Module>) 
-            {
-                const auto index = TypeIndex<Module>::id();
-                if(!(index < this->m_DynLibs.size())) {
-                    std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot get missing module!" << std::endl;
-                    return nullptr;
-                }
+            static_assert(has_type_index_v<Module>);
 
-                const auto& pDynLib = this->m_DynLibs[index];
-                if(!pDynLib->m_pModule) {
-                    std::cerr << "[Warn] GetModule<" << HF_CLASSNAME_RT(Module) << "> failure: module is nullptr!" << std::endl;
-                }
-
-                return static_cast<Module*>(pDynLib->m_pModule);
+            std::cout << "This: " << this << std::endl;
+            const auto index = TypeIndex<Module>::id();
+            if(!(index < this->m_DynLibs.size())) {
+                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot get missing module!" << std::endl;
+                return nullptr;
             }
 
-            assert(false);
-            return nullptr;
+            const auto& pDynLib = this->m_DynLibs[index];
+            if(!pDynLib->m_pModule) {
+                std::cerr << "[Error] GetModule<" << HF_CLASSNAME_RT(Module) << "> failure: module is nullptr!" << std::endl;
+            }
+
+            return static_cast<Module*>(pDynLib->m_pModule);
         }
 
-        HFDynLib* pDynLib = HF_NEW HFDynLib("Cocker");
-        void SetObject() {
-            new (pDynLib) HFDynLib("Shocker");
+        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        void RemoveModule() noexcept
+        {
+            static_assert(has_type_index_v<Module>);
+
+            const auto index = TypeIndex<Module>::id();
+            if(index < this->m_DynLibs.size()) 
+            {
+                if(const auto& pDynLib = this->m_DynLibs[index]; pDynLib->m_pModule) {
+                    HF_FREE(pDynLib->m_pModule);
+                }
+
+            }
         }
 
     private:

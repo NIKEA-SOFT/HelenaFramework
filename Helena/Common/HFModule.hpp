@@ -10,8 +10,14 @@ namespace Helena
     {
 
     public:
-        virtual ~HFModule() = default;
+        HFModule() {
+            std::cout <<  "HFModule ctor" << std::endl;
+        }
+        virtual ~HFModule() {
+            std::cout <<  "HFModule dtor" << std::endl;
+        }
 
+        virtual bool Test() { return false; }
         virtual bool AppInit(HFApp*)    { return true; }
         virtual bool AppConfig()        { return true; }
         virtual bool AppStart()         { return true; }

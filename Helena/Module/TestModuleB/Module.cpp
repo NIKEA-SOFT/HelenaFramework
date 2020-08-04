@@ -26,20 +26,17 @@ HF_API bool HFMain(HFApp* pApp, HF_MODULE_STATE state)
     {
         case HF_MODULE_STATE::HF_MODULE_INIT : 
         {   
-            pApp->SetObject();
-            if(!pApp->AddModule<TestModuleA>()) {
+            if(!pApp->AddModule<TestModuleB>()) {
                 return false;
             }
 
-            if(!pApp->AddModule<TestModuleA>()) {
-                return false;
-            }
         } break;
 
         case HF_MODULE_STATE::HF_MODULE_FREE : 
         {
-
+            pApp->RemoveModule<TestModuleB>();
         }
     }
+
     return true;
 }

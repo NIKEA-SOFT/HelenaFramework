@@ -1,4 +1,5 @@
 #|--------------------------------
 #| HF Modules
 #|--------------------------------
-add_subdirectory(TestModule)
+add_subdirectory(TestModuleA)
+add_subdirectory(TestModuleB)

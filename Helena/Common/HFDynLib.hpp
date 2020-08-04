@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <stdexcept>
+#include <assert.h>
 
 #include "HFModule.hpp"
 
@@ -56,17 +56,19 @@ namespace Helena
         void Unload(HFApp* pApp) 
         {
             this->m_State = HF_MODULE_STATE::HF_MODULE_FREE;
-            if(!this->m_pHandle) {
-                std::cerr << "[Error] Unload module: \"" << this->m_Name << "\", failure: m_pHandle is nullptr" << std::endl;
-                return;
-            }
-            
-            if(const auto pMain = reinterpret_cast<fnRegisterModule>(HF_MODULE_GETSYM(this->m_pHandle, HF_MODULE_CALLBACK)); pMain) {
-                (void)pMain(pApp, this->m_State);
-            }
+            if(this->m_pHandle) 
+            {
+                if(const auto pMain = reinterpret_cast<fnRegisterModule>(HF_MODULE_GETSYM(this->m_pHandle, HF_MODULE_CALLBACK)); pMain) {
+                    (void)pMain(pApp, this->m_State);
+                }
 
-            HF_FREE(this->m_pModule);
-            HF_MODULE_UNLOAD(this->m_pHandle);
+                if(this->m_pModule) {
+                    std::cerr << "[Error] Unload module: \"" << this->m_Name << "\", incorrect: forgot HF_FREE object class before unload!" << std::endl;
+                    assert(false);
+                }
+
+                HF_MODULE_UNLOAD(this->m_pHandle);
+            }
         }
 
     private:
