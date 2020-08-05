@@ -51,7 +51,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 #|--------------------------------
 set(HELENA_PROJECT_NAME ${PROJECT_NAME})
 set(HELENA_PROJECT_VERSION ${PROJECT_VERSION}) 
-set(HELENA_PROJECT_FRAMEWORK_DIR "HelenaFramework")
+set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 
 #|--------------------------------
 #| Helena Framework Configuration
@@ -59,13 +59,14 @@ set(HELENA_PROJECT_FRAMEWORK_DIR "HelenaFramework")
 set(HELENA_PROJECT_DIR ${PROJECT_SOURCE_DIR})
 set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
+message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
+
 include_directories(
     ${HELENA_PROJECT_DIR}
     ${HELENA_PROJECT_DIR}/Dependencies
-    ${HELENA_PROJECT_DIR}/Helena
 )
 
-set(HELENA_PROJECT_BINDIR, ${HELENA_PROJECT_DIR}/Bin)
+set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
@@ -127,13 +128,14 @@ else()
 endif()
 
 add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
+add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
 link_directories(${HELENA_PROJECT_OUTDIR})
 
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
-option(HELENA_FLAG_TEST,        "Build and run test"    ON)
-option(HELENA_FLAG_EXAMPLES,    "Build examples"        ON)
+option(HELENA_FLAG_TEST         "Build and run test"    OFF)
+option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
 option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
 
 #|--------------------------------

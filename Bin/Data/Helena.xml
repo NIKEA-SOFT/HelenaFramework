@@ -1,0 +1,10 @@
+<Applications>
+    <App name="Proxy">
+        <Module name="TestModuleA, TestModuleB" />
+        <Log level="trace" format="%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$" size="8192" thread="1" path="../logs" />
+    </App>
+    <App name="World">
+        <Module name="TestModuleA, TestModuleB" />
+        <Log level="trace" format="%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$" size="8192" thread="1" path="../logs" />
+    </App>    
+</Applications>

@@ -1,12 +1,7 @@
 #|--------------------------------
 #| HF Application Project
 #|--------------------------------
-set(HELENA_APP HFApplication)
-
-if(UNIX AND (NOT APPLE))
-    set(CMAKE_INSTALL_RPATH ".")
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-endif(UNIX AND (NOT APPLE))
+set(HELENA_APP HFApp)
 
 file(GLOB_RECURSE HELENA_APP_SOURCE *.h *.hpp *.cpp *.cc *.c)
 add_executable(${HELENA_APP} ${HELENA_APP_SOURCE})
@@ -19,6 +14,7 @@ endif()
 
 message(STATUS "OUTPATH: ${HELENA_PROJECT_OUTDIR}/${HELENA_APP}D")
 
+set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb" )
 set_target_properties(${HELENA_APP} PROPERTIES OUTPUT_NAME_DEBUG "${HELENA_APP}D")
 set_target_properties(${HELENA_APP} PROPERTIES OUTPUT_NAME_RELEASE "${HELENA_APP}R")
 set_target_properties(${HELENA_APP} PROPERTIES FOLDER "Application"
