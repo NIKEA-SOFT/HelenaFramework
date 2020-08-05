@@ -31,16 +31,13 @@ namespace Helena
     };
 }
 
-HF_API bool HFMain(HFApp* pApp, HF_MODULE_STATE state) 
+HF_API void HFMain(HFApp* pApp, HF_MODULE_STATE state) 
 {
     switch(state)
     {
         case HF_MODULE_STATE::HF_MODULE_INIT : 
         {   
-            if(!pApp->AddModule<TestModuleA>()) {
-                return false;
-            }
-
+            pApp->AddModule<TestModuleA>();
         } break;
 
         case HF_MODULE_STATE::HF_MODULE_FREE : 
@@ -48,6 +45,4 @@ HF_API bool HFMain(HFApp* pApp, HF_MODULE_STATE state)
             pApp->RemoveModule<TestModuleA>();
         }
     }
-
-    return true;
 }

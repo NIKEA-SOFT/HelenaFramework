@@ -42,6 +42,14 @@
 
 #endif
 
+#if defined(_MSC_VER) 
+    #define HF_COMPILER_NAME    "MSVC"
+#elif defined(__GNUC__) || defined(__GNUG__)
+    #define HF_COMPILER_NAME    "GCC"
+#elif defined(__clang__)
+    #define HF_COMPILER_NAME    "Clang"
+#endif
+
 #define HF_NEW                      new (std::nothrow)
 #define HF_FREE(Ptr)                if(Ptr) { delete Ptr; Ptr = nullptr; }
 

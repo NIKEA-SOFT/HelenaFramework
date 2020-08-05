@@ -1,6 +1,9 @@
 #ifndef COMMON_HFMODULE_HPP
 #define COMMON_HFMODULE_HPP
 
+#include <iostream>
+#include <vector>
+#include <string>
 #include "HFPlugin.hpp"
 
 namespace Helena
@@ -10,19 +13,14 @@ namespace Helena
     {
 
     public:
-        HFModule() {
-            std::cout <<  "HFModule ctor" << std::endl;
-        }
-        virtual ~HFModule() {
-            std::cout <<  "HFModule dtor" << std::endl;
-        }
+        HFModule() = default;
+        virtual ~HFModule() = default;
 
-        virtual bool Test() { return false; }
-        virtual bool AppInit(HFApp*)    { return true; }
-        virtual bool AppConfig()        { return true; }
-        virtual bool AppStart()         { return true; }
-        virtual bool AppUpdate()        { return true; }
-        virtual bool AppShut()          { return true; }
+        virtual bool AppInit()      { return true; }
+        virtual bool AppConfig()    { return true; }
+        virtual bool AppStart()     { return true; }
+        virtual bool AppUpdate()    { return true; }
+        virtual bool AppShut()      { return true; }
         
     private:
         

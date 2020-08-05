@@ -2,6 +2,7 @@
 #define COMMON_HFAPP_HPP
 
 #include <unordered_map>
+#include <queue>
 #include <utility>
 #include <tuple>
 #include <atomic>
@@ -56,97 +57,6 @@ namespace Helena
 
         template<typename Type>
         static inline constexpr bool has_type_index_v = has_type_index<Type>::value;
-    public:
-
-        /**
-         * @brief   Add module in App
-         * 
-         * @tparam  Module  Type derived from HFModule
-         * 
-         * @return
-         * Success: @code{.cpp} Module*
-         * @endcode
-         * Failure: @code{.cpp} nullptr
-         * @endcode
-         * Return nullptr if module already has or allocate memory failure
-         */
-        template <typename Module, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
-        Module* AddModule([[maybe_unused]] Args&&... args) noexcept
-        {
-            static_assert(has_type_index_v<Module>);
-
-            const auto index = TypeIndex<Module>::id();
-            if(!(index < this->m_DynLibs.size())) {
-                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add more than one module from one lib!" << std::endl;
-                return nullptr;
-            }
-
-            const auto& pDynLib = this->m_DynLibs[index];
-            if(pDynLib->m_pModule) {
-                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: this module alredy has!" << std::endl;
-                return nullptr;
-            }
-
-            if(pDynLib->m_State != HF_MODULE_STATE::HF_MODULE_INIT) {
-                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot add module when lib state is not HF_MODULE_INIT" << std::endl;
-                return nullptr;
-            }
-
-            pDynLib->m_pModule = HF_NEW Module(std::forward<Args>(args)...);
-            if(!pDynLib->m_pModule) {
-                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: allocate memory!" << std::endl;
-                return nullptr;
-            }
-
-            return static_cast<Module*>(pDynLib->m_pModule);
-        }
-
-        /**
-         * @brief   Add module in App
-         * 
-         * @tparam  Module  Type derived from HFModule
-         * 
-         * @return
-         * Success: @code{.cpp} Module*
-         * @endcode
-         * Failure: @code{.cpp} nullptr
-         * @endcode
-         * Return nullptr if module not has
-         */
-        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
-        Module* GetModule() noexcept 
-        {
-            static_assert(has_type_index_v<Module>);
-
-            std::cout << "This: " << this << std::endl;
-            const auto index = TypeIndex<Module>::id();
-            if(!(index < this->m_DynLibs.size())) {
-                std::cerr << "[Error] AddModule<" << HF_CLASSNAME_RT(Module) << "> failure: cannot get missing module!" << std::endl;
-                return nullptr;
-            }
-
-            const auto& pDynLib = this->m_DynLibs[index];
-            if(!pDynLib->m_pModule) {
-                std::cerr << "[Error] GetModule<" << HF_CLASSNAME_RT(Module) << "> failure: module is nullptr!" << std::endl;
-            }
-
-            return static_cast<Module*>(pDynLib->m_pModule);
-        }
-
-        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
-        void RemoveModule() noexcept
-        {
-            static_assert(has_type_index_v<Module>);
-
-            const auto index = TypeIndex<Module>::id();
-            if(index < this->m_DynLibs.size()) 
-            {
-                if(const auto& pDynLib = this->m_DynLibs[index]; pDynLib->m_pModule) {
-                    HF_FREE(pDynLib->m_pModule);
-                }
-
-            }
-        }
 
     private:
         /**
@@ -164,6 +74,7 @@ namespace Helena
          */
         bool Initialize(const int argc, const char* const* argv) 
         {
+            std::cout << "INIT This: " << this << std::endl;
             HFArgs::Parser  argsParser("Hello, Helena!", "Good luck Helena!");
             HFArgs::Group   argsGroup(argsParser, "Helena flags:", HFArgs::Group::Validators::All);
             HFArgs::ValueFlag<std::string> argsFlag1(argsGroup, "name", "App name", {"app"});
@@ -224,12 +135,88 @@ namespace Helena
                 return false;
             } else std::cout << "[Info] AppStop success!" << std::endl;
 
+            this->Finalize();
             return true;
         }
 
         void Finalize() 
         {
+            for(auto& pDynLib : this->m_DynLibs) {
+                pDynLib->Unload();
+                HF_FREE(pDynLib);
+            }
             
+            this->m_DynLibs.clear();
+        }
+    
+    public:
+
+        /**
+         * @brief   Add module in App
+         * 
+         * @tparam  Module  Type derived from HFModule
+         * 
+         * @return
+         * Success: @code{.cpp} Module*
+         * @endcode
+         * Failure: @code{.cpp} nullptr
+         * @endcode
+         * Return nullptr if module already has or allocate memory failure
+         */       
+        template <typename Module, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        Module* AddModule([[maybe_unused]] Args&&... args)
+        {
+            const auto pDynLib = this->m_DynLibs.back();
+            if(pDynLib->m_pModule) {
+                std::cerr << "[Error] Module: \"" << pDynLib->GetName() << "\", error: onle one class per module!" << std::endl;
+                return nullptr;               
+            }
+
+            if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
+                std::cerr << "[Error] Module: \"" << pDynLib->GetName() << "\", error: this class registered from other module: \"" << it->second->GetName() << "\"" << std::endl;
+                return nullptr;
+            }
+
+            if(pDynLib->m_pModule = HF_NEW Module(std::forward<Args>(args)...); !pDynLib->m_pModule) {
+                std::cerr << "[Error] Module: \"" << pDynLib->GetName() << "\", error: allocate memory!" << std::endl;
+                return nullptr;
+            }
+
+            if(const auto [it, bRes] = this->m_Modules.emplace(HF_CLASSNAME_RT(Module), pDynLib); !bRes) {
+                std::cerr << "[Error] Module: \"" << pDynLib->GetName() << "\", error: allocate memory for map!" << std::endl;
+                HF_FREE(pDynLib->m_pModule);
+                return nullptr;               
+            }
+
+            pDynLib->m_Version = HF_COMPILER_NAME[0];   // Take first symbol from compiler name and use how as version
+            return static_cast<Module*>(pDynLib->m_pModule);
+        }
+
+        /**
+         * @brief   Add module in App
+         * 
+         * @tparam  Module  Type derived from HFModule
+         * 
+         * @return
+         * Success: @code{.cpp} Module*
+         * @endcode
+         * Failure: @code{.cpp} nullptr
+         * @endcode
+         * Return nullptr if module not has
+         */
+        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        Module* GetModule() noexcept {
+            const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module));
+            return it == this->m_Modules.end() ? nullptr : static_cast<Module*>(it->second->m_pModule);
+        }
+
+        template <typename Module, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        void RemoveModule([[maybe_unused]] Args&&... args)
+        {
+            if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
+                HF_FREE(it->second->m_pModule);
+                this->m_Modules.erase(it);
+            }
         }
 
     private:
@@ -246,12 +233,23 @@ namespace Helena
          */
         bool AppInitModule() 
         {
-            for(std::string_view moduleName : this->m_ModuleConfig)
+            for(std::string_view moduleName : this->m_ModulesConfig)
             {
-                if(const auto& pDynLib = this->m_DynLibs.emplace_back(std::make_unique<HFDynLib>(moduleName)); !pDynLib->Load(this)) {
-                    pDynLib->Unload(this);
-                    this->m_DynLibs.pop_back();
+                if(const auto& pDynLib = this->m_DynLibs.emplace_back(HF_NEW HFDynLib(moduleName, this)); !pDynLib->Load()) {
                     return false;
+                }
+            }
+
+            if(!this->m_Modules.empty())
+            {
+                const auto version = this->m_Modules.begin()->second->GetVersion();
+                for(const auto& data : this->m_Modules) 
+                {
+                    const auto module = data.second;
+                    if(module->GetVersion() != version) {
+                        std::cerr << "[Error] Module: \"" << module->GetName() << "\", compiler version is different!" << std::endl;
+                        return false;
+                    }
                 }
             }
 
@@ -335,13 +333,14 @@ namespace Helena
             }
             
             // Split attribute use symbol and trim
-            this->m_ModuleConfig = HFUtil::Split<std::string>(module_name, ",", true);       // Don't need use std::move, here copy elision worked!
+            this->m_ModulesConfig = HFUtil::Split<std::string>(module_name, ",", true);
             return true;
         }
 
     private:
-        std::vector<std::unique_ptr<HFDynLib>> m_DynLibs;
-        std::vector<std::string> m_ModuleConfig;
+        std::unordered_map<std::string, HFDynLib*> m_Modules;
+        std::vector<HFDynLib*> m_DynLibs;
+        std::vector<std::string> m_ModulesConfig;
 
         std::string m_Name;
         std::string m_ConfigPath;
@@ -352,6 +351,7 @@ namespace Helena
     {
         if(!HFApp::GetInstance().Initialize(argc, argv)) {
             std::cerr << "[Error] Inititalize HelenaFramework failure!" << std::endl;
+            HFApp::GetInstance().Finalize();
             return 1;
         }
         
