@@ -34,6 +34,4 @@ HF_API void HFMain(HFApp* pApp, HF_MODULE_STATE state)
 
         }
     }
-
-    return true;
 }
