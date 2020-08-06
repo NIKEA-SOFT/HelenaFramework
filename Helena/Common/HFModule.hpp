@@ -11,19 +11,130 @@ namespace Helena
     class HFApp;
     class HFModule
     {
+        friend class HFApp;
+        
+        using PluginId = uint32_t;
+        /*! @breif Sequenced indexer */
+        struct type_index_seq {
+            /**
+             * @brief Return next sequenced index
+             * @return Sequenced index
+             */
+            [[nodiscard]] static PluginId next() noexcept {
+                static PluginId id {};
+                return id++;
+            }
+        };
+        
+        /**
+         * @brief Type Index
+         * @tparam Type Type for which to generate a sequential identifier.
+         */
+        template <typename Type, typename = void>
+        struct type_index {
+            /**
+             * @brief Returns the sequential identifier of a given type.
+             * @return The sequential identifier of a given type.
+             */
+            [[nodiscard]] static PluginId id() noexcept {
+                static const PluginId id = type_index_seq::next();
+                return id;
+            }
+        };
+        
+        /**
+         * @brief Provides the member constant `value` to true if a given type is
+         * indexable, false otherwise.
+         * @tparam Type Potentially indexable type.
+         */
+        template <typename, typename = void>
+        struct has_type_index : std::false_type {};
+
+        /*! @brief has_type_index */
+        template <typename Type>
+        struct has_type_index<Type, std::void_t<decltype(type_index<Type>::id())>> : std::true_type {};
+
+        /**
+         * @brief Helper variable template.
+         * @tparam Type Potentially indexable type.
+         */
+        template <typename Type>
+        static inline constexpr bool has_type_index_v = has_type_index<Type>::value;
 
     public:
-        HFModule() = default;
-        virtual ~HFModule() = default;
-
+        HFModule() : m_pApp(nullptr) {};
+        virtual ~HFModule() {
+            for(auto& pPlugin : this->m_Plugins) {
+                HF_FREE(pPlugin);
+            }
+        }
+        
+        /*! @brief Called after success modules initialization */
         virtual bool AppInit()      { return true; }
+
+        /** @brief Called after success AppInit, used for load configs before AppStart */
         virtual bool AppConfig()    { return true; }
+
+        /*! @brief Called after success AppConfig, used for starting */
         virtual bool AppStart()     { return true; }
+
+        /*! @brief Called after success AppStart, it's main HFApp loop */
         virtual bool AppUpdate()    { return true; }
+
+        /*! @brief Called after success AppUpdate, used for free resources */
         virtual bool AppShut()      { return true; }
-        
+
+        /**
+         * @brief Return pointer on HFApp for add/get modules 
+         * and take info from Application
+         * @return Pointer on HFApp
+         */
+        HFApp* GetApp() { 
+            return this->m_pApp; 
+        }
+
+        /**
+         * @brief Add plugin in this module
+         * @tparam Plugin Type of plugin (derived from HFPlugin)
+         * @param args Arguments to use to constructor
+         * @return Pointer on created Plugin or nullptr 
+         * if plugin already has or allocaate memory failure
+         */
+        template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
+            static_assert(has_type_index_v<Plugin>);
+            const auto index = type_index<Plugin>::id();
+
+            if(!(index < this->m_Plugins.size())) {
+                this->m_Plugins.resize(index + 1);
+            }
+
+            if(auto& pPlugin = this->m_Plugins[index]; !pPlugin) {
+                pPlugin = HF_NEW Plugin(std::forward<Args>(args)...);
+                pPlugin->m_pModule = this;
+                return static_cast<Plugin*>(pPlugin);
+            }
+            return nullptr;
+        }
+
+        /**
+         * @brief Get plugin from this module, it's extremely cheap
+         * @tparam Plugin Type of plugin (derived from HFPlugin)
+         * @return Pointer on Plugin or nullptr if plugin not exist
+         */
+        template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        Plugin* GetPlugin() noexcept {
+            static_assert(has_type_index_v<Plugin>);
+            const auto index = type_index<Plugin>::id();
+            if(index < this->m_Plugins.size()) {                
+                return static_cast<Plugin*>(this->m_Plugins[index]);
+            }
+            return nullptr;
+        }
+
     private:
-        
+        HFApp*  m_pApp;
+        std::vector<HFPlugin*> m_Plugins;
     };
 }
 

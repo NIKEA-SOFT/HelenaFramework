@@ -1,9 +1,9 @@
 #ifndef COMMON_HFUTIL_HPP
 #define COMMON_HFUTIL_HPP
 
-#include <type_traits>
 #include <vector>
 #include <string_view>
+#include <type_traits>
 
 namespace Helena
 {

@@ -17,16 +17,37 @@ namespace Helena
         ~TestModuleA() {
             std::cout <<  "TestModuleA dtor" << std::endl;
         }
+
+        bool AppInit() override {
+            std::cout << "TestModuleA AppInit call, my addr: " << this << std::endl;
+
+            return true;
+        }
     };
 
-    class TestModuleB final : public HFModule
+    class TestPluginA final : public HFPlugin
     {
     public:
-        TestModuleB() {
-            std::cout <<  "TestModuleA ctor" << std::endl;
+        TestPluginA() {
+            std::cout <<  "TestPluginA ctor" << std::endl;
         }
-        ~TestModuleB() {
-            std::cout <<  "TestModuleA dtor" << std::endl;
+        ~TestPluginA() {
+            std::cout <<  "TestPluginA dtor" << std::endl;
+        }
+
+        void Init() {
+            std::cout << "TestPluginA init, my module: " << this->GetModule() << std::endl;
+        }
+    };
+
+    class TestPluginB final : public HFPlugin
+    {
+    public:
+        TestPluginB() {
+            std::cout <<  "TestPluginB ctor" << std::endl;
+        }
+        ~TestPluginB() {
+            std::cout <<  "TestPluginBdtor" << std::endl;
         }
     };
 }
@@ -35,14 +56,12 @@ HF_API void HFMain(HFApp* pApp, HF_MODULE_STATE state)
 {
     switch(state)
     {
-        case HF_MODULE_STATE::HF_MODULE_INIT : 
-        {   
+        case HF_MODULE_STATE::HF_MODULE_INIT : {   
             pApp->AddModule<TestModuleA>();
         } break;
 
-        case HF_MODULE_STATE::HF_MODULE_FREE : 
-        {
+        case HF_MODULE_STATE::HF_MODULE_FREE : {
             pApp->RemoveModule<TestModuleA>();
-        }
+        } break;
     }
 }

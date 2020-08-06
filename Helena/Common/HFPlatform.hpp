@@ -10,10 +10,23 @@
     #error USED UNSUPPORTED PLATFORM
 #endif
 
+#if defined(DEBUG) || defined(_DEBUG)
+    #define HF_DEBUG
+#else
+    #define HF_RELEASE
+#endif
+
 #ifdef HF_PLATFORM_WIN      // Windows
+    #pragma warning(disable:4091) 
+    
     #define NOMINMAX
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+
     // Including
     #include <Windows.h>
+    #include <WinSock2.h>
 
     // Definition
     #define HF_API                  extern "C" __declspec(dllexport)

@@ -1,10 +1,6 @@
 #ifndef COMMON_HFSINGLETON_HPP
 #define COMMON_HFSINGLETON_HPP
 
-#include <memory>
-#include <mutex>
-#include <thread>
-
 namespace Helena
 {
     template <typename Type>
