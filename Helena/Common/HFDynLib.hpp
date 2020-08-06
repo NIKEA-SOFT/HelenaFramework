@@ -17,19 +17,19 @@ namespace Helena
         using HFMain = void (*)(HFApp*, HF_MODULE_STATE);
 
     public:
-        HFDynLib(std::string_view name, HFApp* pApp) 
+        HFDynLib(std::string_view name) 
         : m_Name(name)
-        , m_pApp(pApp)
         , m_pModule(nullptr)
         , m_pHandle(nullptr)
         , m_State(HF_MODULE_STATE::HF_MODULE_INIT)
         , m_Version(0u) {}
     public:
-        bool Load() 
+
+        bool Load(HFApp* pApp) 
         {
             if(this->m_pHandle = static_cast<HF_MODULE_HANDLE>(HF_MODULE_LOAD(this->m_Name.data())); this->m_pHandle) {
                 if(const auto pMain = this->GetEntryPoint(); pMain) {
-                    pMain(this->m_pApp, this->m_State);
+                    pMain(pApp, this->m_State);
                     if(this->m_pModule) { 
                         std::cout << "[Info] Module: \"" << this->m_Name << "\" loaded!" << std::endl;
                         return true;
@@ -40,13 +40,13 @@ namespace Helena
             return false;
         }
 
-        void Unload() 
+        void Unload(HFApp* pApp) 
         {
             this->m_State = HF_MODULE_STATE::HF_MODULE_FREE;
             if(this->m_pHandle) 
             {
                 if(const auto pMain = this->GetEntryPoint(); pMain) {
-                    pMain(this->m_pApp, this->m_State);
+                    pMain(pApp, this->m_State);
                 }
 
                 if(this->m_pModule) {
@@ -81,7 +81,6 @@ namespace Helena
 
     private:
         std::string_view    m_Name;
-        HFApp*              m_pApp;
         HFModule*           m_pModule;
         HF_MODULE_HANDLE    m_pHandle;
         HF_MODULE_STATE     m_State;

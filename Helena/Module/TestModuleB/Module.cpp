@@ -8,11 +8,6 @@ using namespace Helena;
 
 namespace Helena
 {
-    class TestModuleA final : public HFModule
-    {
-    public:
-    };
-
     class TestModuleB final : public HFModule
     {
     public:
@@ -24,16 +19,12 @@ HF_API void HFMain(HFApp* pApp, HF_MODULE_STATE state)
 {
     switch(state)
     {
-        case HF_MODULE_STATE::HF_MODULE_INIT : 
-        {   
-
+        case HF_MODULE_STATE::HF_MODULE_INIT : {   
+            pApp->AddModule<TestModuleB>();
         } break;
 
-        case HF_MODULE_STATE::HF_MODULE_FREE : 
-        {
-
-        }
+        case HF_MODULE_STATE::HF_MODULE_FREE : {
+            pApp->RemoveModule<TestModuleB>();
+        } break;
     }
-
-    return true;
 }

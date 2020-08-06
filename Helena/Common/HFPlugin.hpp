@@ -5,14 +5,19 @@
 
 namespace Helena
 {
+    class HFModule;
     class HFPlugin
     {
+        friend class HFModule;
     public:
         virtual ~HFPlugin() = default;
 
-
+        HFModule* GetModule() {
+            return this->m_pModule;
+        }
+        
     private:
-
+        HFModule* m_pModule;
     };
 }
 
