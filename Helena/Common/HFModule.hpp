@@ -8,7 +8,7 @@
 
 namespace Helena
 {
-    class HFApp;
+
     class HFModule
     {
         friend class HFApp;

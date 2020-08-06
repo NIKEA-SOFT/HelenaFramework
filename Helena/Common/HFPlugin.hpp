@@ -5,7 +5,6 @@
 
 namespace Helena
 {
-    class HFModule;
     class HFPlugin
     {
         friend class HFModule;
@@ -15,7 +14,7 @@ namespace Helena
         HFModule* GetModule() {
             return this->m_pModule;
         }
-        
+
     private:
         HFModule* m_pModule;
     };
