@@ -48,18 +48,18 @@ namespace Helena
          * @tparam Type Potentially indexable type.
          */
         template <typename, typename = void>
-        struct has_type_index : std::false_type {};
+        struct is_indexable : std::false_type {};
 
         /*! @brief has_type_index */
         template <typename Type>
-        struct has_type_index<Type, std::void_t<decltype(type_index<Type>::id())>> : std::true_type {};
+        struct is_indexable<Type, std::void_t<decltype(type_index<Type>::id())>> : std::true_type {};
 
         /**
          * @brief Helper variable template.
          * @tparam Type Potentially indexable type.
          */
         template <typename Type>
-        static inline constexpr bool has_type_index_v = has_type_index<Type>::value;
+        static inline constexpr bool is_indexable_v = is_indexable<Type>::value;
 
     public:
         HFModule() : m_pApp(nullptr) {};
@@ -102,7 +102,7 @@ namespace Helena
          */
         template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
         Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
-            static_assert(has_type_index_v<Plugin>);
+            static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
 
             if(!(index < this->m_Plugins.size())) {
@@ -124,7 +124,7 @@ namespace Helena
          */
         template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
         Plugin* GetPlugin() noexcept {
-            static_assert(has_type_index_v<Plugin>);
+            static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
             if(index < this->m_Plugins.size()) {                
                 return static_cast<Plugin*>(this->m_Plugins[index]);
