@@ -63,6 +63,8 @@ namespace Helena
 
     public:
         HFModule() : m_pApp(nullptr) {};
+
+        /*! @brief Virtual dtor for correctly free allocated memory */
         virtual ~HFModule() {
             for(auto& pPlugin : this->m_Plugins) {
                 HF_FREE(pPlugin);
@@ -130,6 +132,21 @@ namespace Helena
                 return static_cast<Plugin*>(this->m_Plugins[index]);
             }
             return nullptr;
+        }
+
+        /**
+         * @brief Remove plugin from this module
+         * Don't worry about memory leak, the module
+         * will take care about this and will free memory 
+         * when the module is free.
+         */
+        template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        void RemovePlugin() noexcept {
+            static_assert(is_indexable_v<Plugin>);
+            const auto index = type_index<Plugin>::id();
+            if(index < this->m_Plugins.size()) {
+                return HF_FREE(this->m_Plugins[index]);
+            }
         }
 
     private:
