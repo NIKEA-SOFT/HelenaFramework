@@ -1,6 +1,8 @@
 #ifndef COMMON_HFAPP_HPP
 #define COMMON_HFAPP_HPP
 
+#define MODULE_PLUGINSYSTEM_
+
 #include <thread>
 #include <chrono>
 
@@ -170,7 +172,7 @@ namespace Helena
                 return;               
             }
             
-            pDynLib->m_Version = HF_COMPILER_NAME[0];   // Take first symbol from compiler name and use how as version
+            pDynLib->m_Version = HF_COMPILER;
             pDynLib->m_pModule->m_pApp = this;
         }
 
