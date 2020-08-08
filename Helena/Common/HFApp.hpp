@@ -191,8 +191,8 @@ namespace Helena
          * @brief Remove module from HFApp, its correctly free allocated memory from this module
          * @tparam Module Type derived from HFModule
          */
-        template <typename Module, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
-        void RemoveModule([[maybe_unused]] Args&&... args) {
+        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        void RemoveModule() noexcept {
             if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
                 HF_FREE(it->second->m_pModule);
                 this->m_Modules.erase(it);
