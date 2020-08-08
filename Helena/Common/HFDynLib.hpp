@@ -5,15 +5,19 @@
 
 namespace Helena
 {
+    /*! @brief Module states */
     enum class HF_MODULE_STATE : uint8_t 
     {
         HF_MODULE_INIT,
         HF_MODULE_FREE
     };
     
+
+    /*! @brief Manages the life of loaded modules */
     class HFDynLib final
     {
         friend class HFApp;
+
         using HFMain = void (*)(HFApp*, HF_MODULE_STATE);
 
     public:
@@ -25,10 +29,15 @@ namespace Helena
         , m_Version(0u) {}
     public:
 
+        /**
+         * @brief Load module and call EP
+         * @param pApp Pointer on HFApp
+         * @return False if load module failure
+         */
         bool Load(HFApp* pApp) 
         {
             if(this->m_pHandle = static_cast<HF_MODULE_HANDLE>(HF_MODULE_LOAD(this->m_Name.data())); this->m_pHandle) {
-                if(const auto pMain = this->GetEntryPoint(); pMain) {
+                if(const auto pMain = reinterpret_cast<HFMain>(HF_MODULE_GETSYM(this->m_pHandle, HF_MODULE_CALLBACK)); pMain) {
                     pMain(pApp, this->m_State);
                     if(this->m_pModule) { 
                         std::cout << "[Info] Module: \"" << this->m_Name << "\" loaded!" << std::endl;
@@ -40,12 +49,16 @@ namespace Helena
             return false;
         }
 
+        /**
+         * @brief Call EP and unload module
+         * @param pApp Pointer on HFApp
+         */
         void Unload(HFApp* pApp) 
         {
             this->m_State = HF_MODULE_STATE::HF_MODULE_FREE;
             if(this->m_pHandle) 
             {
-                if(const auto pMain = this->GetEntryPoint(); pMain) {
+                if(const auto pMain = reinterpret_cast<HFMain>(HF_MODULE_GETSYM(this->m_pHandle, HF_MODULE_CALLBACK)); pMain) {
                     pMain(pApp, this->m_State);
                 }
 
@@ -57,28 +70,7 @@ namespace Helena
                 std::cout << "[Info] Module: \"" << this->m_Name << "\" unloaded!" << std::endl;
             }
         }
-
-    public:
-        std::string_view GetName() const {
-            return this->m_Name;
-        }
-
-        HFModule* GetModule() const {
-            return this->m_pModule;
-        }
-
-        HFMain GetEntryPoint() const {
-            return reinterpret_cast<HFMain>(HF_MODULE_GETSYM(this->m_pHandle, HF_MODULE_CALLBACK));
-        }
-
-        HF_MODULE_STATE GetState() const {
-            return this->m_State;
-        }
-
-        uint8_t GetVersion() const {
-            return this->m_Version;
-        }
-
+        
     private:
         std::string_view    m_Name;
         HFModule*           m_pModule;

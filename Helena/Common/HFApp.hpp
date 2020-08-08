@@ -1,6 +1,8 @@
 #ifndef COMMON_HFAPP_HPP
 #define COMMON_HFAPP_HPP
 
+#define MODULE_PLUGINSYSTEM_
+
 #include <thread>
 #include <chrono>
 
@@ -38,17 +40,11 @@ namespace Helena
 
     private:
         /**
-         * @brief   Initialize Helena Framework
+         * @brief Initialize Helena Framework
          * 
-         * @param   argc    Number of argumments
-         * @param   argv    Pointer on arguments
-         * 
-         * @return
-         * Success: @code{.cpp} true
-         * @endcode
-         * Failure: @code{.cpp} false
-         * @endcode
-         * Return false if initialize Helena Framework failure
+         * @param argc Number of argumments
+         * @param argv Pointer on arguments
+         * @return false if initialize Helena failure
          */
         bool Initialize(const int argc, const char* const* argv) 
         {
@@ -116,6 +112,7 @@ namespace Helena
             return true;
         }
 
+        /*! @brief Finalize Helena Framework */
         void Finalize() 
         {
             for(auto& pDynLib : this->m_DynLibs) {
@@ -128,7 +125,7 @@ namespace Helena
     public:
 
         /**
-         * @brief Add module in HFApp
+         * @brief Add module in HFApp, use RemoveModule for free allocated memory
          * @tparam Module Type of module (derived from HFModule)
          * @param args Arguments to use to constructor
          */       
@@ -175,12 +172,12 @@ namespace Helena
                 return;               
             }
             
-            pDynLib->m_Version = HF_COMPILER_NAME[0];   // Take first symbol from compiler name and use how as version
+            pDynLib->m_Version = HF_COMPILER;
             pDynLib->m_pModule->m_pApp = this;
         }
 
         /**
-         * @brief Add module in HFApp
+         * @brief Get module from HFApp
          * @tparam Module Type derived from HFModule
          * @return Pointer on Module or nullptr if type of module not found
          */
@@ -206,7 +203,7 @@ namespace Helena
 
         /**
          * @brief Initialize Helena Modules from config
-         * @return Return false if same module EP not found, export function not found or callback return false
+         * @return false if same module EP not found, export function not found or callback return false
          */
         bool AppInitModule() 
         {
@@ -218,11 +215,11 @@ namespace Helena
 
             // Check version of compiler on all modules
             if(!this->m_Modules.empty()) {
-                const auto version = this->m_Modules.begin()->second->GetVersion();
+                const auto version = this->m_Modules.begin()->second->m_Version;
                 for(const auto& data : this->m_Modules) {
                     const auto module = data.second;
-                    if(module->GetVersion() != version) {
-                        std::cerr << "[Error] Module: \"" << module->GetName() << "\", compiler version is different!" << std::endl;
+                    if(module->m_Version != version) {
+                        std::cerr << "[Error] Module: \"" << module->m_Name << "\", compiler version is different!" << std::endl;
                         return false;
                     }
                 }
@@ -230,7 +227,10 @@ namespace Helena
             return true;
         }
 
-        
+        /**
+         * @brief Call virtual AppInit in all modules
+         * @return False if one of the module return false
+         */
         bool AppInit() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
@@ -241,6 +241,10 @@ namespace Helena
             return true;
         }
 
+        /**
+         * @brief Call virtual AppConfig in all modules
+         * @return False if one of the module return false
+         */
         bool AppConfig() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
@@ -251,6 +255,10 @@ namespace Helena
             return true;
         }
 
+        /**
+         * @brief Call virtual AppStart in all modules
+         * @return False if one of the module return false
+         */       
         bool AppStart() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
@@ -261,6 +269,10 @@ namespace Helena
             return true;
         }
 
+        /**
+         * @brief Call virtual AppUpdate in all modules (main app loop)
+         * @return False if one of the module return false
+         */
         bool AppUpdate() 
         {
             while(!this->m_bFinish)
@@ -275,6 +287,10 @@ namespace Helena
             return true;
         }
 
+        /**
+         * @brief Call virtual AppShut in all modules (main app loop)
+         * @return False if one of the module return false
+         */
         bool AppShut() 
         {
             for(const auto& pDynLib : this->m_DynLibs) 
@@ -286,6 +302,10 @@ namespace Helena
             return true;
         }
 
+        /**
+         * @brief Read config files before init
+         * @return False if load/parse config file failure
+         */
         bool Configuration() 
         {
             pugi::xml_document doc;
@@ -352,7 +372,7 @@ namespace Helena
         bool m_bFinish;
     };
 
-    int HelenaFramework(int argc, char** argv) 
+    inline int HelenaFramework(int argc, char** argv) 
     {
         if(!HFApp::GetInstance().Initialize(argc, argv)) {
             std::cerr << "[Error] Inititalize HelenaFramework failure!" << std::endl;

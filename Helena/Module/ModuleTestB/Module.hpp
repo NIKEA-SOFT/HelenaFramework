@@ -1,0 +1,27 @@
+#ifndef __MODULE_MODULETESTB_HPP__
+#define __MODULE_MODULETESTB_HPP__
+
+#include <Helena/Common/HFModule.hpp>
+
+namespace Helena
+{
+    // Declaration
+    class ModuleTestA;
+
+    // Module class
+    class ModuleTestB : public HFModule
+    {
+    public:
+        ModuleTestB() : m_pModuleTestA(nullptr) {}
+
+        bool AppInit() override;
+        bool AppConfig() override;
+        bool AppStart() override;
+        bool AppUpdate() override;
+        bool AppShut() override;
+
+    private:
+        ModuleTestA* m_pModuleTestA;
+    };
+}
+#endif // __MODULE_MODULETESTB_HPP__
