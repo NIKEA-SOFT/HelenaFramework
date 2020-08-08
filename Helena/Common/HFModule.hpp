@@ -1,18 +1,22 @@
-#ifndef COMMON_HFMODULE_HPP
-#define COMMON_HFMODULE_HPP
+#ifndef __COMMON_HFMODULE_HPP__
+#define __COMMON_HFMODULE_HPP__
 
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <string>
 #include "HFPlugin.hpp"
 
+#if HF_STANDARD_VER > HF_STANDARD_CPP17
+#include "HFHash.hpp"
+#endif
+
 namespace Helena
 {
-
     class HFModule
     {
         friend class HFApp;
-        
+    
         using PluginId = uint32_t;
         /*! @breif Sequenced indexer */
         struct type_index_seq {
@@ -114,13 +118,16 @@ namespace Helena
             if(auto& pPlugin = this->m_Plugins[index]; !pPlugin) {
                 pPlugin = HF_NEW Plugin(std::forward<Args>(args)...);
                 pPlugin->m_pModule = this;
+                this->m_PluginsMap.emplace(HF_CLASSNAME_RT(Plugin), pPlugin);
                 return static_cast<Plugin*>(pPlugin);
             }
             return nullptr;
         }
 
         /**
-         * @brief Get plugin from this module, it's extremely cheap
+         * @brief Get plugin from this module, it's extremely cheap.
+         * WARNING: to get plugin from third party module you must
+         * use method "GetPluginByName" otherwise you get UB
          * @tparam Plugin Type of plugin (derived from HFPlugin)
          * @return Pointer on Plugin or nullptr if plugin not exist
          */
@@ -128,31 +135,49 @@ namespace Helena
         Plugin* GetPlugin() noexcept {
             static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
-            if(index < this->m_Plugins.size()) {                
+            if(index < this->m_Plugins.size()) {
                 return static_cast<Plugin*>(this->m_Plugins[index]);
             }
             return nullptr;
         }
 
         /**
-         * @brief Remove plugin from this module
-         * Don't worry about memory leak, the module
-         * will take care about this and will free memory 
-         * when the module is free.
+         * @brief Get plugin from this or third party module by name
+         * @tparam Plugin Type of plugin (derived from HFPlugin)
+         * @return Pointer on Plugin or nullptr if plugin not exist
+         */
+        template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        Plugin* GetPluginByName() {
+            const auto it = this->m_PluginsMap.find(HF_CLASSNAME_RT(Plugin));
+            return it == this->m_PluginsMap.end() ? nullptr : static_cast<Plugin*>(it->second);
+        }
+
+        /**
+         * @brief Remove plugin from this module. 
+         * Don't worry about memory leak, the module will take care 
+         * about this and will free memory when the module is free.
          */
         template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
         void RemovePlugin() noexcept {
             static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
             if(index < this->m_Plugins.size()) {
-                return HF_FREE(this->m_Plugins[index]);
+                this->m_PluginsMap.erase(HF_CLASSNAME_RT(Plugin));
+                HF_FREE(this->m_Plugins[index]);
             }
         }
 
     private:
         HFApp*  m_pApp;
+
+    #if HF_STANDARD_VER <= HF_STANDARD_CPP17
+        std::unordered_map<std::string, HFPlugin*> m_PluginsMap;
+    #else
+        std::unordered_map<std::string, HFPlugin*, HFStringHash, std::equal_to<>> m_PluginsMap;
+    #endif
+
         std::vector<HFPlugin*> m_Plugins;
     };
 }
 
-#endif
+#endif // __COMMON_HFMODULE_HPP__
