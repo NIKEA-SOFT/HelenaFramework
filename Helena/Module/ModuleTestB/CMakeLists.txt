@@ -1,7 +1,7 @@
 #|--------------------------------
-#| HF TestModuleB Project
+#| HF ModuleTestB Project
 #|--------------------------------
-set(HELENA_MODULE TestModuleB)
+set(HELENA_MODULE ModuleTestB)
 
 file(GLOB_RECURSE HELENA_MODULE_SOURCE *.h *.hpp *.cpp *.cc *.c)
 add_library(${HELENA_MODULE} SHARED ${HELENA_MODULE_SOURCE})
