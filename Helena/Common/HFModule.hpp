@@ -63,7 +63,7 @@ namespace Helena
          * @tparam Type Potentially indexable type.
          */
         template <typename Type>
-        static inline constexpr bool is_indexable_v = is_indexable<Type>::value;
+        static constexpr bool is_indexable_v = is_indexable<Type>::value;
 
     public:
         HFModule() : m_pApp(nullptr) {};
