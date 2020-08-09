@@ -1,7 +1,5 @@
-#ifndef COMMON_HFAPP_HPP
-#define COMMON_HFAPP_HPP
-
-#define MODULE_PLUGINSYSTEM_
+#ifndef __COMMON_HFAPP_HPP__
+#define __COMMON_HFAPP_HPP__
 
 #include <thread>
 #include <chrono>
@@ -47,12 +45,17 @@ namespace Helena
          * @return false if initialize Helena failure
          */
         bool Initialize(const int argc, const char* const* argv) 
-        {
+        { 
             HFArgs::Parser  argsParser("Hello, Helena!", "Good luck Helena!");
             HFArgs::Group   argsGroup(argsParser, "Helena flags:", HFArgs::Group::Validators::All);
             HFArgs::ValueFlag<std::string> argsFlag1(argsGroup, "name", "App name", {"app"});
             HFArgs::ValueFlag<std::string> argsFlag2(argsGroup, "path", "Config files path", {"config-dir"});
             HFArgs::ValueFlag<std::string> argsFlag3(argsGroup, "path", "Module files path", {"module-dir"});
+
+            std::vector<int> vec = {12, 10, 33};
+            for(auto val : vec) {
+                std::cout << val << std::endl;
+            }
 
             try {
                 argsParser.ParseCLI(argc, argv);
@@ -384,4 +387,4 @@ namespace Helena
     }
 }
 
-#endif
+#endif // __COMMON_HFAPP_HPP__
