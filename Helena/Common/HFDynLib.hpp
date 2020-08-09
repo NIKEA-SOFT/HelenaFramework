@@ -1,5 +1,5 @@
-#ifndef COMMON_HFDYNPLUGIN_HPP
-#define COMMON_HFDYNPLUGIN_HPP
+#ifndef __COMMON_HFDYNPLUGIN_HPP__
+#define __COMMON_HFDYNPLUGIN_HPP__
 
 #include "HFModule.hpp"
 
@@ -80,4 +80,4 @@ namespace Helena
     };
 }
 
-#endif
+#endif // __COMMON_HFDYNPLUGIN_HPP__
