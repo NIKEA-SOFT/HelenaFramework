@@ -53,5 +53,5 @@
 /Bin/CMakeFiles/*
 
 # Ignore Depends
-/Dependencies/*
-!/Dependencies/README.md
+#/Dependencies/*
+#!/Dependencies/README.md

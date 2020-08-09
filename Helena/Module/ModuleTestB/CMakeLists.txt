@@ -12,7 +12,6 @@ else(UNIX)
     target_link_libraries(${HELENA_MODULE} pthread dl --coverage)
 endif()
 
-set_target_properties(${HELENA_MODULE} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_MODULE}.pdb" )
 set_target_properties(${HELENA_MODULE} PROPERTIES FOLDER "Module"
     ARCHIVE_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}

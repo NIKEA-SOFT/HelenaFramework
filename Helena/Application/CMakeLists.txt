@@ -12,7 +12,6 @@ else(UNIX)
     target_link_libraries(${HELENA_APP} pthread dl --coverage)
 endif()
 
-set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb" )
 set_target_properties(${HELENA_APP} PROPERTIES OUTPUT_NAME_DEBUG "${HELENA_APP}D")
 set_target_properties(${HELENA_APP} PROPERTIES OUTPUT_NAME_RELEASE "${HELENA_APP}R")
 set_target_properties(${HELENA_APP} PROPERTIES FOLDER "Application"
