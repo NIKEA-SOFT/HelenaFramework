@@ -52,6 +52,9 @@
 /Bin/Bin/*
 /Bin/CMakeFiles/*
 
+# Ignore Out folder for Test
+/Out/*
+
 # Ignore Depends
 #/Dependencies/*
 #!/Dependencies/README.md

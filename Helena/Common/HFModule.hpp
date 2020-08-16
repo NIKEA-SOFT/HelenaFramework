@@ -11,6 +11,9 @@
 #include "HFHash.hpp"
 #endif
 
+/*! @brief Deprecated due to improved architectural approach to the framework */
+// #define HF_ENABLE_FIND_PLUGIN_BY_NAME
+
 namespace Helena
 {
     class HFModule
@@ -49,7 +52,6 @@ namespace Helena
         /**
          * @brief Provides the member constant `value` to true if a given type is
          * indexable, false otherwise.
-         * @tparam Type Potentially indexable type.
          */
         template <typename, typename = void>
         struct is_indexable : std::false_type {};
@@ -66,14 +68,16 @@ namespace Helena
         static constexpr bool is_indexable_v = is_indexable<Type>::value;
 
     public:
-        HFModule() : m_pApp(nullptr) {};
-
-        /*! @brief Virtual dtor for correctly free allocated memory */
+        explicit HFModule() : m_pApp(nullptr) {}
         virtual ~HFModule() {
             for(auto& pPlugin : this->m_Plugins) {
-                HF_FREE(pPlugin);
+                HF_FREE(pPlugin)
             }
         }
+        HFModule(const HFModule&) = delete;
+        HFModule(HFModule&&) = delete;
+        HFModule& operator=(const HFModule&) = delete;
+        HFModule& operator=(HFModule&&) = delete;
         
         /*! @brief Called after success modules initialization */
         virtual bool AppInit()      { return true; }
@@ -90,12 +94,13 @@ namespace Helena
         /*! @brief Called after success AppUpdate, used for free resources */
         virtual bool AppShut()      { return true; }
 
+    protected:
         /**
          * @brief Return pointer on HFApp for add/get modules 
          * and take info from Application
          * @return Pointer on HFApp
          */
-        HFApp* GetApp() { 
+        [[nodiscard]] HFApp* GetApp() const { 
             return this->m_pApp; 
         }
 
@@ -118,7 +123,9 @@ namespace Helena
             if(auto& pPlugin = this->m_Plugins[index]; !pPlugin) {
                 pPlugin = HF_NEW Plugin(std::forward<Args>(args)...);
                 pPlugin->m_pModule = this;
+            #ifdef HF_ENABLE_FIND_PLUGIN_BY_NAME
                 this->m_PluginsMap.emplace(HF_CLASSNAME_RT(Plugin), pPlugin);
+            #endif // HF_ENABLE_FIND_PLUGIN_BY_NAME
                 return static_cast<Plugin*>(pPlugin);
             }
             return nullptr;
@@ -141,16 +148,19 @@ namespace Helena
             return nullptr;
         }
 
+
         /**
          * @brief Get plugin from this or third party module by name
          * @tparam Plugin Type of plugin (derived from HFPlugin)
          * @return Pointer on Plugin or nullptr if plugin not exist
          */
+    #ifdef HF_ENABLE_FIND_PLUGIN_BY_NAME
         template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
         Plugin* GetPluginByName() {
             const auto it = this->m_PluginsMap.find(HF_CLASSNAME_RT(Plugin));
             return it == this->m_PluginsMap.end() ? nullptr : static_cast<Plugin*>(it->second);
         }
+	#endif // HF_ENABLE_FIND_PLUGIN_BY_NAME
 
         /**
          * @brief Remove plugin from this module. 
@@ -162,19 +172,22 @@ namespace Helena
             static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
             if(index < this->m_Plugins.size()) {
+			#ifdef HF_ENABLE_FIND_PLUGIN_BY_NAME
                 this->m_PluginsMap.erase(HF_CLASSNAME_RT(Plugin));
-                HF_FREE(this->m_Plugins[index]);
+			#endif // HF_ENABLE_FIND_PLUGIN_BY_NAME
+                HF_FREE(this->m_Plugins[index])
             }
         }
 
     private:
         HFApp*  m_pApp;
-
+#ifdef HF_ENABLE_FIND_PLUGIN_BY_NAME
     #if HF_STANDARD_VER <= HF_STANDARD_CPP17
         std::unordered_map<std::string, HFPlugin*> m_PluginsMap;
     #else
         std::unordered_map<std::string, HFPlugin*, HFStringHash, std::equal_to<>> m_PluginsMap;
-    #endif
+    #endif // HF_STANDARD_VER
+#endif // HF_ENABLE_FIND_PLUGIN_BY_NAME
 
         std::vector<HFPlugin*> m_Plugins;
     };

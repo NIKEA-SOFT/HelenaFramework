@@ -5,24 +5,34 @@
 
 namespace Helena
 {
-    class HFPlugin
-    {
-        friend class HFModule;
+	template <typename Module>
+    class HFPluginBase
+	{
     public:
-        /*! @brief Virtual dtor for correctly free allocated memory */
-        virtual ~HFPlugin() = default;
+	    HFPluginBase() : m_pModule(nullptr) {}
+		virtual ~HFPluginBase() = default;
 
-        /**
-         * @brief Return pointer on module, where registered plugin
-         * @return Stable pointer on HFModule or nullptr 
-         * if trying use it from plugin ctor
-         */
-        HFModule* GetModule() {
-            return this->m_pModule;
-        }
+		[[nodiscard]] Module* GetModule() const {
+		    return this->m_pModule;
+	    }
+		
+    private:
+        Module* m_pModule;
+    };
+	
+    class HFPlugin : public HFPluginBase<HFPlugin>
+    {    	
+    public:
+        explicit HFPlugin() = default;
+        virtual ~HFPlugin() = default;
+        HFPlugin(const HFPlugin&) = delete;
+        HFPlugin(HFPlugin&&) = delete;
+        HFPlugin& operator=(const HFPlugin&) = delete;
+        HFPlugin& operator=(HFPlugin&&) = delete;
+
 
     private:
-        HFModule* m_pModule;
+		//HFModule* m_pModule;
     };
 }
 

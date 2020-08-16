@@ -4,6 +4,7 @@
 #include <vector>
 #include <string_view>
 #include <type_traits>
+#include <algorithm>
 
 namespace Helena
 {
@@ -34,20 +35,33 @@ namespace Helena
 				second = std::find_first_of(first, last, std::cbegin(delims), std::cend(delims));
 				if (first != second) 
 				{
-					if(trim_space) 
-					{
+					if(trim_space) {
 						while(std::isspace(*first) && first != second) { ++first; }
 						if(first == second) { continue;	}
 						uint32_t offset = 1;
 						while(std::isspace(*(second - offset)) && first != (second - offset)) { ++offset; }
 						if(first != (second - offset)) v_splitted.emplace_back(first, second - first - (--offset));
-					} else v_splitted.emplace_back(first, second - first);
+					} else {
+						v_splitted.emplace_back(first, second - first);
+					}
 				}
 			}
 			
 			return v_splitted;
 		}
 
+	#if HF_STANDARD_VER > HF_STANDARD_CPP17
+		/**
+		 * @brief Get current filename without path, only filename (used __FILE__ for split)
+		 * @return const char*
+		 */
+		static constexpr const char* GetFileName() {
+			constexpr std::string_view filename = __FILE__;
+			constexpr char symbols[]{'\\', '/'};
+			const auto it = std::find_first_of(filename.rbegin(), filename.rend(), std::begin(symbols), std::end(symbols));
+			return it == filename.rend() ? filename.data() : &(*std::prev(it));
+		}
+	#endif
 		//------------[Bit Operations]---------------//
 		/**
 		 * @brief Assign bit flags from right to left side

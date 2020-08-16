@@ -9,10 +9,11 @@ namespace Helena
     class ModuleTestA;
 
     // Module class
-    class ModuleTestB : public HFModule
+    class ModuleTestB final : public HFModule
     {
     public:
-        ModuleTestB() : m_pModuleTestA(nullptr) {}
+        explicit ModuleTestB() : m_pModuleTestA(nullptr) {}
+        ~ModuleTestB() = default;
 
         bool AppInit() override;
         bool AppConfig() override;

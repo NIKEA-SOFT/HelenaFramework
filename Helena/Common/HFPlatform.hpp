@@ -1,5 +1,5 @@
-#ifndef COMMON_HFPLATFORM_HPP
-#define COMMON_HFPLATFORM_HPP
+#ifndef __COMMON_HFPLATFORM_HPP__
+#define __COMMON_HFPLATFORM_HPP__
 
 #define HF_PLATFORM_WIN     1
 #define HF_PLATFORM_LINUX   2
@@ -42,7 +42,8 @@
 #endif
 
 #ifdef HF_PLATFORM_WIN      // Windows
-    #pragma warning(disable:4091) 
+    #pragma warning(disable:4091)
+    #pragma warning(disable:4251)
     
     #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
@@ -63,9 +64,36 @@
     #define HF_MODULE_UNLOAD(a)     FreeLibrary(a)
 
     #define HF_SEPARATOR '\\'
+    
+    #ifdef HF_DEBUG
+        #define HF_DEBUG_BREAK()    __debugbreak()
+		#define HF_ASSERT(cond, msg) {                          \
+            do {                                                \
+                if(!(cond)) {                                   \
+	                char logInfo[1024];                         \
+	                snprintf(logInfo, sizeof(logInfo),          \
+	                    "File: %s | Line: %d\n"                 \
+	                    "Condition: %s\n"                       \
+	                    "Message: %s",                          \
+	                   __FILE__, __LINE__, (#cond),             \
+						std::string_view(msg).data());          \
+	                printf("%s", logInfo);                      \
+	                ::MessageBeep(MB_ICONERROR);                \
+	                ::MessageBoxA(NULL, logInfo,                \
+	                    "Assert happen, hey look at this!",     \
+	                    MB_RETRYCANCEL | MB_ICONERROR);         \
+	                HF_DEBUG_BREAK();                           \
+                }                                               \
+            } while(false);                                     \
+        }
+    #else
+        #define HF_ASSERT(cond, msg)
+    #endif // HF_DEBUG
+
 
 #elif HF_PLATFORM_LINUX     // Linux
     // Including
+    #include <signal.h>
     #include <dlfcn.h>
 
     // Definition
@@ -78,15 +106,36 @@
 
     #define HF_SEPARATOR '/'
 
-#endif
+    #ifdef HF_DEBUG
+        #define HF_DEBUG_BREAK()    raise(SIGTRAP)
+        #define HF_ASSERT(cond, msg) {                          \
+            do {                                                \
+                if(!(cond)) {                                   \
+	                char logInfo[1024];                         \
+	                snprintf(logInfo, sizeof(logInfo),          \
+	                    "File: %s | Line: %d\n"                 \
+	                    "Condition: %s\n"                       \
+	                    "Message: %s",                          \
+	                   __FILE__, __LINE__, (#cond),             \
+						std::string_view(msg).data());          \
+	                printf("%s", logInfo);                      \
+	                HF_DEBUG_BREAK();                           \
+                }                                               \
+            } while(false);                                     \
+        }
+    #else
+        #define HF_ASSERT(cond, msg)
+    #endif // HF_DEBUG
+
+#endif // HF_PLATFORM_WIN
 
 #define HF_NEW                      new (std::nothrow)
-#define HF_FREE(Ptr)                if(Ptr) { delete Ptr; Ptr = nullptr; }
+#define HF_FREE(p)                  if(p) { delete p; p = nullptr; }
 
-#define HF_NEW_ARRAY(Type, Size)    new (std::nothrow) Type[Size];
-#define HF_FREE_ARRAY(Type, Ptr)    if(Ptr) { delete[] Ptr; Ptr = nullptr; }
+#define HF_NEW_ARRAY(type, size)    new (std::nothrow) type[size];
+#define HF_FREE_ARRAY(type, p)      if(p) { delete[] static_cast<type*>(p); p = nullptr; }
 
-#define HF_CLASSNAME(Type)          #Type
-#define HF_CLASSNAME_RT(Type)       typeid(Type).name()
+#define HF_CLASSNAME(type)          (#type)
+#define HF_CLASSNAME_RT(type)       typeid(type).name()
 
-#endif
+#endif  // __COMMON_HFPLATFORM_HPP__

@@ -15,23 +15,6 @@
 
 namespace Helena
 {
-
-	// constexpr const char* spdlog_filename(std::string_view filename) {
-	// 	constexpr char symbols[]{'\\', '/'};
-	// 	const auto it = std::find_first_of(filename.rbegin(), filename.rend(), std::begin(symbols), std::end(symbols));
-	// 	return it == filename.rend() ? filename.data() : &(*std::prev(it));
-	// }
-
-    // // Assembly "if" optimization
-	// inline decltype(auto) g_LoggerRef = spdlog::details::registry::instance();
-
-	// #define LOG_TRACE(my_fmt, ...)		g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::trace,		my_fmt, ##__VA_ARGS__);
-	// #define LOG_DEBUG(my_fmt, ...)		g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::debug,		my_fmt,	##__VA_ARGS__);
-	// #define LOG_INFO(my_fmt, ...)		g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::info,		my_fmt,	##__VA_ARGS__);
-	// #define LOG_WARN(my_fmt, ...)		g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::warn,		my_fmt,	##__VA_ARGS__);
-	// #define LOG_ERROR(my_fmt, ...)		g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::err,		my_fmt, ##__VA_ARGS__);
-	// #define LOG_CRITICAL(my_fmt, ...)	g_LoggerRef.get_default_raw()->log(spdlog::source_loc{spdlog_filename(__FILE__), __LINE__, nullptr}, spdlog::level::critical,	my_fmt, ##__VA_ARGS__);    
-
     class HFApp final : public HFSingleton<HFApp>
     {
         friend int HelenaFramework(int, char**);
@@ -46,16 +29,12 @@ namespace Helena
          */
         bool Initialize(const int argc, const char* const* argv) 
         { 
+            
             HFArgs::Parser  argsParser("Hello, Helena!", "Good luck Helena!");
             HFArgs::Group   argsGroup(argsParser, "Helena flags:", HFArgs::Group::Validators::All);
             HFArgs::ValueFlag<std::string> argsFlag1(argsGroup, "name", "App name", {"app"});
             HFArgs::ValueFlag<std::string> argsFlag2(argsGroup, "path", "Config files path", {"config-dir"});
             HFArgs::ValueFlag<std::string> argsFlag3(argsGroup, "path", "Module files path", {"module-dir"});
-
-            std::vector<int> vec = {12, 10, 33};
-            for(auto val : vec) {
-                std::cout << val << std::endl;
-            }
 
             try {
                 argsParser.ParseCLI(argc, argv);
@@ -120,7 +99,7 @@ namespace Helena
         {
             for(auto& pDynLib : this->m_DynLibs) {
                 pDynLib->Unload(this);
-                HF_FREE(pDynLib);
+                HF_FREE(pDynLib)
             }
             this->m_DynLibs.clear();
         }
@@ -142,6 +121,7 @@ namespace Helena
                     << pDynLib->m_Name 
                     << "\", error: only one class per module!" 
                     << std::endl;
+                assert(false);
                 return;               
             }
 
@@ -153,6 +133,7 @@ namespace Helena
                     << it->second->m_Name 
                     << "\"" 
                     << std::endl;
+                assert(false);
                 return;
             }
 
@@ -162,6 +143,7 @@ namespace Helena
                     << pDynLib->m_Name 
                     << "\", error: allocate memory!" 
                     << std::endl;
+                assert(false);
                 return;
             }
 
@@ -171,7 +153,8 @@ namespace Helena
                     << pDynLib->m_Name 
                     << "\", error: allocate memory for map!" 
                     << std::endl;
-                HF_FREE(pDynLib->m_pModule);
+                HF_FREE(pDynLib->m_pModule)
+                assert(false);
                 return;               
             }
             
@@ -187,6 +170,7 @@ namespace Helena
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         Module* GetModule() noexcept {
             const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module));
+            HF_ASSERT(!(it == this->m_Modules.end()), std::string("Module: ") + std::string(HF_CLASSNAME_RT(Module)) + std::string(" not fond"));
             return it == this->m_Modules.end() ? nullptr : static_cast<Module*>(it->second->m_pModule);
         }
 
@@ -197,7 +181,7 @@ namespace Helena
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         void RemoveModule() noexcept {
             if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
-                HF_FREE(it->second->m_pModule);
+                HF_FREE(it->second->m_pModule)
                 this->m_Modules.erase(it);
             }
         }

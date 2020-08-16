@@ -5,10 +5,15 @@
 
 namespace Helena
 {
-    class PluginTestA : public HFPlugin
+    class PluginTestA final : public HFPlugin
     {
     public:
         uint32_t m_Value {99};
+
+    	void foo()
+    	{
+    		
+    	}
     };
 }
 

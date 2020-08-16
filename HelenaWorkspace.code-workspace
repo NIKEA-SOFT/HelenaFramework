@@ -67,7 +67,17 @@
             "xstddef": "cpp",
             "xstring": "cpp",
             "xtr1common": "cpp",
-            "xutility": "cpp"
+            "xutility": "cpp",
+            "any": "cpp",
+            "clocale": "cpp",
+            "codecvt": "cpp",
+            "csignal": "cpp",
+            "map": "cpp",
+            "resumable": "cpp",
+            "future": "cpp",
+            "optional": "cpp",
+            "shared_mutex": "cpp",
+            "xtree": "cpp"
         }
     }
 }
