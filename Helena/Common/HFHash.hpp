@@ -7,6 +7,7 @@
 
 namespace Helena
 {
+    /*! @brief Heterogeneous lookup hasher */
     struct HFStringHash {
         using is_transparent = void;
         using hash_type = std::hash<std::string_view>;

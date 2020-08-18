@@ -1,24 +1,44 @@
 #include "Module.hpp"
+#include "PluginA.hpp"
+#include "PluginB.hpp"
 
-#include "MyPlugin.hpp"
+#include <Helena/Common/HFApp.hpp>
+#include <Helena/Module/ModuleTestB/Module.hpp>
+#include <Helena/Module/ModuleTestB/PluginC.hpp>
 
 namespace Helena
 {
     bool ModuleTestA::AppInit() 
     {
-        if(auto myPlugin = this->AddPlugin<MyPlugin>(); myPlugin) {
-            std::cout << "Get ptr on Plugin from Module class success!" << std::endl;
-            std::cout << "Call plugin method: Foo" << std::endl;
-            myPlugin->Foo();
+        // Get pointer on third module class instance
+        this->m_pModuleTestB = this->GetApp()->GetModule<ModuleTestB>();
+        std::cout << "Get module: " << HF_CLASSNAME(ModuleTestB) << (this->m_pModuleTestB ? " success" : " failure") << std::endl;
 
-            std::cout << "Remove MyPlugin from Module class" << std::endl;
-            this->RemovePlugin<MyPlugin>();
-        }
+        // Get plugin from third module
+        this->m_pModuleTestB->GetPluginC()->Zoo();
+        if(const auto Plugin = this->m_pModuleTestB->GetPluginC(); Plugin) {
+            std::cout << "Get module plugin: " << HF_CLASSNAME(PluginC) << " success" << std::endl;
+            Plugin->Zoo();
+        } else std::cout << "Get module plugin: " << HF_CLASSNAME(PluginC) << " failure" << std::endl;
 
+
+        // Get plugin from this module
+        if(const auto Plugin = this->AddPlugin<PluginA>(); Plugin) {
+            std::cout << "Get plugin: " << HF_CLASSNAME(PluginA) << " success, call: " << HF_CLASSNAME(Plugin->Foo()) << std::endl;
+            Plugin->Foo();
+            std::cout << "Remove plugin: " << HF_CLASSNAME(PluginA) << " from Module class" << std::endl;
+            this->RemovePlugin<PluginA>();
+        } else std::cout << "Get plugin: " << HF_CLASSNAME(PluginA) << " failure" << std::endl;
+
+        // Get plugin from this module
+        if(const auto Plugin = this->AddPlugin<PluginB>(); Plugin) {
+            std::cout << "Get plugin: " << HF_CLASSNAME(PluginB) << " success, call: " << HF_CLASSNAME(Plugin->Boo()) << std::endl;
+            Plugin->Boo();
+            std::cout << "Remove plugin: " << HF_CLASSNAME(PluginB) << " from Module class" << std::endl;
+            this->RemovePlugin<PluginB>();
+        } else std::cout << "Get plugin: " << HF_CLASSNAME(PluginB) << " failure" << std::endl;
 
         std::cout << "AppInit: " << HF_CLASSNAME(ModuleTestA) << std::endl;
-        std::cout << "Try get pointer on " << HF_CLASSNAME(ModuleTestB) << std::endl;
-
         return true;
     }
 

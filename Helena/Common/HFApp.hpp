@@ -15,27 +15,28 @@
 
 namespace Helena
 {
-    class HFApp final : public HFSingleton<HFApp>
+    class HFApp final
     {
         friend int HelenaFramework(int, char**);
 
     private:
-        /**
+        /***********************************************
          * @brief Initialize Helena Framework
          * 
          * @param argc Number of argumments
          * @param argv Pointer on arguments
          * @return false if initialize Helena failure
-         */
+         ***********************************************/
         bool Initialize(const int argc, const char* const* argv) 
         { 
-            
+            // register args
             HFArgs::Parser  argsParser("Hello, Helena!", "Good luck Helena!");
             HFArgs::Group   argsGroup(argsParser, "Helena flags:", HFArgs::Group::Validators::All);
             HFArgs::ValueFlag<std::string> argsFlag1(argsGroup, "name", "App name", {"app"});
             HFArgs::ValueFlag<std::string> argsFlag2(argsGroup, "path", "Config files path", {"config-dir"});
             HFArgs::ValueFlag<std::string> argsFlag3(argsGroup, "path", "Module files path", {"module-dir"});
 
+            // try parse args
             try {
                 argsParser.ParseCLI(argc, argv);
             } catch (HFArgs::Help) {
@@ -47,6 +48,7 @@ namespace Helena
                 return false;
             }
 
+            // set app name, config directory and module directory
             this->m_Name = argsFlag1.Get();
             this->m_ConfigPath = argsFlag2.Get();
             this->m_ModulePath = argsFlag3.Get();
@@ -55,16 +57,19 @@ namespace Helena
             std::cout << "[Info] Config dir=" << argsFlag2.Get() << std::endl;
             std::cout << "[Info] Module dir=" << argsFlag3.Get() << std::endl;
 
+            // read config file and parse
             if(!this->Configuration()) {
                 std::cerr << "[Error] Configuration Application failure!" << std::endl;
                 return false;
             } else std::cout << "[Info] Configuration Application success!" << std::endl;
 
+            // initialize modules from vector of loaded from config file
             if(!this->AppInitModule()) {
                 std::cerr << "[Error] Initialize modules failure!" << std::endl;
                 return false;
             } else std::cout << "[Info] Initialize modules success!" << std::endl;
 
+            // call virtual methods of modules from abstract class
             if(!this->AppInit()) {
                 std::cerr << "[Error] AppInit failure!" << std::endl;
                 return false;
@@ -115,16 +120,18 @@ namespace Helena
         void AddModule([[maybe_unused]] Args&&... args)
         {
             const auto pDynLib = this->m_DynLibs.back();
+
+            // Check: Only one class per module
             if(pDynLib->GetModule()) {
                 std::cerr 
                     << "[Error] Module: \"" 
                     << pDynLib->GetName() 
                     << "\", error: only one class per module!" 
                     << std::endl;
-                assert(false);
                 return;               
             }
 
+            // Check: Module already has
             if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
                 std::cerr 
                     << "[Error] Module: \"" 
@@ -133,20 +140,20 @@ namespace Helena
                     << it->second->GetName() 
                     << "\"" 
                     << std::endl;
-                assert(false);
                 return;
             }
             
+            // Check: Create instance
             if(pDynLib->SetModule(HF_NEW Module(std::forward<Args>(args)...)); !pDynLib->GetModule()) {
                 std::cerr 
                     << "[Error] Module: \"" 
                     << pDynLib->GetName()
                     << "\", error: allocate memory!" 
                     << std::endl;
-                assert(false);
                 return;
             }
 
+            // Check: Emplace
             if(const auto [it, bRes] = this->m_Modules.emplace(HF_CLASSNAME_RT(Module), pDynLib); !bRes) {
                 std::cerr 
                     << "[Error] Module: \"" 
@@ -154,12 +161,13 @@ namespace Helena
                     << "\", error: allocate memory for map!" 
                     << std::endl;
                 HF_FREE(pDynLib->GetModule())
-                assert(false);
                 return;               
             }
-            
+
+            // Set version of compiler for ABI and Set pointer on HFApp 
+            // for friend clalss HFDynLib
             pDynLib->SetVersion(HF_COMPILER);
-            pDynLib->GetModule()->SetAppByFriend(this);
+            pDynLib->GetModule()->m_pApp = this;
         }
 
         /**
@@ -168,10 +176,10 @@ namespace Helena
          * @return Pointer on Module or nullptr if type of module not found
          */
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
-        Module* GetModule() noexcept {
+        Module* GetModule() const noexcept {
             const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module));
             HF_ASSERT(!(it == this->m_Modules.end()), std::string("Module: ") + std::string(HF_CLASSNAME_RT(Module)) + std::string(" not fond"));
-            return it == this->m_Modules.end() ? nullptr : static_cast<Module*>(it->second->m_pModule);
+            return it == this->m_Modules.end() ? nullptr : static_cast<Module*>(it->second->GetModule());
         }
 
         /**
@@ -195,7 +203,7 @@ namespace Helena
         bool AppInitModule() 
         {
             for(std::string_view moduleName : this->m_ModulesConfig) {
-                if(const auto& pDynLib = this->m_DynLibs.emplace_back(HF_NEW HFDynLib(moduleName)); !pDynLib->Load(this)) {
+                if(const auto& pDynLib = this->m_DynLibs.emplace_back(HF_NEW HFDynLib(moduleName)); !pDynLib->Load(this) || !pDynLib->GetModule()) {
                     return false;
                 }
             }
@@ -361,9 +369,10 @@ namespace Helena
 
     inline int HelenaFramework(int argc, char** argv) 
     {
-        if(!HFApp::GetInstance().Initialize(argc, argv)) {
+        HFApp app;
+        if(!app.Initialize(argc, argv)) {
             std::cerr << "[Error] Inititalize HelenaFramework failure!" << std::endl;
-            HFApp::GetInstance().Finalize();
+            app.Finalize();
             return 1;
         }
         

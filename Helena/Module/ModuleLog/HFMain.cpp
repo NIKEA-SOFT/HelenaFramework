@@ -1,5 +1,5 @@
 #include <Helena/Common/HFApp.hpp>
-#include <Helena/Module/ModuleLog/Module.hpp>
+#include "Module.hpp"
 
 namespace Helena
 {

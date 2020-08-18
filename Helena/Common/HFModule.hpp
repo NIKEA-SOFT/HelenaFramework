@@ -5,19 +5,21 @@
 #include <unordered_map>
 #include <string>
 
-#include "HFPlugin.hpp"
+#include "HFPluginManager.hpp"
 
 namespace Helena
 {
     class HFApp;
     class HFPlugin;
 
-    class HFModule : public virtual HFPluginManager
+    class HFModule
     {
         friend class HFApp;
 
     public:
-        explicit HFModule() : m_pApp(nullptr) {}
+        explicit HFModule() {
+            HFPluginManager::m_pModule = this;
+        }
         virtual ~HFModule() = default;
 
         HFModule(const HFModule&) = delete;
@@ -41,14 +43,35 @@ namespace Helena
         /*! @brief Called after success AppUpdate, used for free resources */
         virtual bool AppShut()      { return true; }
 
-    private:
-        void SetAppByFriend(HFApp* pApp) {
-            this->m_pApp = pApp;
-            this->m_pModule = this;
+    protected:
+        /*********************************
+         * @brief Get pointer on HFApp
+         * @return Pointer on HFAapp
+         *********************************/ 
+        HFApp* GetApp() const noexcept {
+            return m_pApp;
+        }
+
+        /*! @brief copydoc AddPlugin */
+        template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
+            return HFPluginManager::AddPlugin<Plugin>(std::forward<Args>(args)...);
+        }
+
+        /*! @brief copydoc GetPlugin */
+        template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        Plugin* GetPlugin() const noexcept {
+            return HFPluginManager::GetPlugin<Plugin>();
+        }
+
+        /*! @brief copydoc RemovePlugin */
+        template <typename Plugin, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
+        void RemovePlugin() noexcept {
+            return HFPluginManager::RemovePlugin<Plugin>();
         }
 
     private:
-        HFApp*  m_pApp;
+        HFApp* m_pApp;
     };
 }
 

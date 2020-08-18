@@ -5,8 +5,11 @@
 
 namespace Helena
 {
-    // Declaration
+    // Declaration Modules
     class ModuleTestA;
+
+    // Declaration Plugins
+    class PluginC;
 
     // Module class
     class ModuleTestB final : public HFModule
@@ -15,11 +18,15 @@ namespace Helena
         explicit ModuleTestB() : m_pModuleTestA(nullptr) {}
         ~ModuleTestB() = default;
 
+    protected:
         bool AppInit() override;
         bool AppConfig() override;
         bool AppStart() override;
         bool AppUpdate() override;
         bool AppShut() override;
+
+    public:
+        PluginC* GetPluginC() const;
 
     private:
         ModuleTestA* m_pModuleTestA;

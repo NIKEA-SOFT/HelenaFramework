@@ -7,15 +7,12 @@ namespace Helena
 {
     // Declaration
     class ModuleTestB;
-    class ModuleLog;
 
     // Module class
     class ModuleTestA final : public HFModule
     {
     public:
-        explicit ModuleTestA()
-    	: m_pModuleTestB(nullptr)
-    	, m_pModuleLog(nullptr) {}
+        explicit ModuleTestA() : m_pModuleTestB(nullptr) {}
         ~ModuleTestA() override = default;
 
     protected:
@@ -27,7 +24,6 @@ namespace Helena
 
     private:
         ModuleTestB* m_pModuleTestB;
-        ModuleLog* m_pModuleLog;
     };
 }
 #endif // __MODULE_MODULETESTA_HPP__

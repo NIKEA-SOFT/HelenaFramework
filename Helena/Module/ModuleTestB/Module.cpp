@@ -1,19 +1,25 @@
 #include "Module.hpp"
+#include "PluginC.hpp"
+
+#include <Helena/Module/ModuleTestA/Module.hpp>
+#include <Helena/Module/ModuleTestA/PluginA.hpp>
+
+#include <Helena/Common/HFApp.hpp>
 
 namespace Helena
 {
     bool ModuleTestB::AppInit() 
     {
-        std::cout << "AppInit: " << HF_CLASSNAME(ModuleTestB) << std::endl;
+        this->m_pModuleTestA = this->GetApp()->GetModule<ModuleTestA>();
+        std::cout << "Get module: " << HF_CLASSNAME(ModuleTestA) << (this->m_pModuleTestA ? " success" : " failure") << std::endl;
 
+        std::cout << "AppInit: " << HF_CLASSNAME(ModuleTestB) << std::endl;
         return true;
     }
 
     bool ModuleTestB::AppConfig() 
     {
         std::cout << "AppConfig: " << HF_CLASSNAME(ModuleTestB) << std::endl;
-
-
         return true;
     }
 
@@ -33,5 +39,9 @@ namespace Helena
     {
         std::cout << "AppShut: " << HF_CLASSNAME(ModuleTestB) << std::endl;
         return true;
+    }
+
+    PluginC* ModuleTestB::GetPluginC() const {
+        return this->GetPlugin<PluginC>();
     }
 }
