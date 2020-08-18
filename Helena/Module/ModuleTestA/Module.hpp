@@ -9,7 +9,7 @@ namespace Helena
     class ModuleTestB;
 
     // Module class
-    class ModuleTestA final : public HFModule
+    class HF_API ModuleTestA final : public HFModule
     {
     public:
         explicit ModuleTestA() : m_pModuleTestB(nullptr) {}

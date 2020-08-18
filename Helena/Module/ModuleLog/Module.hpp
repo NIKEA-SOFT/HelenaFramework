@@ -22,7 +22,7 @@ namespace Helena
 	    return path.substr(path.find_last_of(symbols, strlen(symbols)) + 1).data();
 	}
 
-    class ModuleLog final : public HFModule
+    class HF_API ModuleLog final : public HFModule
     {
     public:
         template <typename... Args>

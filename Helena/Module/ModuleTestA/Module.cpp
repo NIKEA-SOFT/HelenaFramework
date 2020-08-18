@@ -13,14 +13,17 @@ namespace Helena
         // Get pointer on third module class instance
         this->m_pModuleTestB = this->GetApp()->GetModule<ModuleTestB>();
         std::cout << "Get module: " << HF_CLASSNAME(ModuleTestB) << (this->m_pModuleTestB ? " success" : " failure") << std::endl;
-
+        
+        this->m_pModuleTestB->Hello();
+        
         // Get plugin from third module
+        /*
         this->m_pModuleTestB->GetPluginC()->Zoo();
         if(const auto Plugin = this->m_pModuleTestB->GetPluginC(); Plugin) {
             std::cout << "Get module plugin: " << HF_CLASSNAME(PluginC) << " success" << std::endl;
             Plugin->Zoo();
         } else std::cout << "Get module plugin: " << HF_CLASSNAME(PluginC) << " failure" << std::endl;
-
+        */
 
         // Get plugin from this module
         if(const auto Plugin = this->AddPlugin<PluginA>(); Plugin) {

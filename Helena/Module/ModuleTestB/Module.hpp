@@ -12,7 +12,7 @@ namespace Helena
     class PluginC;
 
     // Module class
-    class ModuleTestB final : public HFModule
+    class HF_API ModuleTestB final : public HFModule
     {
     public:
         explicit ModuleTestB() : m_pModuleTestA(nullptr) {}
@@ -26,6 +26,7 @@ namespace Helena
         bool AppShut() override;
 
     public:
+        void Hello();
         PluginC* GetPluginC() const;
 
     private:

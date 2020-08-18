@@ -7,6 +7,7 @@ file(GLOB_RECURSE HELENA_MODULE_SOURCE *.h *.hpp *.cpp *.cc *.c)
 add_library(${HELENA_MODULE} SHARED ${HELENA_MODULE_SOURCE})
 
 if(WIN32)
+    add_definitions(-D_USRDLL -DHF_API_EXPORT)
     target_link_libraries(${HELENA_MODULE})
 else(UNIX)
     target_link_libraries(${HELENA_MODULE} pthread dl --coverage)

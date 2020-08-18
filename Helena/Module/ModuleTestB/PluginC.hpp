@@ -5,10 +5,10 @@
 
 namespace Helena
 {
-    class PluginC final : public HFPlugin 
+    class HF_API PluginC final : public HFPlugin 
     {
     public:
-        void Zoo();
+        void Zoo() const;
     };
 }
 

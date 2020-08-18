@@ -8,6 +8,11 @@
 
 namespace Helena
 {
+    void ModuleTestB::Hello() 
+    {
+        std::cout << "Hello from ModuleB" << std::endl;
+    }
+
     bool ModuleTestB::AppInit() 
     {
         this->m_pModuleTestA = this->GetApp()->GetModule<ModuleTestA>();

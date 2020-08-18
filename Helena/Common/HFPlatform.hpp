@@ -55,8 +55,14 @@
     #include <WinSock2.h>
 
     // Definition
-    #define HF_API                  extern "C" __declspec(dllexport)
+    #define HF_MAIN                 extern "C" __declspec(dllexport)
 
+#ifdef HF_API_EXPORT
+    #define HF_API                  __declspec(dllexport)
+#else
+    #define HF_API                  __declspec(dllimport)
+#endif
+    
     #define HF_MODULE_HANDLE        HINSTANCE
     #define HF_MODULE_LOAD(a)       LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)
     #define HF_MODULE_CALLBACK      "HFMain"

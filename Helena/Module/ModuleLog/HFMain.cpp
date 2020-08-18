@@ -3,7 +3,7 @@
 
 namespace Helena
 {
-    HF_API void HFMain(HFApp* pApp, HF_MODULE_STATE state) 
+    HF_MAIN void HFMain(HFApp* pApp, HF_MODULE_STATE state) 
     {
         switch(state)
         {

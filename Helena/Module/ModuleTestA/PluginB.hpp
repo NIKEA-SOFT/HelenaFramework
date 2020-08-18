@@ -5,7 +5,7 @@
 
 namespace Helena
 {
-    class PluginB final : public HFPlugin 
+    class HF_API PluginB final : public HFPlugin 
     {
     public:
         void Boo();

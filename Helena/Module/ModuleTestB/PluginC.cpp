@@ -4,7 +4,7 @@
 
 namespace Helena
 {
-    void PluginC::Zoo() 
+    void PluginC::Zoo() const
     {
         auto myModule = this->GetModule();
         std::cout << "PluginC Module: " << myModule << std::endl;
