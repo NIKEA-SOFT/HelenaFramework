@@ -27,7 +27,7 @@ namespace Helena
     public:
         template <typename... Args>
         void Log(std::string_view msg, Args... args) {
-            spdlog::details::registry::instance().get_default_raw()->log(spdlog::source_loc{filename(), __LINE__, nullptr}, spdlog::level::info, msg, args...);
+            //spdlog::details::registry::instance().get_default_raw()->log(spdlog::source_loc{filename(), __LINE__, nullptr}, spdlog::level::info, msg, args...);
         }
 
     private:

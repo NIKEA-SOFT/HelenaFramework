@@ -115,10 +115,10 @@ namespace Helena
         void AddModule([[maybe_unused]] Args&&... args)
         {
             const auto pDynLib = this->m_DynLibs.back();
-            if(pDynLib->m_pModule) {
+            if(pDynLib->GetModule()) {
                 std::cerr 
                     << "[Error] Module: \"" 
-                    << pDynLib->m_Name 
+                    << pDynLib->GetName() 
                     << "\", error: only one class per module!" 
                     << std::endl;
                 assert(false);
@@ -128,19 +128,19 @@ namespace Helena
             if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
                 std::cerr 
                     << "[Error] Module: \"" 
-                    << pDynLib->m_Name 
+                    << pDynLib->GetName() 
                     << "\", error: this class registered from other module: \""
-                    << it->second->m_Name 
+                    << it->second->GetName() 
                     << "\"" 
                     << std::endl;
                 assert(false);
                 return;
             }
-
-            if(pDynLib->m_pModule = HF_NEW Module(std::forward<Args>(args)...); !pDynLib->m_pModule) {
+            
+            if(pDynLib->SetModule(HF_NEW Module(std::forward<Args>(args)...)); !pDynLib->GetModule()) {
                 std::cerr 
                     << "[Error] Module: \"" 
-                    << pDynLib->m_Name 
+                    << pDynLib->GetName()
                     << "\", error: allocate memory!" 
                     << std::endl;
                 assert(false);
@@ -150,16 +150,16 @@ namespace Helena
             if(const auto [it, bRes] = this->m_Modules.emplace(HF_CLASSNAME_RT(Module), pDynLib); !bRes) {
                 std::cerr 
                     << "[Error] Module: \"" 
-                    << pDynLib->m_Name 
+                    << pDynLib->GetName() 
                     << "\", error: allocate memory for map!" 
                     << std::endl;
-                HF_FREE(pDynLib->m_pModule)
+                HF_FREE(pDynLib->GetModule())
                 assert(false);
                 return;               
             }
             
-            pDynLib->m_Version = HF_COMPILER;
-            pDynLib->m_pModule->m_pApp = this;
+            pDynLib->SetVersion(HF_COMPILER);
+            pDynLib->GetModule()->SetAppByFriend(this);
         }
 
         /**
@@ -181,7 +181,7 @@ namespace Helena
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         void RemoveModule() noexcept {
             if(const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module)); it != this->m_Modules.end()) {
-                HF_FREE(it->second->m_pModule)
+                HF_FREE(it->second->GetModule())
                 this->m_Modules.erase(it);
             }
         }
@@ -202,11 +202,11 @@ namespace Helena
 
             // Check version of compiler on all modules
             if(!this->m_Modules.empty()) {
-                const auto version = this->m_Modules.begin()->second->m_Version;
+                const auto version = this->m_Modules.begin()->second->GetVersion();
                 for(const auto& data : this->m_Modules) {
                     const auto module = data.second;
-                    if(module->m_Version != version) {
-                        std::cerr << "[Error] Module: \"" << module->m_Name << "\", compiler version is different!" << std::endl;
+                    if(module->GetVersion() != version) {
+                        std::cerr << "[Error] Module: \"" << module->GetName() << "\", compiler version is different!" << std::endl;
                         return false;
                     }
                 }
@@ -221,7 +221,7 @@ namespace Helena
         bool AppInit() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
-                if(!pDynLib->m_pModule->AppInit()) {
+                if(!pDynLib->GetModule()->AppInit()) {
                     return false;
                 }
             }
@@ -235,7 +235,7 @@ namespace Helena
         bool AppConfig() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
-                if(!pDynLib->m_pModule->AppConfig()) {
+                if(!pDynLib->GetModule()->AppConfig()) {
                     return false;
                 }
             }
@@ -249,7 +249,7 @@ namespace Helena
         bool AppStart() 
         {
             for(const auto& pDynLib : this->m_DynLibs) {
-                if(!pDynLib->m_pModule->AppStart()) {
+                if(!pDynLib->GetModule()->AppStart()) {
                     return false;
                 }
             }
@@ -265,7 +265,7 @@ namespace Helena
             while(!this->m_bFinish)
             {
                 for(const auto& pDynLib : this->m_DynLibs) {
-                    if(!pDynLib->m_pModule->AppUpdate()) {
+                    if(!pDynLib->GetModule()->AppUpdate()) {
                         return false;
                     }
                 }
@@ -282,7 +282,7 @@ namespace Helena
         {
             for(const auto& pDynLib : this->m_DynLibs) 
             {
-                if(!pDynLib->m_pModule->AppShut()) {
+                if(!pDynLib->GetModule()->AppShut()) {
                     return false;
                 }
             }

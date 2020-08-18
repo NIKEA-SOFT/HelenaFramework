@@ -2,7 +2,6 @@
 #define __MODULE_MODULETESTA_HPP__
 
 #include <Helena/Common/HFModule.hpp>
-#include <Helena/Module/ModuleTestA/Plugins/PluginTestA.hpp>
 
 namespace Helena
 {
@@ -17,8 +16,9 @@ namespace Helena
         explicit ModuleTestA()
     	: m_pModuleTestB(nullptr)
     	, m_pModuleLog(nullptr) {}
-        ~ModuleTestA()      override = default;
-    	
+        ~ModuleTestA() override = default;
+
+    protected:
         bool AppInit()      override;
         bool AppConfig()    override;
         bool AppStart()     override;
@@ -26,14 +26,8 @@ namespace Helena
         bool AppShut()      override;
 
     private:
-        ModuleTestB*    m_pModuleTestB;
-        ModuleLog*      m_pModuleLog;
-
-    	
-    private:
-        friend class PluginTestA;
-    	
-    	ModuleTestB* GetModuleTestB() const;
+        ModuleTestB* m_pModuleTestB;
+        ModuleLog* m_pModuleLog;
     };
 }
 #endif // __MODULE_MODULETESTA_HPP__

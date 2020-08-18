@@ -16,8 +16,6 @@ namespace Helena
     /*! @brief Manages the life of loaded modules */
     class HFDynLib final
     {
-        friend class HFApp;
-
         using HFMain = void (*)(HFApp*, HF_MODULE_STATE);
 
     public:
@@ -25,9 +23,37 @@ namespace Helena
         : m_Name(name)
         , m_pModule(nullptr)
         , m_pHandle(nullptr)
-        , m_State(HF_MODULE_STATE::HF_MODULE_INIT)
-        , m_Version(0u) {}
+        , m_Version(0u)
+        , m_State(HF_MODULE_STATE::HF_MODULE_INIT) {}
+
     public:
+        void SetModule(HFModule* pModule) {
+            this->m_pModule = pModule;
+        }
+
+        void SetVersion(uint8_t version) {
+            this->m_Version = version;
+        }
+
+        void SetState(HF_MODULE_STATE state) {
+            this->m_State = state;
+        }
+        
+        auto GetName() const {
+            return this->m_Name;
+        }
+
+        auto& GetModule() {
+            return this->m_pModule;
+        }
+
+        auto GetVersion() const {
+            return this->m_Version;
+        }
+
+        auto GetState() const {
+            return this->m_State;
+        }
 
         /**
          * @brief Load module and call EP
@@ -75,8 +101,8 @@ namespace Helena
         std::string_view    m_Name;
         HFModule*           m_pModule;
         HF_MODULE_HANDLE    m_pHandle;
-        HF_MODULE_STATE     m_State;
         uint8_t             m_Version;
+        HF_MODULE_STATE     m_State;
     };
 }
 
