@@ -56,12 +56,6 @@
 
     // Definition
     #define HF_MAIN                 extern "C" __declspec(dllexport)
-
-#ifdef HF_API_EXPORT
-    #define HF_API                  __declspec(dllexport)
-#else
-    #define HF_API                  __declspec(dllimport)
-#endif
     
     #define HF_MODULE_HANDLE        HINSTANCE
     #define HF_MODULE_LOAD(a)       LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)

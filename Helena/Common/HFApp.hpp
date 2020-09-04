@@ -18,6 +18,7 @@ namespace Helena
     class HFApp final
     {
         friend int HelenaFramework(int, char**);
+        friend class HFModuleManager;
 
     private:
         /***********************************************
@@ -167,7 +168,7 @@ namespace Helena
             // Set version of compiler for ABI and Set pointer on HFApp 
             // for friend clalss HFDynLib
             pDynLib->SetVersion(HF_COMPILER);
-            pDynLib->GetModule()->m_pApp = this;
+            HFModuleManager::m_pApp = this;
         }
 
         /**
@@ -175,12 +176,13 @@ namespace Helena
          * @tparam Module Type derived from HFModule
          * @return Pointer on Module or nullptr if type of module not found
          */
+        /*
         template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
         Module* GetModule() const noexcept {
             const auto it = this->m_Modules.find(HF_CLASSNAME_RT(Module));
             HF_ASSERT(!(it == this->m_Modules.end()), std::string("Module: ") + std::string(HF_CLASSNAME_RT(Module)) + std::string(" not fond"));
             return it == this->m_Modules.end() ? nullptr : static_cast<Module*>(it->second->GetModule());
-        }
+        }*/
 
         /**
          * @brief Remove module from HFApp, its correctly free allocated memory from this module

@@ -1,0 +1,6 @@
+<Service
+    PathConfigs     = "D:\HelenaFramework\Bin\Configs"
+    PathModules     = "D:\HelenaFramework\Bin\Modules"
+    PathResources   = "D:\HelenaFramework\Bin\Resources"
+    Modules         = "ModuleTestA, ModuleTestB"
+/>

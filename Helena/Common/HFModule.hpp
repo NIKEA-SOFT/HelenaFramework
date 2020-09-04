@@ -2,9 +2,9 @@
 #define __COMMON_HFMODULE_HPP__
 
 #include <iostream>
-#include <unordered_map>
 #include <string>
 
+#include "HFModuleManager.hpp"
 #include "HFPluginManager.hpp"
 
 namespace Helena
@@ -44,18 +44,20 @@ namespace Helena
         virtual bool AppShut()      { return true; }
 
     protected:
-        /*********************************
-         * @brief Get pointer on HFApp
-         * @return Pointer on HFAapp
-         *********************************/ 
-        HFApp* GetApp() const noexcept {
-            return m_pApp;
+        template <typename Module, typename = std::enable_if_t<std::is_base_of_v<HFModule, Module>>>
+        bool AddModule(Module* module) {
+            return HFModuleManager::AddModule<Module>(module);
+        }
+
+        template <typename Base, typename Module, typename = std::enable_if_t<std::is_base_of_v<Base, Module>>>
+        static Base* GetModule() noexcept {
+            return HFModuleManager::GetModule<Base, Module>();
         }
 
         /*! @brief copydoc AddPlugin */
         template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
-        Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
-            return HFPluginManager::AddPlugin<Plugin>(std::forward<Args>(args)...);
+        void AddPlugin([[maybe_unused]] Args&&... args) {
+            HFPluginManager::AddPlugin<Plugin>(std::forward<Args>(args)...);
         }
 
         /*! @brief copydoc GetPlugin */
@@ -69,9 +71,6 @@ namespace Helena
         void RemovePlugin() noexcept {
             return HFPluginManager::RemovePlugin<Plugin>();
         }
-
-    private:
-        HFApp* m_pApp;
     };
 }
 

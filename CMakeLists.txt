@@ -61,7 +61,7 @@ message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
 message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
 include_directories(
-    ${HELENA_PROJECT_DIR}
+    ${HELENA_PROJECT_DIR}/Helena
     ${HELENA_PROJECT_DIR}/Dependencies
 )
 

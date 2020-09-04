@@ -1,7 +1,7 @@
 #|--------------------------------
 #| HF Application Project
 #|--------------------------------
-set(HELENA_APP HFApp)
+set(HELENA_APP Helena)
 
 file(GLOB_RECURSE HELENA_APP_SOURCE *.h *.hpp *.cpp *.cc *.c)
 add_executable(${HELENA_APP} ${HELENA_APP_SOURCE})

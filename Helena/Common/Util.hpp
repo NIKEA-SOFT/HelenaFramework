@@ -1,5 +1,5 @@
-#ifndef COMMON_HFUTIL_HPP
-#define COMMON_HFUTIL_HPP
+#ifndef COMMON_UTIL_HPP
+#define COMMON_UTIL_HPP
 
 #include <vector>
 #include <string_view>
@@ -8,7 +8,7 @@
 
 namespace Helena
 {
-	class HFUtil final
+	class Util final
 	{
 	public:
 		/**
@@ -205,4 +205,4 @@ namespace Helena
 
 }
 
-#endif
+#endif	// COMMON_UTIL_HPP

@@ -1,6 +1,7 @@
 #ifndef __COMMON_HFPLUGIN_HPP__
 #define __COMMON_HFPLUGIN_HPP__
 
+#include "HFModuleManager.hpp"
 #include "HFPluginManager.hpp"
 
 namespace Helena
@@ -13,8 +14,8 @@ namespace Helena
     protected:
         /*! @brief copydoc AddPlugin */
         template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
-        Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
-            return HFPluginManager::AddPlugin<Plugin>(std::forward<Args>(args)...);
+        void AddPlugin([[maybe_unused]] Args&&... args) {
+            HFPluginManager::AddPlugin<Plugin>(std::forward<Args>(args)...);
         }
 
         /*! @brief copydoc GetPlugin */
@@ -29,12 +30,9 @@ namespace Helena
             return HFPluginManager::RemovePlugin<Plugin>();
         }
 
-        /*********************************************
-         * @brief Get pointer on parent Module class
-         * @return Pointer on HFModule (stable pointer)
-         *********************************************/
-        HFModule* GetModule() const {
-            return HFPluginManager::m_pModule;
+        template <typename Base, typename Module, typename = std::enable_if_t<std::is_base_of_v<Base, Module>>>
+        static Base* GetModule() noexcept {
+            return HFModuleManager::GetModule<Base, Module>();
         }
     };
 }

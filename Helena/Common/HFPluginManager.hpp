@@ -49,11 +49,9 @@ namespace Helena
          * @tparam Plugin Type of plugin
          * @tparam Args Type of arguments to forward to the plugin ctor
          * @param args Arguments to forward to the plugin ctor
-         * @return Pointer on created plugin or nullptr 
-         * if plugin already has or memory not allocated
          ****************************************************************/
         template <typename Plugin, typename... Args, typename = std::enable_if_t<std::is_base_of_v<HFPlugin, Plugin>>>
-        static Plugin* AddPlugin([[maybe_unused]] Args&&... args) {
+        static void AddPlugin([[maybe_unused]] Args&&... args) {
             static_assert(is_indexable_v<Plugin>);
             const auto index = type_index<Plugin>::id();
 
@@ -63,9 +61,10 @@ namespace Helena
 
             if(auto& pPlugin = m_Plugins[index]; !pPlugin) {
                 pPlugin = HF_NEW Plugin(std::forward<Args>(args)...);
-                return static_cast<Plugin*>(pPlugin);
+                return;
             }
-            return nullptr;
+
+            HF_ASSERT(false, "Create instance of plugin failure!");
         }
 
         /****************************************************************

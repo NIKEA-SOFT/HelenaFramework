@@ -5,7 +5,7 @@
 
 namespace Helena
 {
-    struct HFArgs final {
+    struct Args final {
         using Parser    = typename args::ArgumentParser;
         using Group     = typename args::Group;
         using Flag      = typename args::Flag;
