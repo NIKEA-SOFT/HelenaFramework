@@ -113,15 +113,15 @@ namespace Helena
         /**
         * @brief    Ctor of ModuleManager
         * 
-        * @param    appName         -> Application name taken from the service file name
+        * @param    serviceName     -> Application name taken from the service file name
         * @param    configPath      -> Path to config files of modules
         * @param    modulePath      -> Path to files of modules (dll/so)
         * @param    resourcePath    -> Path to resources of service
         */
-        explicit ModuleManager(std::string appName, std::string configPath, 
+        explicit ModuleManager(std::string serviceName, std::string configPath, 
             std::string modulePath, std::string resourcePath)
             : m_Directories(std::move(configPath), std::move(modulePath), std::move(resourcePath))
-            , m_AppName(std::move(appName))
+            , m_ServiceName(std::move(serviceName))
             , m_Error(EManagerError::NoError)
             , m_bInitialized(false)
             , m_bUpdate(false) {}
@@ -334,11 +334,11 @@ namespace Helena
         }
 
         /* 
-        * @brief    Get Application name
+        * @brief    Get Service name
         * @return   @code{.cpp} const std::string& @endcode
         */
-        [[nodiscard]] const std::string& GetAppName() const noexcept {
-            return m_AppName;
+        [[nodiscard]] const std::string& GetServiceName() const noexcept {
+            return m_ServiceName;
         }
 
 
@@ -346,15 +346,28 @@ namespace Helena
         Directories m_Directories;
         std::unordered_map<std::string, IPlugin*> m_Plugins;
         std::vector<std::unique_ptr<Module>> m_Modules;
-        std::string m_AppName;
+        std::string m_ServiceName;
         EManagerError m_Error;
         bool m_bInitialized;
         bool m_bUpdate;
     };
 
     // HelenaFramework Main
-    inline void HelenaFramework(std::string appName, std::string configPath, std::string modulePath, std::string resourcePath, std::vector<std::string> moduleNames) {
-        ModuleManager moduleManager(std::move(appName), std::move(configPath), std::move(modulePath), std::move(resourcePath));
+    inline void HelenaFramework(std::string serviceName, std::string configPath, std::string modulePath, std::string resourcePath, std::vector<std::string> moduleNames) 
+    {
+        if(configPath.back() != HF_SEPARATOR) {
+            configPath += HF_SEPARATOR;
+        }
+
+        if(modulePath.back() != HF_SEPARATOR) {
+            modulePath += HF_SEPARATOR;
+        }
+
+        if(resourcePath.back() != HF_SEPARATOR) {
+            resourcePath += HF_SEPARATOR;
+        }
+
+        ModuleManager moduleManager(std::move(serviceName), std::move(configPath), std::move(modulePath), std::move(resourcePath));
         moduleManager.Initialize(std::move(moduleNames));
         moduleManager.Finalize();
     }

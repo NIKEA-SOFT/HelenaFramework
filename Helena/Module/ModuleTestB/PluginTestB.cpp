@@ -6,7 +6,7 @@
 namespace Helena
 {
 	bool PluginTestB::Initialize() {
-		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestB) << ", Serivce: " << this->m_pModuleManager->GetAppName() << std::endl;
+		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestB) << ", Serivce: " << this->m_pModuleManager->GetServiceName() << std::endl;
 		return true;
 	}
 

@@ -178,6 +178,7 @@ namespace Helena
 		static bool BitCompare(TypeLeft left, TypeRight right) {
 			return left == static_cast<TypeLeft>(right);
 		}
+
 	};
 
 }

@@ -1,5 +1,5 @@
-#ifndef __MODULE_MODULELOG_PLUGINLOG_HPP__
-#define __MODULE_MODULELOG_PLUGINLOG_HPP__
+#ifndef MODULE_MODULELOG_PLUGINLOG_HPP
+#define MODULE_MODULELOG_PLUGINLOG_HPP
 
 #include <Interface/IPluginLog.hpp>
 
@@ -8,16 +8,25 @@ namespace Helena
 	class ModuleManager;
 	class PluginLog : public IPluginLog 
 	{
-	public:
-		PluginLog(ModuleManager* pModuleManager) 
-		: m_pModuleManager(pModuleManager) {}
+	protected:
+		bool Initialize() override;
 
 	public:
-		bool Initialize() override;
+		PluginLog(ModuleManager* pModuleManager) 
+		: m_pModuleManager(pModuleManager)
+		, m_bAsync(false) {}
+		~PluginLog();
+
+	private:
+		std::shared_ptr<spdlog::logger> GetLogger() override;
+
+	private:
+		void ConfigLogger();
 
 	private:
 		ModuleManager* m_pModuleManager;
+		bool m_bAsync;
 	};
 }
 
-#endif // __MODULE_MODULELOG_PLUGINLOG_HPP__
+#endif // MODULE_MODULELOG_PLUGINLOG_HPP

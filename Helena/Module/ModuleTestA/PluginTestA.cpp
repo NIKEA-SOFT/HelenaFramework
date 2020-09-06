@@ -6,7 +6,7 @@
 namespace Helena
 {
 	bool PluginTestA::Initialize() {
-		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestA) << ", Serivce: " << this->m_pModuleManager->GetAppName() << std::endl;
+		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestA) << ", Serivce: " << this->m_pModuleManager->GetServiceName() << std::endl;
 
 		// Good example: GetPlugin takes an abstract class of Plugin
 		// About GetPlugin: This method supports caching pointers inside 
@@ -19,14 +19,14 @@ namespace Helena
 		// a hashmap lookup, but will simply return the cached pointer
 		// to the object that was found earlier.
 		// This implementation will allow developers to maintain 
-		// a clean interface inside plugin classes without losing performance.
+		// a clean interface inside plugin classes without losing performance. 
 		const auto pPluginTestA1 = this->m_pModuleManager->GetPlugin<IPluginTestA>();	// First call GetPlugin for this type use map.find
 		const auto pPluginTestA2 = this->m_pModuleManager->GetPlugin<IPluginTestA>();	// Second call GetPlugin for this type use cached pointer
 
 		// Bad example: GetPlugin only accepts an abstract class of Plugin
 		const auto pPluginTestA3 = this->m_pModuleManager->GetPlugin<PluginTestA>();	// Correct: IPluginTestA
 
-		// Get third-module plugin instance
+		// Get third-module plugin instance and call method
 		if(auto pPluginTestB = this->m_pModuleManager->GetPlugin<IPluginTestB>(); pPluginTestB) {
 			pPluginTestB->SayHello();
 		}

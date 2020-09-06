@@ -1,0 +1,27 @@
+<!-- [Log System]
+==============================================
+|	Name	-> Service name
+|	Level	-> Log level: "trace", "debug", "info", "warning", "error", "critical", "off"
+|	Format	-> Log format pattern, more info on spdlog official docs
+|	Size	-> Size of msg buffer
+|	Thread	-> Count of thread, use 0 for single thread logging
+|	Path	-> Path to storage logs, use empty for disable log in file
+============================================== -->
+
+<Service
+    Name	= "Proxy"
+	Level	= "info"
+	Format	= "%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$"
+	Size	= "8192"
+	Thread	= "1"
+	Path	= "D:\HelenaFramework\Bin\Logs"
+/>
+
+<Service
+	Name	= "Test"
+	Level	= "error"
+	Format	= "%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$"
+	Size	= "8192"
+	Thread	= "1"
+	Path	= "D:\HelenaFramework\Bin\Logs"
+/>

@@ -38,9 +38,9 @@ int main(int argc, char** argv)
     }
 
     // Read attribute from xml node
-    std::filesystem::path configPath{ node.attribute(Meta::ConfigService::PathConfigs()).as_string() };
-    std::filesystem::path modulePath{ node.attribute(Meta::ConfigService::PathModules()).as_string() };
-    std::filesystem::path resourcePath{ node.attribute(Meta::ConfigService::PathResources()).as_string() };
+    std::filesystem::path configPath {node.attribute(Meta::ConfigService::PathConfigs()).as_string()};
+    std::filesystem::path modulePath {node.attribute(Meta::ConfigService::PathModules()).as_string()};
+    std::filesystem::path resourcePath {node.attribute(Meta::ConfigService::PathResources()).as_string()};
     std::string_view modules = node.attribute(Meta::ConfigService::Modules()).as_string();
 
     // Create configs/modules/resources directories if not exists
