@@ -1,8 +1,6 @@
 #ifndef COMMON_IPLUGIN_HPP
 #define COMMON_IPLUGIN_HPP
 
-#include "Platform.hpp"
-
 namespace Helena
 {
     class IPlugin

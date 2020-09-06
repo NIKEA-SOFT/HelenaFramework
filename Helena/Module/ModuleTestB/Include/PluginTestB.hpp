@@ -8,12 +8,14 @@ namespace Helena
 	class ModuleManager;
 	class PluginTestB : public IPluginTestB
 	{
-	public:
-		PluginTestB(ModuleManager* pModuleManager)
-			: m_pModuleManager(pModuleManager) {}
+	protected:
+		bool Initialize() override;
 
 	public:
-		bool Initialize() override;
+		PluginTestB(ModuleManager* pModuleManager) : m_pModuleManager(pModuleManager) {}
+
+	public:
+		void SayHello() const override;
 
 	private:
 		ModuleManager* m_pModuleManager;

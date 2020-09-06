@@ -4,7 +4,7 @@
 
 namespace Helena
 {
-    HF_MAIN void HFMain(ModuleManager* pModuleManager, EModuleState state) 
+    HF_API void HFMain(ModuleManager* pModuleManager, EModuleState state) 
     {
         switch(state)
         {

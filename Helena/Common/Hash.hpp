@@ -1,14 +1,13 @@
-#ifndef __COMMON_HFHASH_HPP__
-#define __COMMON_HFHASH_HPP__
+#ifndef COMMON_HASH_HPP__
+#define COMMON_HASH_HPP__
 
-#include <string_view>
-#include <utility>
-#include <unordered_map>
+#include <string>
+#include <type_traits>
 
 namespace Helena
 {
     /*! @brief Heterogeneous lookup hasher */
-    struct HFStringHash {
+    struct StringHash {
         using is_transparent = void;
         using hash_type = std::hash<std::string_view>;
         std::size_t operator()(const std::string& key) const { return hash_type{}(key); }
@@ -17,4 +16,4 @@ namespace Helena
     };
 }
 
-#endif // __COMMON_HFHASH_HPP__
+#endif // COMMON_HASH_HPP__

@@ -5,10 +5,14 @@
 
 namespace Helena
 {
+	// Use an abstract class of your plugin to make some methods available to third party modules
 	class IPluginTestB : public IPlugin
 	{
-	public:
+	protected:
+		virtual bool Initialize() = 0;
 
+	public:
+		virtual void SayHello() const = 0;
 	};
 }
 

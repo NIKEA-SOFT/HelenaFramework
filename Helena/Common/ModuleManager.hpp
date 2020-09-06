@@ -11,6 +11,7 @@
 #include <thread>
 #include <type_traits>
 
+#include "Platform.hpp"
 #include "IPlugin.hpp"
 
 namespace Helena
@@ -53,15 +54,30 @@ namespace Helena
             Directories& operator=(const Directories&) = delete;
             Directories& operator=(Directories&&) = delete;
 
-            const std::string& GetConfigPath() const noexcept {
+            /**
+            * @brief    Get the path to module config files
+            * 
+            * @return   @code{.cpp} const std::string& @endcode
+            */
+            [[nodiscard]] const std::string& GetConfigPath() const noexcept {
                 return m_ConfigPath;
             }
 
-            const std::string& GetModulePath() const noexcept {
+            /**
+            * @brief    Get the path to modules
+            *
+            * @return   @code{.cpp} const std::string& @endcode
+            */
+            [[nodiscard]] const std::string& GetModulePath() const noexcept {
                 return m_ModulePath;
             }
 
-            const std::string& GetResourcePath() const noexcept {
+            /**
+            * @brief    Get the path to resources (configs/resource of services)
+            *
+            * @return   @code{.cpp} const std::string& @endcode
+            */
+            [[nodiscard]] const std::string& GetResourcePath() const noexcept {
                 return m_ResourcePath;
             }
 
@@ -80,22 +96,28 @@ namespace Helena
             Module(std::string name) 
             : m_Name(std::move(name))
             , m_pHandle(nullptr)
-            , m_pMain(nullptr)
-            , m_State(EModuleState::Init) {}
+            , m_pMain(nullptr) {}
 
-            std::string m_Name;
-            HF_MODULE_HANDLE m_pHandle;
-            ModuleEP m_pMain;
-            EModuleState m_State;
+            std::string m_Name;             // Module name
+            HF_MODULE_HANDLE m_pHandle;     // Ptr on handle
+            ModuleEP m_pMain;               // Ptr on EP
         };
 
-        // Cached pointer on component for optimization
+        // Cache pointer on Plugin for optimization
         template <typename Type>
         struct PluginPtr {
-            inline static Type* m_pInterface {nullptr};
+            inline static Type* m_pPlugin {nullptr};
         };
 
     public:
+        /**
+        * @brief    Ctor of ModuleManager
+        * 
+        * @param    appName         -> Application name taken from the service file name
+        * @param    configPath      -> Path to config files of modules
+        * @param    modulePath      -> Path to files of modules (dll/so)
+        * @param    resourcePath    -> Path to resources of service
+        */
         explicit ModuleManager(std::string appName, std::string configPath, 
             std::string modulePath, std::string resourcePath)
             : m_Directories(std::move(configPath), std::move(modulePath), std::move(resourcePath))
@@ -111,6 +133,11 @@ namespace Helena
         ModuleManager& operator=(ModuleManager&&) noexcept = delete;
 
     private:
+        /**
+        * @brief    Initialize framework
+        * 
+        * @param    moduleNames     -> List of module names for dynamic load
+        */
         void Initialize(std::vector<std::string>& moduleNames)
         {
             if(m_bInitialized) {
@@ -193,6 +220,7 @@ namespace Helena
             return;
         }
 
+        /* @brief Finalize framework */
         void Finalize() 
         {
             if(!m_bInitialized) {
@@ -214,6 +242,7 @@ namespace Helena
             }
 
             for(const auto& module : m_Modules) {
+                std::cout << "[Info ] Module: " << module->m_Name << " unloaded!" << std::endl;
                 HF_MODULE_UNLOAD(module->m_pHandle);
             }
 
@@ -225,8 +254,18 @@ namespace Helena
         }
 
     public:
+        /**
+        * @brief    Create instance of plugin into the map
+        * 
+        * @tparam   Base    -> Type of abstract class inherited from IPlugin
+        * @tparam   Plugin  -> Type of plugin class inherited from Base 
+        * @param    args    -> Arguments for ctor of Plugin
+        * 
+        * @note     If it was not possible to create an instance of the class, 
+        *           then the framework will finalize with an error identifier.
+        */
         template <typename Base, typename Plugin, typename... Args, 
-            typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>&& std::is_base_of_v<Base, Plugin>>>
+            typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base> && std::is_base_of_v<Base, Plugin>>>
         void CreatePlugin([[maybe_unused]] Args&&... args)
         {
             const auto pluginName = HF_CLASSNAME_RT(Base);
@@ -247,24 +286,36 @@ namespace Helena
             }
         }
 
+        /*
+        * @brief    Get instance of plugin
+        * 
+        * @tparam   Base    -> Type of abstract class inherited from IPlugin
+        * @return   Pointer on instance of Base plugin or nullptr if Base typename not found.
+        * 
+        * @warning  All modules must be build on the same compiler
+        */
         template <typename Base, typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>>>
-        Base* GetPlugin()
+        [[nodiscard]] Base* GetPlugin()
         {
-            auto& pCachedPlugin = PluginPtr<Base>::m_pInterface;
-            if(!pCachedPlugin) 
-            {
+            auto& pPlugin = PluginPtr<Base>::m_pPlugin;
+            if(!pPlugin) {
                 const auto pluginName = HF_CLASSNAME_RT(Base);
-                if(const auto it = m_Plugins.find(pluginName); it != m_Plugins.end()) {
-                    pCachedPlugin = static_cast<Base*>(it->second);
+                const auto it = m_Plugins.find(pluginName);
+                if(it != m_Plugins.end()) {
+                    pPlugin = static_cast<Base*>(it->second);
                 } else { 
                     std::cerr << "[Error] Plugin: " << pluginName << " not found!" << std::endl;
                     m_Error = EManagerError::PluginGet;
                 }
             }
-
-            return pCachedPlugin;
+            return pPlugin;
         }
 
+        /*
+        * @brief    Remove instance of plugin
+        *
+        * @tparam   Base    -> Type of abstract class inherited from IPlugin
+        */
         template <typename Base, typename... Args, typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>>>
         void RemovePlugin()
         {
@@ -274,10 +325,18 @@ namespace Helena
         }
 
     public:
-        [[nodiscard]] const Directories& GetDirectories() const noexcept {
-            return m_Directories;
+        /* 
+        * @brief    Get directories 
+        * @return   @code{.cpp} const Directories* @endcode
+        */
+        [[nodiscard]] const Directories* GetDirectories() const noexcept {
+            return &m_Directories;
         }
 
+        /* 
+        * @brief    Get Application name
+        * @return   @code{.cpp} const std::string& @endcode
+        */
         [[nodiscard]] const std::string& GetAppName() const noexcept {
             return m_AppName;
         }
