@@ -11,17 +11,17 @@
 namespace Helena
 {	
 	// Get filename from compile-time
-	constexpr const char* spdlog_filename(std::string_view filename) {
+	inline constexpr const char* spdlog_filename(std::string_view filename) {
 		constexpr std::string_view find = "\\/";
 		const auto offset = filename.find_last_of(find);
 		return offset == std::string_view::npos ? filename.data() : (filename.data() + offset + 1);
 	}
 
-	class IPluginLog : public IPlugin
+	class IPluginLog : public IPlugin 
 	{
 	public:
 		template <typename... Args>
-		void Log(spdlog::source_loc source, spdlog::level::level_enum level, const char* format, const Args&... args) {
+		void Log(const spdlog::source_loc& source, spdlog::level::level_enum level, const char* format, const Args&... args) {
 			if(const std::shared_ptr<spdlog::logger>& logger = GetLogger(); logger) {
 				logger->log(source, level, format, args...);
 			}

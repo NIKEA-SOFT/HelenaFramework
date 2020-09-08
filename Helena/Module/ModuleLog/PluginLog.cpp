@@ -18,19 +18,30 @@
 
 namespace Helena
 {
-	PluginLog::~PluginLog() 
+	bool PluginLog::Initialize()
 	{
+		// It's work stable
+		LOG_TRACE("Hello trace from #1 {}", HF_CLASSNAME(PluginLog));
+		LOG_DEBUG("Hello trace from #2 {}", HF_CLASSNAME(PluginLog));
+		LOG_INFO("Hello trace from #3 {}", HF_CLASSNAME(PluginLog));
+		LOG_WARN("Hello trace from #4 {}", HF_CLASSNAME(PluginLog));
+		LOG_ERROR("Hello trace from #5 {}", HF_CLASSNAME(PluginLog));
+		LOG_CRITICAL("Hello trace from #6 {}", HF_CLASSNAME(PluginLog));
+
+		return true;
+	}
+
+	PluginLog::~PluginLog() {
 		if(m_bAsync) {
 			spdlog::drop_all();
 			spdlog::shutdown();
 		}
 	}
 
-	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() 
-	{
+	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {
 		static std::once_flag flag;
 		std::call_once(flag, &PluginLog::Configure, this);
-		return spdlog::default_logger();
+		return m_pLogger;
 	}
 
 	/* @brief Parse service from Log config */
@@ -64,7 +75,7 @@ namespace Helena
 			.as_string("trace"));
 
 		if(level == spdlog::level::level_enum::off) {
-			spdlog::set_level(level);
+			m_pLogger->set_level(level);
 			return;
 		}
 
@@ -95,14 +106,14 @@ namespace Helena
 			} else {
 				SetupLoggerST(path);
 			}
-			
+	
 		#ifdef HF_RELEASE
-			spdlog::set_level(level);
-			spdlog::set_pattern(format);
+			m_pLogger->set_level(level);
+			m_pLogger->set_pattern(format);
 
 			if(!path.empty())
 			{
-				spdlog::flush_on(flushLevel);
+				m_pLogger->flush_on(flushLevel);
 				/*
 				if(flushTime && flushLevel != spdlog::level::level_enum::trace) {
 					spdlog::flush_every(std::chrono::seconds(flushTime));
@@ -110,14 +121,15 @@ namespace Helena
 			}
 
 		#else 
-			spdlog::set_level(spdlog::level::level_enum::trace);
-			spdlog::set_pattern("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
+			m_pLogger->set_level(spdlog::level::level_enum::trace);
+			m_pLogger->set_pattern("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
 
 			if(!path.empty()) {
-				spdlog::flush_on(spdlog::level::level_enum::trace);
+				m_pLogger->flush_on(spdlog::level::level_enum::trace);
 			}
 		#endif
 
+			spdlog::register_logger(m_pLogger);
 		} catch(const spdlog::spdlog_ex& err) {
 			std::cerr << "[Error] Config: " << config 
 				<< " catch exception in spdlog, error: " << err.what() << std::endl;
@@ -160,7 +172,6 @@ namespace Helena
 	*/
 	void PluginLog::SetupLoggerST(const std::string_view path)
 	{
-		std::shared_ptr<spdlog::logger> logger;
 		std::vector<spdlog::sink_ptr> sinks;
 
 		if(const auto logFile = GetFileLog(path); !logFile.empty()) {
@@ -176,8 +187,7 @@ namespace Helena
 		#error Unknown platform
 	#endif
 		sinks.emplace_back(std::move(consoleSink));
-		logger = std::make_shared<spdlog::logger>(m_pModuleManager->GetServiceName(), sinks.begin(), sinks.end());
-		spdlog::set_default_logger(std::move(logger));
+		m_pLogger = std::make_shared<spdlog::logger>(m_pModuleManager->GetServiceName(), sinks.begin(), sinks.end());
 	}
 
 	/***
@@ -189,9 +199,7 @@ namespace Helena
 	void PluginLog::SetupLoggerMT(const std::string_view path, const std::size_t buffer, const std::size_t threads)
 	{
 		m_bAsync = true;
-		std::shared_ptr<spdlog::logger> logger;
 		std::vector<spdlog::sink_ptr> sinks;
-		spdlog::init_thread_pool(buffer, threads);
 
 		if(const auto logFile = GetFileLog(path); !logFile.empty()) {
 			auto dailySink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 23, 59);
@@ -206,9 +214,9 @@ namespace Helena
 		#error Unknown platform
 	#endif
 
+		m_pThreadPool = std::make_shared<spdlog::details::thread_pool>(buffer, threads);
 		sinks.emplace_back(std::move(consoleSink));
-		logger = std::make_shared<spdlog::async_logger>(m_pModuleManager->GetServiceName(), 
-			sinks.begin(), sinks.end(), spdlog::thread_pool());
-		spdlog::set_default_logger(std::move(logger));
+		m_pLogger = std::make_shared<spdlog::async_logger>(m_pModuleManager->GetServiceName(), 
+			sinks.begin(), sinks.end(), m_pThreadPool);
 	}
 }

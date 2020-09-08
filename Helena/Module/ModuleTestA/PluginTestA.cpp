@@ -2,6 +2,7 @@
 #include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use m_pModuleManager or you need app name or directories)
 
 #include <Module/ModuleTestB/Interface/IPluginTestB.hpp>
+#include <Module/ModuleLog/Interface/IPluginLog.hpp>
 
 namespace Helena
 {
@@ -27,10 +28,17 @@ namespace Helena
 		const auto pPluginTestA3 = this->m_pModuleManager->GetPlugin<PluginTestA>();	// Correct: IPluginTestA
 
 		// Get third-module plugin instance and call method
-		if(auto pPluginTestB = this->m_pModuleManager->GetPlugin<IPluginTestB>(); pPluginTestB) {
+		if(const auto pPluginTestB = this->m_pModuleManager->GetPlugin<IPluginTestB>(); pPluginTestB) {
 			pPluginTestB->SayHello();
 		}
 
+		// Not work, crashed in , member "filename" randomly
+		LOG_TRACE("Hello trace from #1 {}", HF_CLASSNAME(PluginTestA));
+		LOG_DEBUG("Hello trace from #2 {}", HF_CLASSNAME(PluginTestA));
+		LOG_INFO("Hello trace from #3 {}", HF_CLASSNAME(PluginTestA));
+		LOG_WARN("Hello trace from #4 {}", HF_CLASSNAME(PluginTestA));
+		LOG_ERROR("Hello trace from #5 {}", HF_CLASSNAME(PluginTestA));
+		LOG_CRITICAL("Hello trace from #6 {}", HF_CLASSNAME(PluginTestA));
 		return true;
 	}
 
