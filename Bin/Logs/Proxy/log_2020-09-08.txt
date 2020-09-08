@@ -1,0 +1,18 @@
+[2020.09.08 09:21:34.957][PluginLog.cpp:24][trace   ] Hello trace from #1 PluginLog
+[2020.09.08 09:21:34.957][PluginLog.cpp:25][debug   ] Hello trace from #2 PluginLog
+[2020.09.08 09:21:34.957][PluginLog.cpp:26][info    ] Hello trace from #3 PluginLog
+[2020.09.08 09:21:34.957][PluginLog.cpp:27][warning ] Hello trace from #4 PluginLog
+[2020.09.08 09:21:34.957][PluginLog.cpp:28][error   ] Hello trace from #5 PluginLog
+[2020.09.08 09:21:34.957][PluginLog.cpp:29][critical] Hello trace from #6 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:24][trace   ] Hello trace from #1 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:25][debug   ] Hello trace from #2 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:26][info    ] Hello trace from #3 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:27][warning ] Hello trace from #4 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:28][error   ] Hello trace from #5 PluginLog
+[2020.09.08 09:22:06.513][PluginLog.cpp:29][critical] Hello trace from #6 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:24][trace   ] Hello trace from #1 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:25][debug   ] Hello trace from #2 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:26][info    ] Hello trace from #3 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:27][warning ] Hello trace from #4 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:28][error   ] Hello trace from #5 PluginLog
+[2020.09.08 09:23:12.672][PluginLog.cpp:29][critical] Hello trace from #6 PluginLog

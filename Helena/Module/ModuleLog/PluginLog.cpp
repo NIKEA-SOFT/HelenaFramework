@@ -20,7 +20,7 @@ namespace Helena
 {
 	bool PluginLog::Initialize()
 	{
-		// It's work stable
+		// It's work stable, but crashed if in other modules call LOG_... to in same time
 		LOG_TRACE("Hello trace from #1 {}", HF_CLASSNAME(PluginLog));
 		LOG_DEBUG("Hello trace from #2 {}", HF_CLASSNAME(PluginLog));
 		LOG_INFO("Hello trace from #3 {}", HF_CLASSNAME(PluginLog));
