@@ -4,7 +4,6 @@
 #include <Common/IPlugin.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/common.h>
 
 #include <algorithm>
 #include <memory>
@@ -20,9 +19,6 @@ namespace Helena
 
 	class IPluginLog : public IPlugin
 	{
-	protected:
-		virtual bool Initialize() = 0;
-
 	public:
 		template <typename... Args>
 		void Log(spdlog::source_loc source, spdlog::level::level_enum level, const char* format, const Args&... args) {

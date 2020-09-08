@@ -28,8 +28,10 @@ namespace Helena::Meta
         META_TYPE Name()            REG_META("Name")
         META_TYPE Level()           REG_META("Level")
         META_TYPE Format()          REG_META("Format")
-        META_TYPE Size()            REG_META("Size")
-        META_TYPE Thread()          REG_META("Thread")
+        META_TYPE Buffer()          REG_META("Buffer")
+        META_TYPE Threads()         REG_META("Threads")
+        META_TYPE FlushLevel()      REG_META("FlushLevel")
+        META_TYPE FlushTime()       REG_META("FlushTime")
         META_TYPE Path()            REG_META("Path")
     };
 }

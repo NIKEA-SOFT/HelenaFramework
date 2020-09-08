@@ -1,27 +1,33 @@
-<!-- [Log System]
-==============================================
-|	Name	-> Service name
-|	Level	-> Log level: "trace", "debug", "info", "warning", "error", "critical", "off"
-|	Format	-> Log format pattern, more info on spdlog official docs
-|	Size	-> Size of msg buffer
-|	Thread	-> Count of thread, use 0 for single thread logging
-|	Path	-> Path to storage logs, use empty for disable log in file
-============================================== -->
+<!-- [Log System][ModuleLog]
+==========================================================================
+|	Name		-> Service name
+|	Level		-> Log level: "trace", "debug", "info", "warning", "error", "critical", "off"
+|	Format		-> Log format pattern, more info on spdlog official docs
+|	Buffer		-> Size of msg buffer in bytes
+|	Threads		-> Count of thread, use 0 for single thread logging
+|	FlushLevel	-> Flush level: "trace", "debug", "info", "warning", "error", "critical", "off"
+|	Path		-> Path to storage logs, use empty for disable log in file
+|
+|	Note: 
+|	Level is specified in ascending order, for example, 
+|	if you specify Level = "info", then support for level logs will be enabled: 
+|	"info", "warning", "error", "critical"
+|	If you specify Level = "error", then support for level logs:
+|	"error", "critical"
+|
+|	In DEBUG version of Module Level = "trace" and FlushLevel = "trace", FlushTime = "0"
+|	
+|	WARNING: 
+|	[Threads] We recommend using 1 stream, this is enough, 
+|	much more important is the size of the Buffer. The larger the buffer, the better.
+========================================================================== -->
 
 <Service
-    Name	= "Proxy"
-	Level	= "info"
-	Format	= "%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$"
-	Size	= "8192"
-	Thread	= "1"
-	Path	= "D:\HelenaFramework\Bin\Logs"
-/>
-
-<Service
-	Name	= "Test"
-	Level	= "error"
-	Format	= "%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$"
-	Size	= "8192"
-	Thread	= "1"
-	Path	= "D:\HelenaFramework\Bin\Logs"
+    Name		= "Proxy"
+	Level		= "trace"
+	Format		= "%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$"
+	Buffer		= "1048576"
+	Threads		= "1"
+	FlushLevel	= "error"
+	Path		= "D:\HelenaFramework\Bin\Logs"
 />

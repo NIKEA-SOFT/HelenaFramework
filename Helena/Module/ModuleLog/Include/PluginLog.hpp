@@ -8,8 +8,6 @@ namespace Helena
 	class ModuleManager;
 	class PluginLog : public IPluginLog 
 	{
-	protected:
-		bool Initialize() override;
 
 	public:
 		PluginLog(ModuleManager* pModuleManager) 
@@ -21,7 +19,10 @@ namespace Helena
 		std::shared_ptr<spdlog::logger> GetLogger() override;
 
 	private:
-		void ConfigLogger();
+		void Configure();
+		std::string GetFileLog(const std::string_view path);
+		void SetupLoggerST(const std::string_view path);
+		void SetupLoggerMT(const std::string_view path, const std::size_t buffer, const std::size_t threads);
 
 	private:
 		ModuleManager* m_pModuleManager;
