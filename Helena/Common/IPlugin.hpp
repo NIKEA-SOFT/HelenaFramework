@@ -5,8 +5,12 @@ namespace Helena
 {
     class IPlugin
     {
+        // Friend is used to get a clean interface
+        // without Set methods
+        friend class ModuleManager;
+        
     public:
-        IPlugin() = default;
+        IPlugin() : m_pModuleManager(nullptr) {}
         virtual ~IPlugin() = default;
         IPlugin(const IPlugin&) = delete;
         IPlugin(IPlugin&&) = delete;
@@ -32,6 +36,14 @@ namespace Helena
         virtual bool Finalize() {
             return true;
         }
+
+    public:
+        [[nodiscard]] ModuleManager* GetModuleManager() const noexcept {
+            return m_pModuleManager;
+        }
+
+    private:
+        ModuleManager* m_pModuleManager;
     };
 }
 
