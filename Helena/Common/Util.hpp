@@ -6,26 +6,45 @@
 #include <type_traits>
 #include <algorithm>
 
+#include "Platform.hpp"
+
 namespace Helena
 {
+	namespace Internal {
+	#if HF_STANDARD_VER == HF_STANDARD_CPP17
+		template<class InputIt, class ForwardIt>
+		[[nodiscard]] static constexpr InputIt find_first_of(InputIt first, InputIt last,
+			ForwardIt s_first, ForwardIt s_last) noexcept
+		{
+			for(; first != last; ++first) {
+				for(ForwardIt it = s_first; it != s_last; ++it) {
+					if(*first == *it) {
+						return first;
+					}
+				}
+			}
+			return last;
+		}
+	#endif
+	}
+
 	class Util final
 	{
 	public:
 		/**
 		 * @brief	Split string using delimeter (support trim) 
 		 * 
-		 * @tparam	Type		-> Type of vector value 
-		 * @param	str			-> Input string data for split 
-		 * @param	delims		-> Delimeter (default: ",") 
-		 * @param	trim_space	-> Remove space from data 
+		 * @tparam	Type		Type of vector value 
+		 * @param	str			Input string data for split 
+		 * @param	delims		Delimeter (default: ",") 
+		 * @param	trim_space	Remove space from data 
 		 * 
 		 * @details	Split input data using delimiter and return std::vector<Type> 
-		 *
 		 * @note	Trim remove space char's from start and end position. 
-		 *			Example: " Hello World " -> "Hello World" 
+		 *			Example: " Hello World " "Hello World" 
 		 */
 		template <typename Type, typename = std::enable_if_t<std::is_same_v<Type, std::string> || std::is_same_v<Type, std::string_view>>>
-		static std::vector<Type> Split(std::string_view str, std::string_view delims = ",", bool trim_space = true)
+		[[nodiscard]] static std::vector<Type> Split(std::string_view str, std::string_view delims = ",", bool trim_space = true)
 		{
 			std::vector<Type> v_splitted;
 			for (auto first = str.data(), second = str.data(), last = first + str.size(); second != last && first != last; first = second + 1) 
@@ -48,26 +67,31 @@ namespace Helena
 			return v_splitted;
 		}
 
-	#if HF_STANDARD_VER > HF_STANDARD_CPP17
 		/**
-		 * @brief Get current filename without path, only filename (used __FILE__ for split)
-		 * @return const char*
+		 * @brief	Return cutted filename in constexpr
+		 * 
+		 * @param	file	Macros of __FILE__
+		 * 
+		 * @return	@code{.cpp} const char* @endocde
 		 */
-		static constexpr const char* GetFileName() {
-			constexpr std::string_view filename = __FILE__;
+		[[nodiscard]] static constexpr const char* GetFileName(const std::string_view file) {
 			constexpr char symbols[]{'\\', '/'};
-			const auto it = std::find_first_of(filename.rbegin(), filename.rend(), std::begin(symbols), std::end(symbols));
-			return it == filename.rend() ? filename.data() : &(*std::prev(it));
+		#if HF_STANDARD_VER == HF_STANDARD_CPP17
+			const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+		#else
+			const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+		#endif
+			return it == file.rend() ? file.data() : &(*std::prev(it));
 		}
-	#endif
+
 		//------------[Bit Operations]---------------//
 		/**
 		 * @brief	Assign bit flags from right to left side 
 		 *
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 *
 		 * @note	This function assigns new flags to <left>. 
 		 *			It's remove old data from <left> variable. 
@@ -81,10 +105,10 @@ namespace Helena
 		/**
 		 * @brief	Add bit flag from right to left side 
 		 * 
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 * 
 		 * @note	Support multiple flags in <right>
 		 */
@@ -96,10 +120,10 @@ namespace Helena
 		/**
 		 * @brief	Get bit flag in left from right 
 		 *
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 *
 		 * @return	Return false if right flag disabled 
 		 * 
@@ -107,17 +131,17 @@ namespace Helena
 		 *			Support only single flag in <right>. 
 		 */
 		template <typename TypeLeft, typename TypeRight>
-		static bool BitGet(TypeLeft left, TypeRight right) {
+		[[nodiscard]] static bool BitGet(TypeLeft left, TypeRight right) {
 			return left & static_cast<TypeLeft>(right);
 		}
 
 		/**
 		 * @brief	Remove bit flag from left using right 
 		 * 
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag  
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag  
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 * 
 		 * @note	Support multiple flags in <right>. 
 		 */
@@ -129,10 +153,10 @@ namespace Helena
 		/**
 		 * @brief	Xor bit flag in left from right 
 		 *
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 * 
 		 * @note	This function invert flags in <left>. \n 
 		 *			Support multiple flags in <right>.
@@ -145,27 +169,27 @@ namespace Helena
 		/**
 		 * @brief	Check left on has multiple flags from right 
 		 *
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 * 
 		 * @return	Returns false if at least one of the right flags is missing. 
 		 *
 		 * @note	Analog BitGet, support multiple flags in <right>. 
 		 */
 		template <typename TypeLeft, typename TypeRight>
-		static bool BitHas(TypeLeft left, TypeRight right) {
+		[[nodiscard]] static bool BitHas(TypeLeft left, TypeRight right) {
 			return (left & static_cast<TypeLeft>(right)) == static_cast<TypeLeft>(right);
 		}
 
 		/**
 		 * @brief	Compare left and right on equality 
 		 *
-		 * @tparam	TypeLeft	-> Type of data with flags 
-		 * @tparam	TypeRight	-> Type of bit flag 
-		 * @param	left		-> Data with flags 
-		 * @param	right		-> Bit flag 
+		 * @tparam	TypeLeft	Type of data with flags 
+		 * @tparam	TypeRight	Type of bit flag 
+		 * @param	left		Data with flags 
+		 * @param	right		Bit flag 
 		 *
 		 * @return	Returns false if at least one of the flags is missing. 
 		 *
@@ -175,7 +199,7 @@ namespace Helena
 		 *			@endcode 
 		 */ 
 		template <typename TypeLeft, typename TypeRight>
-		static bool BitCompare(TypeLeft left, TypeRight right) {
+		[[nodiscard]] static bool BitCompare(TypeLeft left, TypeRight right) {
 			return left == static_cast<TypeLeft>(right);
 		}
 
