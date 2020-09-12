@@ -14,12 +14,11 @@ function(HF_BUILD_MODULE HELENA_MODULE)
         target_link_libraries(${HELENA_MODULE} pthread dl --coverage)
     endif()
 
-    if(HELENA_FLAG_PDB)
-        set_target_properties(${HELENA_MODULE} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_MODULE}.pdb" )
-    endif()
-
     include_directories(${HELENA_PROJECT_DIR}/Helena/Module/${HELENA_MODULE})
-
+    
+    set_target_properties(${HELENA_MODULE} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_MODULE}.pdb")
+    #set_target_properties(${HELENA_MODULE} PROPERTIES OUTPUT_NAME_DEBUG "${HELENA_MODULE}_DBG")
+    #set_target_properties(${HELENA_MODULE} PROPERTIES OUTPUT_NAME_RELEASE "${HELENA_MODULE}_REL")
     set_target_properties(${HELENA_MODULE} PROPERTIES FOLDER "Module"
         ARCHIVE_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}
         RUNTIME_OUTPUT_DIRECTORY ${HELENA_PROJECT_DIR}
