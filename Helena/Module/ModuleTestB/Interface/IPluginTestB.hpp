@@ -10,6 +10,10 @@ namespace Helena
 	{
 	protected:
 		virtual bool Initialize() = 0;
+		virtual bool Config() = 0;
+		virtual bool Execute() = 0;
+		virtual bool Update() = 0;
+		virtual bool Finalize() = 0;
 
 	public:
 		virtual void SayHello() const = 0;

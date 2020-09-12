@@ -1,13 +1,14 @@
 #include <Include/PluginTestA.hpp>		// Including current plugin header
-#include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use m_pModuleManager or you need app name or directories)
 
-#include <Module/ModuleTestB/Interface/IPluginTestB.hpp>
-#include <Module/ModuleLog/Interface/IPluginLog.hpp>
+#include <Module/ModuleTestB/Interface/IPluginTestB.hpp>	// Including other module plugin interface
+#include <Module/ModuleLog/Interface/IPluginLog.hpp>		// Including other module plugin interface
+
+#include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use GetModuleManager() or you need app name or directories)
 
 namespace Helena
 {
 	bool PluginTestA::Initialize() {
-		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestA) << ", Serivce: " << this->m_pModuleManager->GetServiceName() << std::endl;
+		LOG_INFO("Initialize call from {}", HF_CLASSNAME(PluginTestA));
 
 		// Good example: GetPlugin takes an abstract class of Plugin
 		// About GetPlugin: This method supports caching pointers inside 
@@ -21,30 +22,50 @@ namespace Helena
 		// to the object that was found earlier.
 		// This implementation will allow developers to maintain 
 		// a clean interface inside plugin classes without losing performance. 
-		const auto pPluginTestA1 = this->m_pModuleManager->GetPlugin<IPluginTestA>();	// First call GetPlugin for this type use map.find
-		const auto pPluginTestA2 = this->m_pModuleManager->GetPlugin<IPluginTestA>();	// Second call GetPlugin for this type use cached pointer
+		const auto pPluginTestA1 = this->GetModuleManager()->GetPlugin<IPluginTestA>();	// First call GetPlugin for this type use map.find
+		const auto pPluginTestA2 = this->GetModuleManager()->GetPlugin<IPluginTestA>();	// Second call GetPlugin for this type use cached pointer
 
 		// Bad example: GetPlugin only accepts an abstract class of Plugin
-		const auto pPluginTestA3 = this->m_pModuleManager->GetPlugin<PluginTestA>();	// Correct: IPluginTestA
+		// GetPlugin will return nullptr, and the framework detects this and exits with an error ID.
+		const auto pPluginTestA3 = this->GetModuleManager()->GetPlugin<PluginTestA>();	// Correct: IPluginTestA
 
 		// Get third-module plugin instance and call method
-		if(const auto pPluginTestB = this->m_pModuleManager->GetPlugin<IPluginTestB>(); pPluginTestB) {
+		if(const auto pPluginTestB = this->GetModuleManager()->GetPlugin<IPluginTestB>(); pPluginTestB) {
 			pPluginTestB->SayHello();
 		}
 
-		// Not work, crashed in , member "filename" randomly
-		LOG_TRACE("Hello trace from #1 {}", HF_CLASSNAME(PluginTestA));
-		LOG_DEBUG("Hello trace from #2 {}", HF_CLASSNAME(PluginTestA));
-		LOG_INFO("Hello trace from #3 {}", HF_CLASSNAME(PluginTestA));
-		LOG_WARN("Hello trace from #4 {}", HF_CLASSNAME(PluginTestA));
-		LOG_ERROR("Hello trace from #5 {}", HF_CLASSNAME(PluginTestA));
-		LOG_CRITICAL("Hello trace from #6 {}", HF_CLASSNAME(PluginTestA));
+		// Log testing, this macros use pointer m_pModuleManager->GetPlugin<IPluginLog>
+		LOG_TRACE("Logger test from {}", HF_CLASSNAME(PluginTestA));
+		LOG_DEBUG("Logger test from {}", HF_CLASSNAME(PluginTestA));
+		LOG_INFO("Logger test from {}",	HF_CLASSNAME(PluginTestA));
+		LOG_WARN("Logger test from {}", HF_CLASSNAME(PluginTestA));
+		LOG_ERROR("Logger test from {}", HF_CLASSNAME(PluginTestA));
+		LOG_CRITICAL("Logger test from {}", HF_CLASSNAME(PluginTestA));
+
 		return true;
 	}
 
 	bool PluginTestA::Config() {
-		std::cout << "[Info ] Config: " << HF_CLASSNAME(PluginTestA) << ", Path: " << this->m_pModuleManager->GetDirectories()->GetConfigPath() << std::endl;
+		LOG_INFO("Config call from {}", HF_CLASSNAME(PluginTestA));
 		return true;
 	}
 
+	bool PluginTestA::Execute() {
+		LOG_INFO("Execute call from {}", HF_CLASSNAME(PluginTestA));
+		return true;
+	}
+
+	bool PluginTestA::Update() {
+		static auto eventTime = std::chrono::system_clock::now() + std::chrono::seconds(5);
+		if(const auto curTime = std::chrono::system_clock::now(); curTime > eventTime) {
+			eventTime = curTime + std::chrono::seconds(5);
+			LOG_INFO("Update call from {}", HF_CLASSNAME(PluginTestA));
+		}
+		return true;
+	}
+
+	bool PluginTestA::Finalize() {
+		LOG_INFO("Finalize call from {}", HF_CLASSNAME(PluginTestA));
+		return true;
+	}
 }

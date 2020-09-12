@@ -25,10 +25,7 @@ namespace Helena
                 // It may sound confusing, but it's actually not difficult.
                 // The CreatePlugin method accepts arguments that can be passed to 
                 // the constructor of the PluginTestA class.
-                // In this example, we want to store a pointer to the pModuleManager to 
-                // manipulate it inside the plugin class
-                pModuleManager->CreatePlugin<IPluginTestA, PluginTestA>(pModuleManager);
-
+                pModuleManager->CreatePlugin<IPluginTestA, PluginTestA>();
             } break;
 
             case EModuleState::Free:

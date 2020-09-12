@@ -5,20 +5,24 @@
 
 namespace Helena
 {
-	class ModuleManager;
 	class PluginTestB : public IPluginTestB
 	{
 	protected:
 		bool Initialize() override;
+		bool Config() override;
+		bool Execute() override;
+		bool Update() override;
+		bool Finalize() override;
 
 	public:
-		PluginTestB(ModuleManager* pModuleManager) : m_pModuleManager(pModuleManager) {}
+		PluginTestB() = default;
+		~PluginTestB() = default;
 
 	public:
 		void SayHello() const override;
 
 	private:
-		ModuleManager* m_pModuleManager;
+
 	};
 }
 

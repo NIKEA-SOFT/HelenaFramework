@@ -7,16 +7,13 @@ namespace Helena
     {
         switch(state)
         {
-        case EModuleState::Init:
-        {
-            pModuleManager->CreatePlugin<IPluginTestB, PluginTestB>(pModuleManager);
+            case EModuleState::Init: {
+                pModuleManager->CreatePlugin<IPluginTestB, PluginTestB>();
+            } break;
 
-        } break;
-
-        case EModuleState::Free:
-        {
-            pModuleManager->RemovePlugin<IPluginTestB>();
-        } break;
+            case EModuleState::Free: {
+                pModuleManager->RemovePlugin<IPluginTestB>();
+            } break;
         }
     }
 }

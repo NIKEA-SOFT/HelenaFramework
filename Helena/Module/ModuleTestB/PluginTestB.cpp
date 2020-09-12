@@ -1,16 +1,41 @@
 #include <Include/PluginTestB.hpp>
-#include <Common/ModuleManager.hpp>
 
-#include <iostream>
+#include <Module/ModuleLog/Interface/IPluginLog.hpp>
+
+#include <Common/ModuleManager.hpp>
 
 namespace Helena
 {
 	bool PluginTestB::Initialize() {
-		std::cout << "[Info ] Initialize " << HF_CLASSNAME(PluginTestB) << ", Serivce: " << this->m_pModuleManager->GetServiceName() << std::endl;
+		LOG_INFO("Initialize call from {}", HF_CLASSNAME(PluginTestB));
+		return true;
+	}
+
+	bool PluginTestB::Config() {
+		LOG_INFO("Config call from {}", HF_CLASSNAME(PluginTestB));
+		return true;
+	}
+
+	bool PluginTestB::Execute() {
+		LOG_INFO("Execute call from {}", HF_CLASSNAME(PluginTestB));
+		return true;
+	}
+
+	bool PluginTestB::Update() {
+		static auto eventTime = std::chrono::system_clock::now() + std::chrono::seconds(5);
+		if(const auto curTime = std::chrono::system_clock::now(); curTime > eventTime) {
+			eventTime = curTime + std::chrono::seconds(5);
+			LOG_INFO("Update call from {}", HF_CLASSNAME(PluginTestB));
+		}
+		return true;
+	}
+
+	bool PluginTestB::Finalize() {
+		LOG_INFO("Finalize call from {}", HF_CLASSNAME(PluginTestB));
 		return true;
 	}
 
 	void PluginTestB::SayHello() const {
-		std::cout << "[Info ] Hello from " << HF_CLASSNAME(PluginTestB) << std::endl;
+		LOG_INFO("Hello from {}", HF_CLASSNAME(PluginTestB));
 	}
 }
