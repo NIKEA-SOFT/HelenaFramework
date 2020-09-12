@@ -8,6 +8,8 @@
 
 #include "Platform.hpp"
 
+#define HF_FILE_LINE		Util::GetFileName(__FILE__), __LINE__
+
 namespace Helena
 {
 	namespace Internal {
