@@ -26,7 +26,7 @@ namespace Helena
 
     class ModuleManager final 
     {
-        friend void HelenaFramework(std::string&, std::string&, std::string&, std::string&, std::vector<std::string>&);
+        friend void HelenaFramework(std::string&, std::string&&, std::string&&, std::string&&, std::vector<std::string>&);
 
         // Storage directories
         class Directories final 
@@ -182,11 +182,11 @@ namespace Helena
             auto& pPlugin = PluginPtr<Base>::m_pPlugin;
             if(!pPlugin) {
                 const auto pluginName = HF_CLASSNAME_RT(Base);
-                const auto it = m_Plugins.find(pluginName);
-                it != m_Plugins.end()
-                    ? pPlugin = static_cast<Base*>(it->second)
-                    : Shutdown(Util::GetFileName(__FILE__), __LINE__, 
-                        fmt::format("Plugin: {} not found!", pluginName));
+                if(const auto it = m_Plugins.find(pluginName); it != m_Plugins.end()) {
+                    pPlugin = static_cast<Base*>(it->second);
+                } else {
+                    Shutdown(HF_FILE_LINE, fmt::format("Plugin: {} not found!", pluginName));
+                }
             }
             return pPlugin;
         }
@@ -340,7 +340,7 @@ namespace Helena
     };
 
     // HelenaFramework Main
-    __forceinline void HelenaFramework(std::string& serviceName, std::string& configPath, std::string& modulePath, std::string& resourcePath, std::vector<std::string>& moduleNames)
+    __forceinline void HelenaFramework(std::string& serviceName, std::string&& configPath, std::string&& modulePath, std::string&& resourcePath, std::vector<std::string>& moduleNames)
     {
         if(configPath.back() != HF_SEPARATOR) {
             configPath += HF_SEPARATOR;
