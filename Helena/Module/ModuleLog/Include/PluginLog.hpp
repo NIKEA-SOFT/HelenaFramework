@@ -5,17 +5,13 @@
 
 namespace Helena
 {
-	class ModuleManager;
 	class PluginLog : public IPluginLog 
 	{
 	protected:
-		bool Initialize() override;
+		bool Finalize() override;
 
 	public:
-		PluginLog(ModuleManager* pModuleManager) 
-		: m_pModuleManager(pModuleManager)
-		, m_bAsync(false) {}
-		~PluginLog();
+		PluginLog() = default;
 
 	private:
 		std::shared_ptr<spdlog::logger> GetLogger() override;
@@ -29,8 +25,6 @@ namespace Helena
 	private:
 		std::shared_ptr<spdlog::logger> m_pLogger;
 		std::shared_ptr<spdlog::details::thread_pool> m_pThreadPool;
-		ModuleManager* m_pModuleManager;
-		bool m_bAsync;
 	};
 }
 

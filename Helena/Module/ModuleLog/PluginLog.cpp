@@ -7,9 +7,9 @@
 #include <spdlog/async.h>
 #include <spdlog/sinks/daily_file_sink.h>
 
-#ifdef HF_PLATFORM_WIN
+#if HF_PLATFORM == HF_PLATFORM_WIN
 	#include <spdlog/sinks/wincolor_sink.h>
-#elif HF_PLATFORM_LINUX
+#elif HF_PLATFORM == HF_PLATFORM_LINUX
 	#include <spdlog/sinks/ansicolor_sink.h>
 #endif
 
@@ -18,24 +18,13 @@
 
 namespace Helena
 {
-	bool PluginLog::Initialize()
+	bool PluginLog::Finalize()
 	{
-		// It's work stable, but crashed if in other modules call LOG_... to in same time
-		LOG_TRACE("Hello trace from #1 {}", HF_CLASSNAME(PluginLog));
-		LOG_DEBUG("Hello trace from #2 {}", HF_CLASSNAME(PluginLog));
-		LOG_INFO("Hello trace from #3 {}", HF_CLASSNAME(PluginLog));
-		LOG_WARN("Hello trace from #4 {}", HF_CLASSNAME(PluginLog));
-		LOG_ERROR("Hello trace from #5 {}", HF_CLASSNAME(PluginLog));
-		LOG_CRITICAL("Hello trace from #6 {}", HF_CLASSNAME(PluginLog));
-
+		m_pLogger.reset();
+		m_pThreadPool.reset();
+		spdlog::drop_all();
+		spdlog::shutdown();
 		return true;
-	}
-
-	PluginLog::~PluginLog() {
-		if(m_bAsync) {
-			spdlog::drop_all();
-			spdlog::shutdown();
-		}
 	}
 
 	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {
@@ -47,9 +36,8 @@ namespace Helena
 	/* @brief Parse service from Log config */
 	void PluginLog::Configure()
 	{
-		const char* serviceName = m_pModuleManager->GetServiceName().c_str();
-		const auto config = m_pModuleManager->GetDirectories()->GetConfigPath() + 
-			Meta::ConfigLogger::ConfigFile();
+		const char* serviceName = GetModuleManager()->GetServiceName().c_str();
+		const auto config = GetModuleManager()->GetDirectories()->GetConfigPath() + Meta::ConfigLogger::ConfigFile();
 
 		// load file
 		pugi::xml_document xmlDoc;
@@ -61,8 +49,7 @@ namespace Helena
 
 		// find node
 		const auto node = xmlDoc.find_child_by_attribute(Meta::ConfigLogger::Service(), 
-			Meta::ConfigLogger::Name(), 
-			m_pModuleManager->GetServiceName().c_str());
+			Meta::ConfigLogger::Name(), serviceName);
 
 		if(node.empty()) {
 			std::cerr << "[Info ] Parse file: " << config << ", Node: " << Meta::ConfigService::Service()
@@ -138,7 +125,9 @@ namespace Helena
 
 	/**
 	* @brief	Get full path with log file naem
-	* @param	path	Path to out logs folder
+	* 
+	* @param	path	-> Path to out logs folder
+	* 
 	* @return	@code{.cpp} std::string @endcode
 	*/
 	std::string PluginLog::GetFileLog(const std::string_view path) 
@@ -157,7 +146,7 @@ namespace Helena
 					logFile += HF_SEPARATOR;
 				}
 
-				logFile += m_pModuleManager->GetServiceName();
+				logFile += GetModuleManager()->GetServiceName();
 				logFile += HF_SEPARATOR;
 				logFile += "log.txt";
 			}
@@ -168,47 +157,46 @@ namespace Helena
 
 	/**
 	* @brief	Setup single-threaded logger
-	* @param	Path	Path for storing log
+	* 
+	* @param	Path	-> Path for storing log
 	*/
 	void PluginLog::SetupLoggerST(const std::string_view path)
 	{
 		std::vector<spdlog::sink_ptr> sinks;
-
 		if(const auto logFile = GetFileLog(path); !logFile.empty()) {
 			auto dailySink = std::make_shared<spdlog::sinks::daily_file_sink_st>(logFile, 23, 59);
 			sinks.emplace_back(std::move(dailySink));
 		}
 
-	#ifdef HF_PLATFORM_WIN
+	#if HF_PLATFORM == HF_PLATFORM_WIN
 		auto consoleSink = std::make_shared<spdlog::sinks::wincolor_stdout_sink_st>();
-	#elif HF_PLATFORM_LINUX
+	#elif HF_PLATFORM == HF_PLATFORM_LINUX
 		auto consoleSink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_st>();
 	#else 
 		#error Unknown platform
 	#endif
 		sinks.emplace_back(std::move(consoleSink));
-		m_pLogger = std::make_shared<spdlog::logger>(m_pModuleManager->GetServiceName(), sinks.begin(), sinks.end());
+		m_pLogger = std::make_shared<spdlog::logger>(GetModuleManager()->GetServiceName(), sinks.begin(), sinks.end());
 	}
 
 	/***
 	* @brief	Setup multi-threaded logger
-	* @param	path	Path for storing logs
-	* @param	buffer	Msg buffer size per thread
-	* @param	threads	Count of threads
+	* 
+	* @param	path	-> Path for storing logs
+	* @param	buffer	-> Msg buffer size per thread
+	* @param	threads	-> Count of threads
 	*/
 	void PluginLog::SetupLoggerMT(const std::string_view path, const std::size_t buffer, const std::size_t threads)
 	{
-		m_bAsync = true;
 		std::vector<spdlog::sink_ptr> sinks;
-
 		if(const auto logFile = GetFileLog(path); !logFile.empty()) {
 			auto dailySink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 23, 59);
 			sinks.emplace_back(std::move(dailySink));
 		}
 
-	#ifdef HF_PLATFORM_WIN
+	#if HF_PLATFORM == HF_PLATFORM_WIN
 		auto consoleSink = std::make_shared<spdlog::sinks::wincolor_stdout_sink_mt>();
-	#elif HF_PLATFORM_LINUX
+	#elif HF_PLATFORM == HF_PLATFORM_LINUX
 		auto consoleSink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
 	#else 
 		#error Unknown platform
@@ -216,7 +204,7 @@ namespace Helena
 
 		m_pThreadPool = std::make_shared<spdlog::details::thread_pool>(buffer, threads);
 		sinks.emplace_back(std::move(consoleSink));
-		m_pLogger = std::make_shared<spdlog::async_logger>(m_pModuleManager->GetServiceName(), 
+		m_pLogger = std::make_shared<spdlog::async_logger>(GetModuleManager()->GetServiceName(),
 			sinks.begin(), sinks.end(), m_pThreadPool);
 	}
 }

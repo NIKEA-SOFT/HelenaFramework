@@ -8,14 +8,11 @@ namespace Helena
     {
         switch(state)
         {
-            case EModuleState::Init : 
-            {
-                pModuleManager->CreatePlugin<IPluginLog, PluginLog>(pModuleManager);
-                
+            case EModuleState::Init : {
+                pModuleManager->CreatePlugin<IPluginLog, PluginLog>();
             } break;
 
-            case EModuleState::Free : 
-            {
+            case EModuleState::Free : {
                 pModuleManager->RemovePlugin<IPluginLog>();
             } break;
         }
