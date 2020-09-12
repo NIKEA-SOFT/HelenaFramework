@@ -41,7 +41,7 @@
     #define HF_RELEASE
 #endif
 
-#ifdef HF_PLATFORM_WIN      // Windows
+#if HF_PLATFORM == HF_PLATFORM_WIN
     #pragma warning(disable:4091)
     #pragma warning(disable:4251)
     
@@ -91,7 +91,7 @@
     #endif // HF_DEBUG
 
 
-#elif HF_PLATFORM_LINUX     // Linux
+#elif HF_PLATFORM == HF_PLATFORM_LINUX
     // Including
     #include <signal.h>
     #include <dlfcn.h>
