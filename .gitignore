@@ -47,11 +47,12 @@
 
 # Ignore Build CMake dist
 /build/*
+/Out/*
 
 # Ignore Bin Debug/Release
 /Bin/Bin/*
 /Bin/CMakeFiles/*
 
 # Ignore Depends
-/Dependencies/*
-!/Dependencies/README.md
+#/Dependencies/*
+#!/Dependencies/README.md
