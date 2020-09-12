@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     }
 
     // Parse service xml path from arg
-    const std::filesystem::path service{ argv[1] };
+    const std::filesystem::path service{argv[1]};
     if(std::error_code error; !std::filesystem::is_regular_file(service, error) || !std::filesystem::exists(service, error)) {
         std::cerr << "[Error] Service file: " << service << " not found!" << std::endl;
         return 0;
@@ -65,13 +65,13 @@ int main(int argc, char** argv)
     modulePath = std::filesystem::absolute(modulePath, error);
     resourcePath = std::filesystem::absolute(resourcePath, error);
     auto moduleNames = Util::Split<std::string>(modules);
-    auto appName = service.stem().string();
+    auto serviceName = service.stem().string();
 
     std::cout
         << " ______________________________________" << std::endl
         << "| \t    Helena Framework" << std::endl
         << "|--------------------------------------" << std::endl
-        << "| Application: \t\"" << appName << "\"" << std::endl
+        << "| Service: \t\"" << serviceName << "\"" << std::endl
         << "| PathService: \t" << service << std::endl
         << "| PathConfig: \t" << configPath << std::endl
         << "| PathModule: \t" << modulePath << std::endl
@@ -88,7 +88,6 @@ int main(int argc, char** argv)
             << "Node: " << Meta::ConfigService::Service() << std::endl
             << "Attribute: " << Meta::ConfigService::PathConfigs() << std::endl
             << "Path: \"" << configPath << "\" not exist!" << std::endl;
-        return 0;
     }
     else if(!std::filesystem::exists(modulePath, error)) {
         std::cerr
@@ -97,7 +96,6 @@ int main(int argc, char** argv)
             << "Node: " << Meta::ConfigService::Service() << std::endl
             << "Attribute: " << Meta::ConfigService::PathModules() << std::endl
             << "Path: \"" << modulePath << "\" not exist!" << std::endl;
-        return 0;
     }
     else if(!std::filesystem::exists(resourcePath, error)) {
         std::cerr
@@ -106,17 +104,18 @@ int main(int argc, char** argv)
             << "Node: " << Meta::ConfigService::Service() << std::endl
             << "Attribute: " << Meta::ConfigService::PathResources() << std::endl
             << "Path: \"" << resourcePath << "\" not exist!" << std::endl;
-        return 0;
     }
     else if(moduleNames.empty()) {
         std::cerr
             << "[Error] Parse file: " << service << std::endl
             << "Node: " << Meta::ConfigService::Service() << std::endl
             << "Attribute: " << Meta::ConfigService::Modules() << " is empty!" << std::endl;
-        return 0;
+    } else {
+        HelenaFramework(serviceName, configPath.string(), modulePath.string(), resourcePath.string(), moduleNames);
     }
 
-    HelenaFramework(service.stem().string(), configPath.string(), modulePath.string(), resourcePath.string(), std::move(moduleNames));
+#if HF_PLATFORM == HF_PLATFORM_WIN
     system("pause");
+#endif
     return 0;
 }
