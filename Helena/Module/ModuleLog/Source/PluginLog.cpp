@@ -48,46 +48,31 @@ namespace Helena
 		}
 
 		// find node
-		const auto node = xmlDoc.find_child_by_attribute(Meta::ConfigLogger::Service(), 
-			Meta::ConfigLogger::Name(), serviceName);
-
+		const auto node = xmlDoc.find_child_by_attribute(Meta::ConfigLogger::Service(), Meta::ConfigLogger::Name(), serviceName);
 		if(node.empty()) {
 			std::cerr << "[Info ] Parse file: " << config << ", Node: " << Meta::ConfigService::Service()
 				<< ", Service: " << serviceName << " not found, default logger used." << std::endl;
 			return;
 		}
 
-		// get attributes
-		const auto level = spdlog::level::from_str(node.attribute(Meta::ConfigLogger::Level())
-			.as_string("trace"));
-
-		if(level == spdlog::level::level_enum::off) {
-			m_pLogger->set_level(level);
-			return;
-		}
-
-		const auto format = node.attribute(Meta::ConfigLogger::Format())
-			.as_string("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
-
-		const auto buffer = node.attribute(Meta::ConfigLogger::Buffer())
-			.as_ullong();
-
-		const auto threads = node.attribute(Meta::ConfigLogger::Threads())
-			.as_ullong();
-
-		const auto flushLevel = 
-			spdlog::level::from_str(node.attribute(Meta::ConfigLogger::FlushLevel())
-			.as_string("off"));
 
 		/*
 		const auto flushTime = node.attribute(Meta::ConfigLogger::FlushTime())
 			.as_ullong(0); */
 
-		std::string_view path = node.attribute(Meta::ConfigLogger::Path())
-			.as_string();
-
 		try
 		{
+		#ifdef HF_RELEASE
+			const auto level = spdlog::level::from_str(node.attribute(Meta::ConfigLogger::Level()).as_string("trace"));
+			if(level == spdlog::level::level_enum::off) {
+				m_pLogger->set_level(level);
+				return;
+			}
+		#endif
+
+			const auto buffer = node.attribute(Meta::ConfigLogger::Buffer()).as_ullong();
+			const auto threads = node.attribute(Meta::ConfigLogger::Threads()).as_ullong();
+			std::string_view path = node.attribute(Meta::ConfigLogger::Path()).as_string();
 			if(buffer && threads) {
 				SetupLoggerMT(path, buffer, threads);
 			} else {
@@ -95,11 +80,17 @@ namespace Helena
 			}
 	
 		#ifdef HF_RELEASE
+			const auto format = node.attribute(Meta::ConfigLogger::Format())
+				.as_string("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
+
 			m_pLogger->set_level(level);
 			m_pLogger->set_pattern(format);
 
 			if(!path.empty())
 			{
+				const auto flushLevel = spdlog::level::from_str(node.attribute(Meta::ConfigLogger::FlushLevel())
+					.as_string("off"));
+
 				m_pLogger->flush_on(flushLevel);
 				/*
 				if(flushTime && flushLevel != spdlog::level::level_enum::trace) {
