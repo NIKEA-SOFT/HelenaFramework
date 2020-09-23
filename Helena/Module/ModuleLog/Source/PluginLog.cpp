@@ -1,8 +1,7 @@
 #include <Include/PluginLog.hpp>
 
-#include <Common/ModuleManager.hpp>
-#include <Common/Xml.hpp>
-#include <Common/Meta.hpp>
+#include <filesystem>
+#include <mutex>
 
 #include <spdlog/async.h>
 #include <spdlog/sinks/daily_file_sink.h>
@@ -13,18 +12,17 @@
 	#include <spdlog/sinks/ansicolor_sink.h>
 #endif
 
-#include <filesystem>
-#include <mutex>
+#include <Common/ModuleManager.hpp>
+#include <Common/Xml.hpp>
+#include <Common/Meta.hpp>
 
 namespace Helena
 {
-	bool PluginLog::Finalize()
-	{
+	PluginLog::~PluginLog() {
 		m_pLogger.reset();
 		m_pThreadPool.reset();
 		spdlog::drop_all();
 		spdlog::shutdown();
-		return true;
 	}
 
 	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {
@@ -41,17 +39,15 @@ namespace Helena
 
 		// load file
 		pugi::xml_document xmlDoc;
-		if(!xmlDoc.load_file(config.c_str(), 
-			pugi::parse_default | pugi::parse_comments)) {
-			std::cerr << "[Info ] Parse file: " << config << " failed, default logger used!" << std::endl;
+		if(!xmlDoc.load_file(config.c_str(), pugi::parse_default | pugi::parse_comments)) {
+			UTIL_CONSOLE_INFO("Parse file: {} failed, logger started with default!", config);
 			return;
 		}
 
 		// find node
 		const auto node = xmlDoc.find_child_by_attribute(Meta::ConfigLogger::Service(), Meta::ConfigLogger::Name(), serviceName);
 		if(node.empty()) {
-			std::cerr << "[Info ] Parse file: " << config << ", Node: " << Meta::ConfigService::Service()
-				<< ", Service: " << serviceName << " not found, default logger used." << std::endl;
+			UTIL_CONSOLE_INFO("Parse file: {}, node: {}, service: {} not found, logger started with default!", config, Meta::ConfigService::Service(), serviceName);
 			return;
 		}
 
@@ -72,7 +68,7 @@ namespace Helena
 
 			const auto buffer = node.attribute(Meta::ConfigLogger::Buffer()).as_ullong();
 			const auto threads = node.attribute(Meta::ConfigLogger::Threads()).as_ullong();
-			std::string_view path = node.attribute(Meta::ConfigLogger::Path()).as_string();
+			const std::string_view path = node.attribute(Meta::ConfigLogger::Path()).as_string();
 			if(buffer && threads) {
 				SetupLoggerMT(path, buffer, threads);
 			} else {
@@ -109,31 +105,27 @@ namespace Helena
 
 			spdlog::register_logger(m_pLogger);
 		} catch(const spdlog::spdlog_ex& err) {
-			std::cerr << "[Error] Config: " << config 
-				<< " catch exception in spdlog, error: " << err.what() << std::endl;
+			UTIL_CONSOLE_ERROR("Config: {} catch exception in spdlog, error: {}", config, err.what());
 		}
 	}
 
 	/**
-	* @brief	Get full path with log file naem
+	* @brief	Get full path with log file name
 	* 
-	* @param	path	-> Path to out logs folder
+	* @param	path	Path to out logs folder
 	* 
 	* @return	@code{.cpp} std::string @endcode
 	*/
 	std::string PluginLog::GetFileLog(const std::string_view path) 
 	{
 		std::error_code error;
-		const auto logPath = std::filesystem::absolute(path, error);
-		std::string logFile;
-
+		std::string logFile = std::filesystem::absolute(path, error).string();
 		if(!path.empty()) 
 		{
-			if(!std::filesystem::exists(logPath, error) && !std::filesystem::create_directory(logPath, error)) {
-				std::cerr << "[Error] Path: " << logPath 
-					<< " create folder failed, default logger used!" << std::endl;
+			if(!std::filesystem::exists(logFile, error) && !std::filesystem::create_directory(logFile, error)) {
+				UTIL_CONSOLE_ERROR("Path: {} create folder failed, logger started with default!", logFile);
 			} else {
-				if(logFile = logPath.string(); logFile.back() != HF_SEPARATOR) {
+				if(logFile.back() != HF_SEPARATOR) {
 					logFile += HF_SEPARATOR;
 				}
 
@@ -149,7 +141,7 @@ namespace Helena
 	/**
 	* @brief	Setup single-threaded logger
 	* 
-	* @param	Path	-> Path for storing log
+	* @param	Path	Path for storing log
 	*/
 	void PluginLog::SetupLoggerST(const std::string_view path)
 	{
@@ -173,9 +165,9 @@ namespace Helena
 	/***
 	* @brief	Setup multi-threaded logger
 	* 
-	* @param	path	-> Path for storing logs
-	* @param	buffer	-> Msg buffer size per thread
-	* @param	threads	-> Count of threads
+	* @param	path	Path for storing logs
+	* @param	buffer	Msg buffer size per thread
+	* @param	threads	Count of threads
 	*/
 	void PluginLog::SetupLoggerMT(const std::string_view path, const std::size_t buffer, const std::size_t threads)
 	{

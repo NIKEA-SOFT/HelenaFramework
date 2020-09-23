@@ -8,10 +8,10 @@ namespace Helena
 	class PluginLog : public IPluginLog 
 	{
 	protected:
-		bool Finalize() override;
 
 	public:
 		PluginLog() = default;
+		~PluginLog();
 
 	private:
 		std::shared_ptr<spdlog::logger> GetLogger() override;

@@ -51,12 +51,12 @@ namespace Helena
 		// Call Shutdown with error log.
 		// Here used Format.hpp and Util.hpp, both of these files are 
 		// already included in ModuleManager.hpp.
-		// About "HF_FILE_LINE", this macros from Util.hpp.
+		// About "UTIL_FILE_LINE", this macros from Util.hpp.
 		// it allows you to simplify the passing of arguments, 
 		// please look inside the Shutdown overloads, 
 		// as well as the FILE_LINE macro to understand how it works.
 		// Uncomment code for testing
-		/*this->GetModuleManager()->Shutdown(HF_FILE_LINE,
+		/*this->GetModuleManager()->Shutdown(UTIL_FILE_LINE,
 			fmt::format("My test error from {}", HF_CLASSNAME(PluginTestA)));*/
 
 		return true;
@@ -75,7 +75,7 @@ namespace Helena
 	bool PluginTestA::Update() {
 		static auto eventTime = std::chrono::system_clock::now() + std::chrono::seconds(5);
 		if(const auto curTime = std::chrono::system_clock::now(); curTime > eventTime) {
-			eventTime = curTime + std::chrono::seconds(5);
+			eventTime = curTime + std::chrono::milliseconds(1);
 			LOG_INFO("Update call from {}", HF_CLASSNAME(PluginTestA));
 		}
 		return true;
