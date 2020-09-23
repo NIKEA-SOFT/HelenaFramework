@@ -15,11 +15,12 @@
 |	If you specify Level = "error", then support for level logs:
 |	"error", "critical"
 |
-|	In DEBUG version of Module Level = "trace" and FlushLevel = "trace", FlushTime = "0"
+|	In DEBUG version of Module Level = "trace" and FlushLevel = "trace"
 |	
 |	WARNING: 
-|	[Threads] We recommend using 1 stream, this is enough, 
-|	much more important is the size of the Buffer. The larger the buffer, the better.
+|	[Threads] We recommend using 1 thread, this is enough, 
+|	much more important is the size of the Buffer. 
+|	The larger the buffer, the better.
 ========================================================================== -->
 
 <Service
