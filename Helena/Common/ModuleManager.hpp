@@ -223,9 +223,8 @@ namespace Helena
             return TRUE;
         }
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
-        static void SigHandler(int)
-        {
-
+        static void SigHandler(int) {
+            ModuleManager::m_pModuleManager.load()->Shutdown();
         }
     #endif
 
