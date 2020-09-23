@@ -291,7 +291,6 @@ namespace Helena
                     if(m_bFinish || !plugin.second->Update()) {
                         return;
                     }
-                    UTIL_CONSOLE_WARN("Update test");
                 }
             }
         }
