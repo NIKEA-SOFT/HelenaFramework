@@ -2,13 +2,19 @@
 #define COMMON_UTIL_HPP
 
 #include <vector>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <algorithm>
 
+#include <spdlog/details/os.h>
 #include "Platform.hpp"
+#include "Format.hpp"
 
-#define HF_FILE_LINE		Util::GetFileName(__FILE__), __LINE__
+#define UTIL_FILE_LINE						Util::GetFileName(__FILE__), __LINE__
+#define UTIL_CONSOLE_INFO(format, ...)		Util::Console(UTIL_FILE_LINE, Util::ELevelLog::Info, format, ##__VA_ARGS__)
+#define UTIL_CONSOLE_WARN(format, ...)		Util::Console(UTIL_FILE_LINE, Util::ELevelLog::Warn, format, ##__VA_ARGS__)
+#define UTIL_CONSOLE_ERROR(format, ...)		Util::Console(UTIL_FILE_LINE, Util::ELevelLog::Error, format, ##__VA_ARGS__)
 
 namespace Helena
 {
@@ -33,31 +39,55 @@ namespace Helena
 	class Util final
 	{
 	public:
+		enum class ELevelLog : uint8_t {
+			Info,
+			Warn,
+			Error
+		};
+
+		template <typename Format, typename... Args, typename Char = fmt::char_t<Format>>
+		static void Console(const std::string_view filename, const std::size_t line, const ELevelLog level, const Format& format, Args&&... args)
+		{
+			constexpr const char* logName[] = {"Info ", "Warn ", "Error"};
+			constexpr std::size_t reserveSize = 1024;
+			const auto now = std::chrono::system_clock::now();
+			const auto tm_time = spdlog::details::os::localtime(std::chrono::system_clock::to_time_t(now));
+			char timeBuffer[64]{};
+			std::strftime(timeBuffer, reserveSize, "%Y.%m.%d %H:%M:%S", &tm_time);
+			std::string buffer;
+			buffer.reserve(reserveSize);
+			buffer += fmt::format("[{}][{}:{}][{}] ", timeBuffer, filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
+			buffer += fmt::format(format, args...);
+			buffer += "\n";
+			fmt::print(buffer);
+		}
+
 		/**
 		 * @brief	Split string using delimeter (support trim) 
 		 * 
 		 * @tparam	Type		Type of vector value 
-		 * @param	str			Input string data for split 
-		 * @param	delims		Delimeter (default: ",") 
-		 * @param	trim_space	Remove space from data 
+		 * 
+		 * @param	input		Input string data for split 
+		 * @param	delimeter	Delimeter (default: ",") 
+		 * @param	trim		Remove space from data 
 		 * 
 		 * @details	Split input data using delimiter and return std::vector<Type> 
 		 * @note	Trim remove space char's from start and end position. 
 		 *			Example: " Hello World " "Hello World" 
 		 */
 		template <typename Type, typename = std::enable_if_t<std::is_same_v<Type, std::string> || std::is_same_v<Type, std::string_view>>>
-		[[nodiscard]] static std::vector<Type> Split(std::string_view str, std::string_view delims = ",", bool trim_space = true)
+		[[nodiscard]] static std::vector<Type> Split(std::string_view input, std::string_view delimeters = ",", bool trim = true)
 		{
 			std::vector<Type> v_splitted;
-			for (auto first = str.data(), second = str.data(), last = first + str.size(); second != last && first != last; first = second + 1) 
+			for (auto first = input.data(), second = input.data(), last = first + input.size(); second != last && first != last; first = second + 1)
 			{
-				second = std::find_first_of(first, last, std::cbegin(delims), std::cend(delims));
+				second = std::find_first_of(first, last, std::cbegin(delimeters), std::cend(delimeters));
 				if (first != second) 
 				{
-					if(trim_space) {
+					if(trim) {
 						while(std::isspace(*first) && first != second) { ++first; }
 						if(first == second) { continue;	}
-						uint32_t offset = 1;
+						std::size_t offset = 1;
 						while(std::isspace(*(second - offset)) && first != (second - offset)) { ++offset; }
 						if(first != (second - offset)) v_splitted.emplace_back(first, second - first - (--offset));
 					} else {
@@ -194,11 +224,6 @@ namespace Helena
 		 * @param	right		Bit flag 
 		 *
 		 * @return	Returns false if at least one of the flags is missing. 
-		 *
-		 * @note	This code is identical to the following. 
-		 *			@code{.cpp} 
-		 *			return left == right; 
-		 *			@endcode 
 		 */ 
 		template <typename TypeLeft, typename TypeRight>
 		[[nodiscard]] static bool BitCompare(TypeLeft left, TypeRight right) {
