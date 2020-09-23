@@ -75,7 +75,7 @@ namespace Helena
 	bool PluginTestA::Update() {
 		static auto eventTime = std::chrono::system_clock::now() + std::chrono::seconds(5);
 		if(const auto curTime = std::chrono::system_clock::now(); curTime > eventTime) {
-			eventTime = curTime + std::chrono::milliseconds(1);
+			eventTime = curTime + std::chrono::seconds(5);
 			LOG_INFO("Update call from {}", HF_CLASSNAME(PluginTestA));
 		}
 		return true;
