@@ -52,14 +52,12 @@ namespace Helena
 			constexpr std::size_t reserveSize = 1024;
 			const auto now = std::chrono::system_clock::now();
 			const auto tm_time = spdlog::details::os::localtime(std::chrono::system_clock::to_time_t(now));
-			char timeBuffer[64]{};
-			std::strftime(timeBuffer, reserveSize, "%Y.%m.%d %H:%M:%S", &tm_time);
 			std::string buffer;
+			std::time_t time = std::time(nullptr);
 			buffer.reserve(reserveSize);
-			buffer += fmt::format("[{}][{}:{}][{}] ", timeBuffer, filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
+			buffer += fmt::format("[{:%Y.%m.%d %H:%M:%S}][{}:{}][{}] ", fmt::localtime(time), filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
 			buffer += fmt::format(format, args...);
 			buffer += "\n";
-			//fmt::print(buffer);
 
 			switch(level) 
 			{
