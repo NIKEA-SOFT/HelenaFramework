@@ -14,11 +14,13 @@ int main(int argc, char** argv)
     DWORD dwMode{};
 
     if(!GetConsoleMode(hOutput, &dwMode)) {
+        std::cout << "GetConsoleMode failed!" << std::endl;
         return 0;
     }
 
     dwMode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     if(!SetConsoleMode(hOutput, dwMode)) {
+        std::cout << "SetConsoleMode failed!" << std::endl;
         return 0;
     }
 #endif
