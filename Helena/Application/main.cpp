@@ -9,6 +9,20 @@ using namespace Helena;
 
 int main(int argc, char** argv)
 {
+#if HF_PLATFORM == HF_PLATFORM_WIN
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode{};
+
+    if(!GetConsoleMode(hOutput, &dwMode)) {
+        return 0;
+    }
+
+    dwMode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if(!SetConsoleMode(hOutput, dwMode)) {
+        return 0;
+    }
+#endif
+
     if(argc != 2) {
         UTIL_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
         return 0;
