@@ -59,7 +59,22 @@ namespace Helena
 			buffer += fmt::format("[{}][{}:{}][{}] ", timeBuffer, filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
 			buffer += fmt::format(format, args...);
 			buffer += "\n";
-			fmt::print(buffer);
+			//fmt::print(buffer);
+
+			switch(level) 
+			{
+				case ELevelLog::Info: {
+					fmt::print(fg(fmt::color::white), buffer);
+				} break;
+
+				case ELevelLog::Warn: {
+					fmt::print(fg(fmt::color::yellow), buffer);
+				} break;
+
+				case ELevelLog::Error: {
+					fmt::print(fg(fmt::color::crimson), buffer);
+				} break;
+			}
 		}
 
 		/**
