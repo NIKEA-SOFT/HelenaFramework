@@ -128,6 +128,7 @@ int main(int argc, char** argv)
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
     system("pause");
+    ExitProcess(NULL);
 #endif
     return 0;
 }
