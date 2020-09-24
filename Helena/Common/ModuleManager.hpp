@@ -220,11 +220,17 @@ namespace Helena
     #if HF_PLATFORM == HF_PLATFORM_WIN
         static BOOL WINAPI CtrlHandler(DWORD) {
             ModuleManager::m_pModuleManager.load()->Shutdown();
+            while(ModuleManager::m_pModuleManager) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            }
             return TRUE;
         }
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
         static void SigHandler(int) {
             ModuleManager::m_pModuleManager.load()->Shutdown();
+            while(ModuleManager::m_pModuleManager) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            }
         }
     #endif
 
@@ -323,6 +329,7 @@ namespace Helena
             }
 
             UTIL_CONSOLE_INFO("Finalize ModuleManager");
+            ModuleManager::m_pModuleManager = nullptr;
         }
 
     private:
@@ -354,9 +361,8 @@ namespace Helena
         ModuleManager moduleManager(serviceName, pathConfig, pathModule, pathResource);
 
     #if HF_PLATFORM == HF_PLATFORM_WIN
-        SetConsoleCtrlHandler(ModuleManager::CtrlHandler, TRUE);
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
         SetConsoleTitle(moduleManager.GetServiceName().c_str());
+        SetConsoleCtrlHandler(ModuleManager::CtrlHandler, TRUE);
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
         signal(SIGHUP,  SIG_IGN);
         signal(SIGQUIT, SIG_IGN);
