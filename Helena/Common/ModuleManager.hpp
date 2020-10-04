@@ -5,11 +5,11 @@
 #include <unordered_map>
 #include <memory>
 #include <chrono>
-#include <thread>
-#include <mutex>
 
 #include "IPlugin.hpp"
 #include "Util.hpp"
+
+// todo: add Service struct
 
 namespace Helena
 {
@@ -27,7 +27,7 @@ namespace Helena
         class Directories final
         {
         public:
-            Directories(std::string& configPath, std::string& modulePath, std::string& resourcePath)
+            explicit Directories(std::string& configPath, std::string& modulePath, std::string& resourcePath)
                 : m_ConfigPath(std::move(configPath))
                 , m_ModulePath(std::move(modulePath))
                 , m_ResourcePath(std::move(resourcePath)) {}
@@ -72,8 +72,8 @@ namespace Helena
         {
             // EntryPoint
             using ModuleEP = void (*)(ModuleManager*, EModuleState);
-
-            Module(std::string name)
+            
+            explicit Module(std::string& name)
                 : m_Name(std::move(name))
                 , m_pHandle(nullptr)
                 , m_pMain(nullptr) {}
@@ -85,7 +85,7 @@ namespace Helena
 
         // Cache pointer on Plugin for optimization
         template <typename Type>
-        struct PluginPtr {
+        struct PluginCache {
             inline static Type* m_pPlugin{nullptr};
         };
 
@@ -110,31 +110,6 @@ namespace Helena
         ModuleManager(ModuleManager&&) noexcept = delete;
         ModuleManager& operator=(const ModuleManager&) = delete;
         ModuleManager& operator=(ModuleManager&&) noexcept = delete;
-
-        /**
-        * @brief    Shutdown Framework and unload modules
-        *
-        * @param    filename    Result of Util::GetFileName(__FILE__)
-        * @param    line        Result of __LINE__
-        * @param    msg         Message of error
-        *
-        * @note     Call Shutdown() for stop framework and unload modules without error.
-        *           This function allows you to shutdown the framework correctly.
-        */
-        void Shutdown(const char* const filename = nullptr, const std::size_t line = 0, const std::string& msg = {})
-        {
-            static std::mutex mutex;
-            const std::lock_guard<std::mutex> lock{mutex};
-
-            if(!m_bFinish)
-            {
-                if(filename && line && !msg.empty()) {
-                    m_LastError = fmt::format("[Error] [{}:{}] {}", filename, line, msg);
-                }
-
-                m_bFinish = true;
-            }
-        }
 
         /**
         * @brief    Create instance of plugin into the map
@@ -174,9 +149,8 @@ namespace Helena
         * @warning  All modules must be build on the same compiler
         */
         template <typename Base, typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>>>
-        [[nodiscard]] Base* GetPlugin() noexcept
-        {
-            auto& pPlugin = PluginPtr<Base>::m_pPlugin;
+        [[nodiscard]] Base* GetPlugin() noexcept {
+            auto& pPlugin = PluginCache<Base>::m_pPlugin;
             if(!pPlugin) {
                 const auto pluginName = HF_CLASSNAME_RT(Base);
                 if(const auto it = m_Plugins.find(pluginName); it != m_Plugins.end()) {
@@ -193,9 +167,8 @@ namespace Helena
         *
         * @tparam   Base    Type of abstract class inherited from IPlugin
         */
-        template <typename Base, typename... Args,
-            typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>>>
-            void RemovePlugin() noexcept {
+        template <typename Base, typename... Args, typename = std::enable_if_t<std::is_base_of_v<IPlugin, Base>>>
+        void RemovePlugin() noexcept {
             m_Plugins.erase(HF_CLASSNAME_RT(Base));
         }
 
@@ -216,20 +189,56 @@ namespace Helena
             return m_ServiceName;
         }
 
+        /**
+        * @brief    Shutdown Framework and unload modules
+        *
+        * @param    filename    Result of Util::GetFileName(__FILE__)
+        * @param    line        Result of __LINE__
+        * @param    msg         Message of error
+        *
+        * @note     Call Shutdown() for stop framework and unload modules without error.
+        *           This function allows you to shutdown the framework correctly.
+        */
+        void Shutdown(const char* const filename = nullptr, const std::size_t line = 0, const std::string& msg = {})
+        {
+            static std::mutex mutex;
+            const std::lock_guard<std::mutex> lock{mutex};
+
+            if(!m_bFinish) {
+                if(filename && line && !msg.empty()) {
+                    m_LastError = fmt::format("[Error] [{}:{}] {}", filename, line, msg);
+                }
+                m_bFinish = true;
+            }
+        }
+
     private:
     #if HF_PLATFORM == HF_PLATFORM_WIN
         static BOOL WINAPI CtrlHandler(DWORD) {
-            ModuleManager::m_pModuleManager.load()->Shutdown();
-            while(ModuleManager::m_pModuleManager) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            static std::mutex mutex;
+            const std::lock_guard<std::mutex> lock{mutex};
+            if(const auto& pModuleManager = ModuleManager::m_pModuleManager.load(); pModuleManager) {
+                pModuleManager->Shutdown();
+                while(ModuleManager::m_pModuleManager) {
+                    Util::Sleep(1000);
+                }
             }
             return TRUE;
         }
+
+        static int SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException) {
+            // todo
+            return EXCEPTION_EXECUTE_HANDLER;
+        }
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
         static void SigHandler(int) {
-            ModuleManager::m_pModuleManager.load()->Shutdown();
-            while(ModuleManager::m_pModuleManager) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            static std::mutex mutex;
+            const std::lock_guard<std::mutex> lock{mutex};
+            if(const auto& pModuleManager = ModuleManager::m_pModuleManager.load(); pModuleManager) {
+                pModuleManager->Shutdown();
+                while(ModuleManager::m_pModuleManager) {
+                    Util::Sleep(1000);
+                }
             }
         }
     #endif
@@ -246,7 +255,7 @@ namespace Helena
             m_Modules.reserve(moduleNames.size());
             for(auto& name : moduleNames)
             {
-                auto module = std::make_unique<Module>(std::move(name));
+                auto module = std::make_unique<Module>(name);
 
             #if HF_PLATFORM == HF_PLATFORM_WIN
                 module->m_Name.append(".dll");
@@ -291,7 +300,7 @@ namespace Helena
             }
 
             // IPlugin->Update virtual call for Plugins
-            for(;; std::this_thread::sleep_for(std::chrono::milliseconds(1))) {
+            for(;; Util::Sleep(1)) {
                 for(const auto& plugin : m_Plugins) {
                     if(m_bFinish || !plugin.second->Update()) {
                         return;
@@ -312,7 +321,7 @@ namespace Helena
                 module->m_pMain(this, EModuleState::Free);
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            Util::Sleep(100);
 
             if(!m_Plugins.empty()) {
                 UTIL_CONSOLE_ERROR("Memory leak detected in one of the modules!");
@@ -346,6 +355,7 @@ namespace Helena
     // HelenaFramework Main
     __forceinline void HelenaFramework(std::string& serviceName, std::string&& pathConfig, std::string&& pathModule, std::string&& pathResource, std::vector<std::string>& moduleNames)
     {
+
         if(pathConfig.back() != HF_SEPARATOR) {
             pathConfig += HF_SEPARATOR;
         }
