@@ -1,8 +1,5 @@
 #include <Include/PluginLog.hpp>
 
-#include <filesystem>
-#include <mutex>
-
 #include <spdlog/async.h>
 #include <spdlog/sinks/daily_file_sink.h>
 
@@ -19,16 +16,9 @@
 namespace Helena
 {
 	PluginLog::~PluginLog() {
+		spdlog::shutdown();
 		m_pLogger.reset();
 		m_pThreadPool.reset();
-		spdlog::drop_all();
-		spdlog::shutdown();
-	}
-
-	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {
-		static std::once_flag flag;
-		std::call_once(flag, &PluginLog::Configure, this);
-		return m_pLogger;
 	}
 
 	/* @brief Parse service from Log config */
@@ -189,5 +179,11 @@ namespace Helena
 		sinks.emplace_back(std::move(consoleSink));
 		m_pLogger = std::make_shared<spdlog::async_logger>(GetModuleManager()->GetServiceName(),
 			sinks.begin(), sinks.end(), m_pThreadPool);
+	}
+
+	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {
+		static std::once_flag flag;
+		std::call_once(flag, &PluginLog::Configure, this);
+		return m_pLogger;
 	}
 }

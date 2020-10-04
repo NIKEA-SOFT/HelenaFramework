@@ -1,5 +1,5 @@
-#ifndef MODULE_MODULELOG_IPLUGINLOG_HPP
-#define MODULE_MODULELOG_IPLUGINLOG_HPP
+#ifndef MODULELOG_IPLUGINLOG_HPP
+#define MODULELOG_IPLUGINLOG_HPP
 
 #include <spdlog/spdlog.h>
 
@@ -34,4 +34,4 @@ namespace Helena
 	#define LOG_CRITICAL(format, ...)	GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::critical, format, ##__VA_ARGS__);
 }
 
-#endif // MODULE_MODULELOG_IPLUGINLOG_HPP
+#endif // MODULELOG_IPLUGINLOG_HPP

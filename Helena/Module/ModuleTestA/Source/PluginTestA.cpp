@@ -1,9 +1,9 @@
 #include <Include/PluginTestA.hpp>		// Including current plugin header
 
+#include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use GetModuleManager() or you need app name or directories)
+
 #include <Module/ModuleTestB/Interface/IPluginTestB.hpp>	// Including other module plugin interface
 #include <Module/ModuleLog/Interface/IPluginLog.hpp>		// Including other module plugin interface
-
-#include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use GetModuleManager() or you need app name or directories)
 
 namespace Helena
 {
