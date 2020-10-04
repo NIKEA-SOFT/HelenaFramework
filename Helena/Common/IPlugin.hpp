@@ -5,8 +5,7 @@ namespace Helena
 {
     class IPlugin
     {
-        // Friend is used to get a clean interface
-        // without Set methods
+        // Friend is used to get a clean interface without Set methods
         friend class ModuleManager;
         
     public:
