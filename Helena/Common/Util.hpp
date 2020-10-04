@@ -6,8 +6,10 @@
 #include <string_view>
 #include <type_traits>
 #include <algorithm>
+#include <thread>
+#include <mutex>
+#include <filesystem>
 
-#include <spdlog/details/os.h>
 #include "Platform.hpp"
 #include "Format.hpp"
 
@@ -21,9 +23,7 @@ namespace Helena
 	namespace Internal {
 	#if HF_STANDARD_VER == HF_STANDARD_CPP17
 		template<class InputIt, class ForwardIt>
-		[[nodiscard]] static constexpr InputIt find_first_of(InputIt first, InputIt last,
-			ForwardIt s_first, ForwardIt s_last) noexcept
-		{
+		[[nodiscard]] static constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
 			for(; first != last; ++first) {
 				for(ForwardIt it = s_first; it != s_last; ++it) {
 					if(*first == *it) {
@@ -45,17 +45,28 @@ namespace Helena
 			Error
 		};
 
+		/**
+		* @brief	Log message to console
+		* 
+		* @tparam	Format		Type of format
+		* @tparam	Args		Type of arguments
+		* @tparam	Char		Type of character
+		* 
+		* @param	filename	Result of Util::GetFileName(__FILE__)
+		* @param	line		Result of __LINE__
+		* @param	level		Log level
+		* @param	format		Message with formatting support
+		* @param	args		Arguments for formatting
+		*/
 		template <typename Format, typename... Args, typename Char = fmt::char_t<Format>>
 		static void Console(const std::string_view filename, const std::size_t line, const ELevelLog level, const Format& format, Args&&... args)
 		{
 			constexpr const char* logName[] = {"Info ", "Warn ", "Error"};
 			constexpr std::size_t reserveSize = 1024;
-			const auto now = std::chrono::system_clock::now();
-			const auto tm_time = spdlog::details::os::localtime(std::chrono::system_clock::to_time_t(now));
+
 			std::string buffer;
-			std::time_t time = std::time(nullptr);
 			buffer.reserve(reserveSize);
-			buffer += fmt::format("[{:%Y.%m.%d %H:%M:%S}][{}:{}][{}] ", fmt::localtime(time), filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
+			buffer += fmt::format("[{:%Y.%m.%d %H:%M:%S}][{}:{}][{}] ", fmt::localtime(std::time(nullptr)), filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
 			buffer += fmt::format(format, args...);
 			buffer += "\n";
 
@@ -73,6 +84,10 @@ namespace Helena
 					fmt::print(fg(fmt::color::crimson), buffer);
 				} break;
 			}
+		}
+
+		static void Sleep(const uint64_t milliseconds) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		}
 
 		/**
