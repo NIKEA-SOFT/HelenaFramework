@@ -1,5 +1,5 @@
-#ifndef MODULE_MODULELOG_PLUGINLOG_HPP
-#define MODULE_MODULELOG_PLUGINLOG_HPP
+#ifndef MODULELOG_PLUGINLOG_HPP
+#define MODULELOG_PLUGINLOG_HPP
 
 #include <Interface/IPluginLog.hpp>
 
@@ -8,19 +8,17 @@ namespace Helena
 	class PluginLog : public IPluginLog 
 	{
 	protected:
-		bool Finalize() override;
 
 	public:
 		PluginLog() = default;
-
-	private:
-		std::shared_ptr<spdlog::logger> GetLogger() override;
+		~PluginLog();
 
 	private:
 		void Configure();
 		std::string GetFileLog(const std::string_view path);
 		void SetupLoggerST(const std::string_view path);
 		void SetupLoggerMT(const std::string_view path, const std::size_t buffer, const std::size_t threads);
+		std::shared_ptr<spdlog::logger> GetLogger() override;
 
 	private:
 		std::shared_ptr<spdlog::logger> m_pLogger;
@@ -28,4 +26,4 @@ namespace Helena
 	};
 }
 
-#endif // MODULE_MODULELOG_PLUGINLOG_HPP
+#endif // MODULELOG_PLUGINLOG_HPP

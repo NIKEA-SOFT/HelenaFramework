@@ -1,4 +1,4 @@
 #|--------------------------------
-#| HF ModuleLog Project
+#| ModuleLog Project
 #|--------------------------------
 HF_BUILD_MODULE(ModuleLog)

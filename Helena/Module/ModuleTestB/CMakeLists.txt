@@ -1,4 +1,4 @@
 #|--------------------------------
-#| HF ModuleTestB Project
+#| ModuleTestB Project
 #|--------------------------------
 HF_BUILD_MODULE(ModuleTestB)

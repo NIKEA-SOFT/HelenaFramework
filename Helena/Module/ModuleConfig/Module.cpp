@@ -1,5 +1,5 @@
 #include <Common/ModuleManager.hpp>
-#include <Include/PluginLog.hpp>
+#include <Include/PluginConfig.hpp>
 
 namespace Helena
 {
@@ -8,11 +8,11 @@ namespace Helena
         switch(state)
         {
             case EModuleState::Init : {
-                pModuleManager->CreatePlugin<IPluginLog, PluginLog>();
+                pModuleManager->CreatePlugin<IPluginConfig, PluginConfig>();
             } break;
 
             case EModuleState::Free : {
-                pModuleManager->RemovePlugin<IPluginLog>();
+                pModuleManager->RemovePlugin<IPluginConfig>();
             } break;
         }
     }

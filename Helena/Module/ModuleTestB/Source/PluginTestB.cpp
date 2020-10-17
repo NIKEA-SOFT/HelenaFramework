@@ -1,8 +1,8 @@
 #include <Include/PluginTestB.hpp>
 
-#include <Module/ModuleLog/Interface/IPluginLog.hpp>
-
 #include <Common/ModuleManager.hpp>
+
+#include <Module/ModuleLog/Interface/IPluginLog.hpp>
 
 namespace Helena
 {

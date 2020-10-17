@@ -53,6 +53,7 @@
     // Including
     #include <Windows.h>
     #include <WinSock2.h>
+    #include <minidumpapiset.h>
 
     // Definition
     #define HF_API                  extern "C" __declspec(dllexport)

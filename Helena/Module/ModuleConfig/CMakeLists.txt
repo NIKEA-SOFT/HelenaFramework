@@ -1,4 +1,4 @@
 #|--------------------------------
-#| ModuleTestA Project
+#| ModuleConfig Project
 #|--------------------------------
-HF_BUILD_MODULE(ModuleTestA)
+HF_BUILD_MODULE(ModuleConfig)
