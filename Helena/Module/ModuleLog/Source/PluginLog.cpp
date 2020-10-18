@@ -9,7 +9,7 @@
 	#include <spdlog/sinks/ansicolor_sink.h>
 #endif
 
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 #include <Common/Xml.hpp>
 #include <Common/Meta.hpp>
 
@@ -24,8 +24,8 @@ namespace Helena
 	/* @brief Parse service from Log config */
 	void PluginLog::Configure()
 	{
-		const char* serviceName = GetModuleManager()->GetServiceName().c_str();
-		const auto config = GetModuleManager()->GetDirectories()->GetConfigPath() + Meta::ConfigLogger::ConfigFile();
+		const char* serviceName = this->GetService()->GetName().c_str();
+		const auto config = this->GetService()->GetDirectories().GetPathConfigs() + Meta::ConfigLogger::ConfigFile();
 
 		// load file
 		pugi::xml_document xmlDoc;
@@ -119,7 +119,7 @@ namespace Helena
 					logFile += HF_SEPARATOR;
 				}
 
-				logFile += GetModuleManager()->GetServiceName();
+				logFile += GetService()->GetName();
 				logFile += HF_SEPARATOR;
 				logFile += "log.txt";
 			}
@@ -149,7 +149,7 @@ namespace Helena
 		#error Unknown platform
 	#endif
 		sinks.emplace_back(std::move(consoleSink));
-		m_pLogger = std::make_shared<spdlog::logger>(GetModuleManager()->GetServiceName(), sinks.begin(), sinks.end());
+		m_pLogger = std::make_shared<spdlog::logger>(GetService()->GetName(), sinks.begin(), sinks.end());
 	}
 
 	/***
@@ -177,8 +177,7 @@ namespace Helena
 
 		m_pThreadPool = std::make_shared<spdlog::details::thread_pool>(buffer, threads);
 		sinks.emplace_back(std::move(consoleSink));
-		m_pLogger = std::make_shared<spdlog::async_logger>(GetModuleManager()->GetServiceName(),
-			sinks.begin(), sinks.end(), m_pThreadPool);
+		m_pLogger = std::make_shared<spdlog::async_logger>(GetService()->GetName(), sinks.begin(), sinks.end(), m_pThreadPool);
 	}
 
 	std::shared_ptr<spdlog::logger> PluginLog::GetLogger() {

@@ -1,6 +1,6 @@
 #include <Include/PluginTestA.hpp>		// Including current plugin header
 
-#include <Common/ModuleManager.hpp>		// Including ModuleManager (need including if you use GetModuleManager() or you need app name or directories)
+#include <Common/Service.hpp>
 
 #include <Module/ModuleTestB/Interface/IPluginTestB.hpp>	// Including other module plugin interface
 #include <Module/ModuleLog/Interface/IPluginLog.hpp>		// Including other module plugin interface
@@ -22,15 +22,15 @@ namespace Helena
 		// to the object that was found earlier.
 		// This implementation will allow developers to maintain 
 		// a clean interface inside plugin classes without losing performance. 
-		const auto pPluginTestA1 = this->GetModuleManager()->GetPlugin<IPluginTestA>();	// First call GetPlugin for this type use map.find
-		const auto pPluginTestA2 = this->GetModuleManager()->GetPlugin<IPluginTestA>();	// Second call GetPlugin for this type use cached pointer
+		const auto pPluginTestA1 = GetService()->GetModuleManager()->GetPlugin<IPluginTestA>();	// First call GetPlugin for this type use map.find
+		const auto pPluginTestA2 = GetService()->GetModuleManager()->GetPlugin<IPluginTestA>();	// Second call GetPlugin for this type use cached pointer
 
 		// Bad example: GetPlugin only accepts an abstract class of Plugin
 		// GetPlugin will return nullptr, and the framework detects this and exits with an error ID.
 		/*const auto pPluginTestA3 = this->GetModuleManager()->GetPlugin<PluginTestA>();*/	// Correct: IPluginTestA
 
 		// Get third-module plugin instance and call method
-		if(const auto pPluginTestB = this->GetModuleManager()->GetPlugin<IPluginTestB>(); pPluginTestB) {
+		if(const auto pPluginTestB = GetService()->GetModuleManager()->GetPlugin<IPluginTestB>(); pPluginTestB) {
 			pPluginTestB->SayHello();
 		}
 

@@ -26,12 +26,12 @@ namespace Helena
 		virtual std::shared_ptr<spdlog::logger> GetLogger() = 0;
 	};
 
-	#define LOG_TRACE(format, ...)		GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::trace, format, ##__VA_ARGS__);
-	#define LOG_DEBUG(format, ...)		GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::debug, format, ##__VA_ARGS__);
-	#define LOG_INFO(format, ...)		GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::info, format, ##__VA_ARGS__);
-	#define LOG_WARN(format, ...)		GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::warn, format, ##__VA_ARGS__);
-	#define LOG_ERROR(format, ...)		GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::err, format, ##__VA_ARGS__);
-	#define LOG_CRITICAL(format, ...)	GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::critical, format, ##__VA_ARGS__);
+	#define LOG_TRACE(format, ...)		GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::trace, format, ##__VA_ARGS__);
+	#define LOG_DEBUG(format, ...)		GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::debug, format, ##__VA_ARGS__);
+	#define LOG_INFO(format, ...)		GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::info, format, ##__VA_ARGS__);
+	#define LOG_WARN(format, ...)		GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::warn, format, ##__VA_ARGS__);
+	#define LOG_ERROR(format, ...)		GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::err, format, ##__VA_ARGS__);
+	#define LOG_CRITICAL(format, ...)	GetService()->GetModuleManager()->GetPlugin<IPluginLog>()->Log(spdlog::source_loc{UTIL_FILE_LINE, ""}, spdlog::level::critical, format, ##__VA_ARGS__);
 }
 
 #endif // MODULELOG_IPLUGINLOG_HPP

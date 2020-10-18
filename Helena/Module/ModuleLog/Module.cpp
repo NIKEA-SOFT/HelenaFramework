@@ -1,4 +1,4 @@
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 #include <Include/PluginLog.hpp>
 
 namespace Helena
@@ -8,7 +8,7 @@ namespace Helena
         switch(state)
         {
             case EModuleState::Init : {
-                pModuleManager->CreatePlugin<IPluginLog, PluginLog>();
+                pModuleManager->CreatePlugin<IPluginLog, PluginLog>(EPluginPriority::HIGH);
             } break;
 
             case EModuleState::Free : {

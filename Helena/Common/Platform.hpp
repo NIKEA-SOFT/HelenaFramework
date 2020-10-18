@@ -1,5 +1,5 @@
-#ifndef __COMMON_HFPLATFORM_HPP__
-#define __COMMON_HFPLATFORM_HPP__
+#ifndef COMMON_PLATFORM_HPP
+#define COMMON_PLATFORM_HPP
 
 #define HF_PLATFORM_WIN     1
 #define HF_PLATFORM_LINUX   2
@@ -139,4 +139,4 @@
 #define HF_CLASSNAME(type)          (#type)
 #define HF_CLASSNAME_RT(type)       typeid(type).name()
 
-#endif  // __COMMON_HFPLATFORM_HPP__
+#endif  // COMMON_PLATFORM_HPP

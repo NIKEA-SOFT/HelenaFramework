@@ -1,4 +1,4 @@
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 #include <Include/PluginTestB.hpp>
 
 namespace Helena
@@ -8,7 +8,7 @@ namespace Helena
         switch(state)
         {
             case EModuleState::Init: {
-                pModuleManager->CreatePlugin<IPluginTestB, PluginTestB>();
+                pModuleManager->CreatePlugin<IPluginTestB, PluginTestB>(EPluginPriority::LOW);
             } break;
 
             case EModuleState::Free: {
