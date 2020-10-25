@@ -12,39 +12,39 @@ std::unique_ptr<Service> ServiceParse(const std::filesystem::path service, std::
     auto serviceName = service.stem().string();
     std::error_code error;
     if(!std::filesystem::is_regular_file(service, error) || !std::filesystem::exists(service, error)) {
-        UTIL_CONSOLE_ERROR("Service file: {} not found!", serviceName);
+        HF_CONSOLE_ERROR("Service file: {} not found!", serviceName);
         return std::unique_ptr<Service>();
     }
 
     pugi::xml_document xmlDoc;
     if(!xmlDoc.load_file(service.c_str(), pugi::parse_default | pugi::parse_comments)) {
-        UTIL_CONSOLE_ERROR("Parse file: {} failed!", serviceName);
+        HF_CONSOLE_ERROR("Parse file: {} failed!", serviceName);
         return std::unique_ptr<Service>();
     }
 
     // Find xml node
     const auto node = xmlDoc.child(Meta::ConfigService::Service());
     if(node.empty()) {
-        UTIL_CONSOLE_ERROR("Parse file: {}, node: {} not found!", serviceName, Meta::ConfigService::Service());
+        HF_CONSOLE_ERROR("Parse file: {}, node: {} not found!", serviceName, Meta::ConfigService::Service());
         return std::unique_ptr<Service>();
     }
 
     // Create configs/modules/resources directories if not exists
     std::string pathConfigs = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathConfigs()).as_string()).string();
     if(!std::filesystem::exists(pathConfigs, error) && !std::filesystem::create_directory(pathConfigs, error)) {
-        UTIL_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
         return std::unique_ptr<Service>();
     }
 
     std::string pathModules = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathModules()).as_string()).string();
     if(!std::filesystem::exists(pathModules, error) && !std::filesystem::create_directory(pathModules, error)) {
-        UTIL_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathModules(), pathModules);
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathModules(), pathModules);
         return std::unique_ptr<Service>();
     }
 
     std::string pathResources = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathResources()).as_string()).string();
     if(!std::filesystem::exists(pathResources, error) && !std::filesystem::create_directory(pathResources, error)) {
-        UTIL_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathResources(), pathResources);
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathResources(), pathResources);
         return std::unique_ptr<Service>();
     }
    
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
 #endif
 
     if(argc != 2) {
-        UTIL_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
+        HF_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
         return 0;
     }
 

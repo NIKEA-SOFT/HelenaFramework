@@ -62,6 +62,7 @@ namespace Helena
         *
         * @tparam   Base    Type of abstract class inherited from IPlugin
         * @tparam   Plugin  Type of plugin class inherited from Base
+        * 
         * @param    args    Arguments for ctor of Plugin
         *
         * @note     If it was not possible to create an instance of the class,
@@ -91,8 +92,8 @@ namespace Helena
         void RemovePlugin() noexcept;
 
     private:
-        [[nodiscard]] void InitModules(Service* service, const std::string_view moduleNames);
-        [[nodiscard]] void FreeModules();
+        void InitModules(Service* service, const std::string_view moduleNames);
+        void FreeModules();
 
     private:
         [[nodiscard]] const std::vector<ModuleManager::PluginPriority>& GetPlugins() const noexcept;

@@ -8,13 +8,17 @@
 #include <vector>
 #include <array>
 #include <unordered_map>
+#include <mutex>
 
-#include "Platform.hpp"
+#include "Util.hpp"
+
+#define HF_SHUTDOWN(...)        GetService()->Shutdown(HF_FILE_LINE, ##__VA_ARGS__);
 
 int main(int, char**);
 
 namespace Helena
 {
+
     class ModuleManager;
     class Service final {
         friend int ::main(int, char**);
@@ -52,7 +56,7 @@ namespace Helena
             std::string m_PathModule;       // service modules path
             std::string m_PathResource;     // service resources path
         };
-
+        
     public:
         explicit Service(std::string& name, std::string& pathConfigs, std::string& pathModules, std::string& pathResources);
         ~Service() = default;
@@ -89,19 +93,32 @@ namespace Helena
         /**
         * @brief    Shutdown framework and unload modules
         *
-        * @param    filename    Result of Util::GetFileName(__FILE__)
-        * @param    line        Result of __LINE__
-        * @param    msg         Message of error
+        * @param    location    Result of HF_FILE_LINE from Util.hpp
         *
         * @note     Call Shutdown() for stop framework and unload modules without error.
         *           This function allows you to shutdown the framework correctly.
         */
-        void Shutdown(const char* const filename = nullptr, const std::size_t line = 0, const std::string& msg = {});
+        void Shutdown(const Util::Internal::Location& location);
+
+        /**
+        * @brief    Shutdown framework and unload modules
+        * 
+        * @tparam   args        Type of args for format
+        *
+        * @param    location    Result of HF_FILE_LINE from Util.hpp
+        * @param    message     Shutdown reason
+        * @param    args        Args for format
+        *
+        * @note     Call Shutdown() for stop framework and unload modules without error.
+        *           This function allows you to shutdown the framework correctly.
+        */
+        template <typename... Args>
+        void Shutdown(const Util::Internal::Location& location, const std::string_view message, [[maybe_unused]] Args&&... args);
 
     private:
         void Initialize(const std::string_view moduleNames);
         void Finalize();
-
+        
     private:
     #if HF_PLATFORM == HF_PLATFORM_WIN
         static BOOL WINAPI CtrlHandler(DWORD);

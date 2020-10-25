@@ -4,14 +4,22 @@
 #include "Platform.hpp"
 #include "Format.hpp"
 
-#define UTIL_FILE_LINE						Helena::Util::GetFileName(__FILE__), __LINE__
-#define UTIL_CONSOLE_INFO(format, ...)		Helena::Util::Console(UTIL_FILE_LINE, Helena::Util::ELevelLog::Info, format, ##__VA_ARGS__)
-#define UTIL_CONSOLE_WARN(format, ...)		Helena::Util::Console(UTIL_FILE_LINE, Helena::Util::ELevelLog::Warn, format, ##__VA_ARGS__)
-#define UTIL_CONSOLE_ERROR(format, ...)		Helena::Util::Console(UTIL_FILE_LINE, Helena::Util::ELevelLog::Error, format, ##__VA_ARGS__)
+#define HF_FILE_LINE						Util::Internal::Location{Helena::Util::GetFileName(__FILE__), static_cast<std::size_t>(__LINE__)}
+#define HF_CONSOLE_INFO(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Info, format, ##__VA_ARGS__)
+#define HF_CONSOLE_WARN(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Warn, format, ##__VA_ARGS__)
+#define HF_CONSOLE_ERROR(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Error, format, ##__VA_ARGS__)
 
 namespace Helena::Util
 {
 	namespace Internal {
+		struct Location {
+			constexpr Location() : m_Filename(nullptr), m_Line(0) {}
+			constexpr Location(const char* filename, const std::size_t line) : m_Filename(filename), m_Line(line) {}
+			constexpr bool IsEmpty() const noexcept { return !m_Filename; }
+			const char* m_Filename;
+			const std::size_t m_Line;
+		};
+
 	#if HF_STANDARD_VER == HF_STANDARD_CPP17
 		template<class InputIt, class ForwardIt>
 		[[nodiscard]] static constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept;
@@ -37,8 +45,8 @@ namespace Helena::Util
 	* @param	format		Message with formatting support
 	* @param	args		Arguments for formatting
 	*/
-	template <typename Format, typename... Args, typename Char = fmt::char_t<Format>>
-	inline void Console(const std::string_view filename, const std::size_t line, const ELevelLog level, const Format& format, Args&&... args);
+	template <typename... Args>
+	void Console(const Internal::Location& location, const ELevelLog level, const std::string_view format, Args&&... args);
 
 	/**
 	* @brief	Sleep current thread on N milliseconds
@@ -61,7 +69,7 @@ namespace Helena::Util
 		*			Example: " Hello World " "Hello World" 
 		*/
 	template <typename Type>
-	[[nodiscard]] inline std::vector<Type> Split(std::string_view input, std::string_view delimeters = ",", bool trim = true);
+	[[nodiscard]] std::vector<Type> Split(std::string_view input, std::string_view delimeters = ",", bool trim = true);
 
 	/**
 		* @brief	Return cutted filename in constexpr
@@ -86,7 +94,7 @@ namespace Helena::Util
 		*			Support multiple flags in <right>. 
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitAssign(TypeLeft& left, TypeRight right);
+	void BitAssign(TypeLeft& left, TypeRight right);
 		
 	/**
 		* @brief	Add bit flag from right to left side 
@@ -99,7 +107,7 @@ namespace Helena::Util
 		* @note	Support multiple flags in <right>
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitSet(TypeLeft& left, TypeRight right);
+	void BitSet(TypeLeft& left, TypeRight right);
 
 	/**
 		* @brief	Get bit flag in left from right 
@@ -115,7 +123,7 @@ namespace Helena::Util
 		*			Support only single flag in <right>. 
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitGet(TypeLeft left, TypeRight right);
+	[[nodiscard]] bool BitGet(TypeLeft left, TypeRight right);
 
 	/**
 		* @brief	Remove bit flag from left using right 
@@ -128,7 +136,7 @@ namespace Helena::Util
 		* @note	Support multiple flags in <right>. 
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitRemove(TypeLeft& left, TypeRight right);
+	void BitRemove(TypeLeft& left, TypeRight right);
 		
 	/**
 		* @brief	Xor bit flag in left from right 
@@ -142,7 +150,7 @@ namespace Helena::Util
 		*			Support multiple flags in <right>.
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitXor(TypeLeft& left, TypeRight right);
+	void BitXor(TypeLeft& left, TypeRight right);
 
 	/**
 		* @brief	Check left on has multiple flags from right 
@@ -157,7 +165,7 @@ namespace Helena::Util
 		* @note	Analog BitGet, support multiple flags in <right>. 
 		*/
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitHas(TypeLeft left, TypeRight right);
+	[[nodiscard]] bool BitHas(TypeLeft left, TypeRight right);
 
 	/**
 		* @brief	Compare left and right on equality 
@@ -170,7 +178,7 @@ namespace Helena::Util
 		* @return	Returns false if at least one of the flags is missing. 
 		*/ 
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitCompare(TypeLeft left, TypeRight right);
+	[[nodiscard]] bool BitCompare(TypeLeft left, TypeRight right);
 }
 
 #include "Util.ipp"

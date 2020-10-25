@@ -22,17 +22,16 @@ namespace Helena::Util
 	#endif
 	}
 
-	template <typename Format, typename... Args, typename Char>
-	inline void Console(const std::string_view filename, const std::size_t line, const ELevelLog level, const Format& format, Args&&... args)
+	template <typename... Args>
+	void Console(const Internal::Location& location, const ELevelLog level, const std::string_view format, Args&&... args)
 	{
 		static constexpr const char* logName[] = {"Info ", "Warn ", "Error"};
-		static constexpr std::size_t reserveSize = 1024;
-
-		std::string buffer;
-		buffer.reserve(reserveSize);
-		buffer += fmt::format("[{:%Y.%m.%d %H:%M:%S}][{}:{}][{}] ", fmt::localtime(std::time(nullptr)), filename, line, logName[std::underlying_type<ELevelLog>::type(level)]);
-		buffer += fmt::format(format, args...);
-		buffer += "\n";
+		const auto buffer = fmt::format("[{:%Y.%m.%d %H:%M:%S}][{}:{}][{}] {}\n", 
+			fmt::localtime(std::time(nullptr)), 
+			location.m_Filename, 
+			location.m_Line, 
+			logName[std::underlying_type<ELevelLog>::type(level)], 
+			fmt::format(format, args...));
 
 		switch(level) 
 		{
@@ -55,7 +54,7 @@ namespace Helena::Util
 	}
 
 	template <typename Type>
-	[[nodiscard]] inline std::vector<Type> Split(std::string_view input, std::string_view delimeters, bool trim)
+	[[nodiscard]] std::vector<Type> Split(std::string_view input, std::string_view delimeters, bool trim)
 	{
 		static_assert(std::is_same_v<Type, std::string> || std::is_same_v<Type, std::string_view>);
 		std::vector<Type> v_splitted;
@@ -65,11 +64,22 @@ namespace Helena::Util
 			if (first != second) 
 			{
 				if(trim) {
-					while(std::isspace(*first) && first != second) { ++first; }
-					if(first == second) { continue;	}
+					while(std::isspace(*first) && first != second) { 
+						++first; 
+					}
+
+					if(first == second) { 
+						continue;	
+					}
+
 					std::size_t offset = 1;
-					while(std::isspace(*(second - offset)) && first != (second - offset)) { ++offset; }
-					if(first != (second - offset)) v_splitted.emplace_back(first, second - first - (--offset));
+					while(std::isspace(*(second - offset)) && first != (second - offset)) { 
+						++offset; 
+					}
+
+					if(first != (second - offset)) {
+						v_splitted.emplace_back(first, second - first - (--offset));
+					}
 				} else {
 					v_splitted.emplace_back(first, second - first);
 				}
@@ -91,37 +101,37 @@ namespace Helena::Util
 	}
 
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitAssign(TypeLeft& left, TypeRight right) {
+	void BitAssign(TypeLeft& left, TypeRight right) {
 		left = static_cast<TypeLeft>(right);
 	}
 		
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitSet(TypeLeft& left, TypeRight right) {
+	void BitSet(TypeLeft& left, TypeRight right) {
 		left |= static_cast<TypeLeft>(right);
 	}
 
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitGet(TypeLeft left, TypeRight right) {
+	[[nodiscard]] bool BitGet(TypeLeft left, TypeRight right) {
 		return left & static_cast<TypeLeft>(right);
 	}
 
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitRemove(TypeLeft& left, TypeRight right) {
+	void BitRemove(TypeLeft& left, TypeRight right) {
 		left &= ~(static_cast<TypeLeft>(right));
 	}
 		
 	template <typename TypeLeft, typename TypeRight>
-	inline void BitXor(TypeLeft& left, TypeRight right) {
+	void BitXor(TypeLeft& left, TypeRight right) {
 		left ^= static_cast<TypeLeft>(right);
 	}
 
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitHas(TypeLeft left, TypeRight right) {
+	[[nodiscard]] bool BitHas(TypeLeft left, TypeRight right) {
 		return (left & static_cast<TypeLeft>(right)) == static_cast<TypeLeft>(right);
 	}
 
 	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] inline bool BitCompare(TypeLeft left, TypeRight right) {
+	[[nodiscard]] bool BitCompare(TypeLeft left, TypeRight right) {
 		return left == static_cast<TypeLeft>(right);
 	}
 }

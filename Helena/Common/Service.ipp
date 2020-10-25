@@ -1,8 +1,6 @@
 #ifndef COMMON_SERVICE_IPP
 #define COMMON_SERVICE_IPP
 
-#include <mutex>
-
 #include "ModuleManager.hpp"
 
 namespace Helena
@@ -31,7 +29,7 @@ namespace Helena
         Service::m_Service = this;
     }
 
-	[[nodiscard]] inline  const std::string& Service::GetName() const noexcept {
+	[[nodiscard]] inline const std::string& Service::GetName() const noexcept {
 		return m_Name;
 	}
 
@@ -47,15 +45,18 @@ namespace Helena
         return m_IsShutdown;
     }
 
-    inline void Service::Shutdown(const char* const filename, const std::size_t line, const std::string& msg)
+    inline void Service::Shutdown(const Util::Internal::Location& location) {
+        Service::Shutdown(location, "");
+    }
+    
+    template <typename... Args>
+    void Service::Shutdown(const Util::Internal::Location& location, const std::string_view message, [[maybe_unused]] Args&&... args)
     {
         static std::mutex mutex;
         std::lock_guard lock{mutex};
         if(!m_IsShutdown) {
             m_IsShutdown = true;
-            if(filename && line && !msg.empty()) {
-                m_ShutdownLog = fmt::format("[Error] [{}:{}] {}", filename, line, msg);
-            }
+            m_ShutdownLog = fmt::format("Shutdown reason: [{}:{}] {}", location.m_Filename, location.m_Line, fmt::format(message, args...));
         }
     }
 
@@ -78,7 +79,7 @@ namespace Helena
     #endif
 
         if(m_ModuleManager = std::make_unique<ModuleManager>(); !m_ModuleManager) {
-            UTIL_CONSOLE_ERROR("Allocate memory for ModuleManager failed!");
+            HF_CONSOLE_ERROR("Allocate memory for ModuleManager failed!");
             return;
         }
 
@@ -120,6 +121,10 @@ namespace Helena
     inline void Service::Finalize() {
         m_ModuleManager->FreeModules();
         m_Service = nullptr;
+
+        if(m_IsShutdown) {
+            HF_CONSOLE_ERROR(m_ShutdownLog);
+        }
     }
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
@@ -128,7 +133,7 @@ namespace Helena
         static std::mutex mutex;
         std::lock_guard lock{mutex};
         if(m_Service) {
-            m_Service->Shutdown();
+            m_Service->Shutdown(HF_FILE_LINE);
             while(m_Service) {
                 Util::Sleep(1000);
             }

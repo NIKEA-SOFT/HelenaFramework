@@ -24,20 +24,20 @@ namespace Helena
 	/* @brief Parse service from Log config */
 	void PluginLog::Configure()
 	{
-		const char* serviceName = this->GetService()->GetName().c_str();
-		const auto config = this->GetService()->GetDirectories().GetPathConfigs() + Meta::ConfigLogger::ConfigFile();
+		const char* serviceName = GetService()->GetName().c_str();
+		const auto config = GetService()->GetDirectories().GetPathConfigs() + Meta::ConfigLogger::ConfigFile();
 
 		// load file
 		pugi::xml_document xmlDoc;
 		if(!xmlDoc.load_file(config.c_str(), pugi::parse_default | pugi::parse_comments)) {
-			UTIL_CONSOLE_INFO("Parse file: {} failed, logger started with default!", config);
+			HF_CONSOLE_INFO("Parse file: {} failed, logger started with default!", config);
 			return;
 		}
 
 		// find node
 		const auto node = xmlDoc.find_child_by_attribute(Meta::ConfigLogger::Service(), Meta::ConfigLogger::Name(), serviceName);
 		if(node.empty()) {
-			UTIL_CONSOLE_INFO("Parse file: {}, node: {}, service: {} not found, logger started with default!", config, Meta::ConfigService::Service(), serviceName);
+			HF_CONSOLE_INFO("Parse file: {}, node: {}, service: {} not found, logger started with default!", config, Meta::ConfigService::Service(), serviceName);
 			return;
 		}
 
@@ -66,17 +66,14 @@ namespace Helena
 			}
 	
 		#ifdef HF_RELEASE
-			const auto format = node.attribute(Meta::ConfigLogger::Format())
-				.as_string("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
+			const auto format = node.attribute(Meta::ConfigLogger::Format()).as_string("%^[%Y.%m.%d %H:%M:%S.%e][%@][%-8l] %v%$");
 
 			m_pLogger->set_level(level);
 			m_pLogger->set_pattern(format);
 
 			if(!path.empty())
 			{
-				const auto flushLevel = spdlog::level::from_str(node.attribute(Meta::ConfigLogger::FlushLevel())
-					.as_string("off"));
-
+				const auto flushLevel = spdlog::level::from_str(node.attribute(Meta::ConfigLogger::FlushLevel()).as_string("off"));
 				m_pLogger->flush_on(flushLevel);
 				/*
 				if(flushTime && flushLevel != spdlog::level::level_enum::trace) {
@@ -95,7 +92,7 @@ namespace Helena
 
 			spdlog::register_logger(m_pLogger);
 		} catch(const spdlog::spdlog_ex& err) {
-			UTIL_CONSOLE_ERROR("Config: {} catch exception in spdlog, error: {}", config, err.what());
+			HF_CONSOLE_ERROR("Config: {} catch exception in spdlog, error: {}", config, err.what());
 		}
 	}
 
@@ -113,7 +110,7 @@ namespace Helena
 		if(!path.empty()) 
 		{
 			if(!std::filesystem::exists(logFile, error) && !std::filesystem::create_directory(logFile, error)) {
-				UTIL_CONSOLE_ERROR("Path: {} create folder failed, logger started with default!", logFile);
+				HF_CONSOLE_ERROR("Path: {} create folder failed, logger started with default!", logFile);
 			} else {
 				if(logFile.back() != HF_SEPARATOR) {
 					logFile += HF_SEPARATOR;
