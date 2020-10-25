@@ -16,7 +16,9 @@ function(HF_BUILD_MODULE HELENA_MODULE)
 
     include_directories(${HELENA_PROJECT_DIR}/Helena/Module/${HELENA_MODULE})
     
+    if(WIN32)
     set_target_properties(${HELENA_MODULE} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_MODULE}.pdb")
+    endif()
     #set_target_properties(${HELENA_MODULE} PROPERTIES OUTPUT_NAME_DEBUG "${HELENA_MODULE}_DBG")
     #set_target_properties(${HELENA_MODULE} PROPERTIES OUTPUT_NAME_RELEASE "${HELENA_MODULE}_REL")
     set_target_properties(${HELENA_MODULE} PROPERTIES FOLDER "Module"

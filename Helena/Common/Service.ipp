@@ -147,7 +147,7 @@ namespace Helena
         return EXCEPTION_EXECUTE_HANDLER;
     }
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
-    void Service::SigHandler(int)
+    inline void Service::SigHandler(int)
     {
         static std::mutex mutex;
         std::lock_guard lock{mutex};
