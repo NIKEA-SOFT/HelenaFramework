@@ -73,21 +73,21 @@ namespace Helena
             } 
 
         #if HF_PLATFORM == HF_PLATFORM_WIN
-            std::string moduleFile = fmt::format("{}.dll", name);
+            std::string moduleFile = fmt::format("{}{}.dll", m_Service->GetDirectories().GetPathModules(), name);
         #elif HF_PLATFORM == HF_PLATFORM_LINUX
-            std::string moduleFile = fmt::format("{}.so", name);
+            std::string moduleFile = fmt::format("{}{}.so", m_Service->GetDirectories().GetPathModules(), name);
         #else 
             #error Module extension not has for current platform!
         #endif
 
             module->m_Name = name;
             if(module->m_Handle = static_cast<HF_MODULE_HANDLE>(HF_MODULE_LOAD(moduleFile.c_str())); !module->m_Handle) {
-                m_Service->Shutdown(HF_FILE_LINE, "Module: {} load failed!", module->m_Name);
+                m_Service->Shutdown(HF_FILE_LINE, "Module: {} load failed!", moduleFile);
                 return;
             }
 
             if(module->m_EntryPoint = reinterpret_cast<EntryPoint>(HF_MODULE_GETSYM(module->m_Handle, HF_MODULE_CALLBACK)); !module->m_EntryPoint) {
-                m_Service->Shutdown(HF_FILE_LINE, "Module: {} entry point not found!", module->m_Name);
+                m_Service->Shutdown(HF_FILE_LINE, "Module: {} entry point not found!", moduleFile);
                 return;
             }
 

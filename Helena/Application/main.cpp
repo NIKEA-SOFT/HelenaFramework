@@ -31,20 +31,20 @@ std::unique_ptr<Service> ServiceParse(const std::filesystem::path service, std::
 
     // Create configs/modules/resources directories if not exists
     std::string pathConfigs = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathConfigs()).as_string()).string();
-    if(!std::filesystem::exists(pathConfigs, error) && !std::filesystem::create_directory(pathConfigs, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
+    if(!std::filesystem::exists(pathConfigs, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
         return std::unique_ptr<Service>();
     }
 
     std::string pathModules = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathModules()).as_string()).string();
-    if(!std::filesystem::exists(pathModules, error) && !std::filesystem::create_directory(pathModules, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathModules(), pathModules);
+    if(!std::filesystem::exists(pathModules, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathModules(), pathModules);
         return std::unique_ptr<Service>();
     }
 
     std::string pathResources = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathResources()).as_string()).string();
-    if(!std::filesystem::exists(pathResources, error) && !std::filesystem::create_directory(pathResources, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} create folder failed!", serviceName, Meta::ConfigService::PathResources(), pathResources);
+    if(!std::filesystem::exists(pathResources, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathResources(), pathResources);
         return std::unique_ptr<Service>();
     }
    

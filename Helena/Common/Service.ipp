@@ -75,7 +75,7 @@ namespace Helena
         signal(SIGSTOP, Service::SigHandler);
         signal(SIGINT, Service::SigHandler);
     #else
-        #error Unknown platform
+    #error Unknown platform
     #endif
 
         if(m_ModuleManager = std::make_unique<ModuleManager>(); !m_ModuleManager) {
@@ -84,9 +84,9 @@ namespace Helena
         }
 
         m_ModuleManager->InitModules(this, moduleNames);
-        
+
         const auto& plugns = m_ModuleManager->GetPlugins();
-        for(const auto& plugin : plugns) 
+        for(const auto& plugin : plugns)
         {
             if(IsShutdown() || !plugin.m_Plugin->Initialize()) {
                 return;
@@ -107,7 +107,7 @@ namespace Helena
             }
         }
 
-        for(;; Util::Sleep(1)) 
+        for(; !IsShutdown(); Util::Sleep(1))
         {
             for(const auto& plugin : plugns)
             {
@@ -116,6 +116,7 @@ namespace Helena
                 }
             }
         }
+      
     }
 
     inline void Service::Finalize() {
