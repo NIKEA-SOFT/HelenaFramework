@@ -88,7 +88,7 @@ namespace Helena
         * @brief    Get framework shutdown status
         * @return   @code{.cpp} const bool @endcode
         */
-        [[nodiscard]] const bool IsShutdown() const noexcept;
+        [[nodiscard]] bool IsShutdown() const noexcept;
 
         /**
         * @brief    Shutdown framework and unload modules

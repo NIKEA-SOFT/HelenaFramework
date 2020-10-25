@@ -112,6 +112,7 @@
 
     #define HF_MODULE_HANDLE        void*
     #define HF_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
+    #define HF_MODULE_CALLBACK      "HFMain"
     #define HF_MODULE_GETSYM(a, b)  dlsym((a), (b))
     #define HF_MODULE_UNLOAD(a)     dlclose((a))
 

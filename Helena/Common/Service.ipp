@@ -41,7 +41,7 @@ namespace Helena
 		return m_ModuleManager;
 	}
     
-    [[nodiscard]] inline const bool Service::IsShutdown() const noexcept {
+    [[nodiscard]] inline bool Service::IsShutdown() const noexcept {
         return m_IsShutdown;
     }
 
@@ -152,7 +152,7 @@ namespace Helena
         static std::mutex mutex;
         std::lock_guard lock{mutex};
         if(m_Service) {
-            m_Service->Shutdown();
+            m_Service->Shutdown(HF_FILE_LINE);
             while(m_Service) {
                 Util::Sleep(1000);
             }

@@ -94,7 +94,6 @@ int main(int argc, char** argv)
             << "| \t    Helena Framework" << std::endl
             << "|--------------------------------------" << std::endl
             << "| Service: \t\"" << service->GetName() << "\"" << std::endl
-            << "| PathService: \t" << service << std::endl
             << "| PathConfig: \t" << service->GetDirectories().GetPathConfigs() << std::endl
             << "| PathModule: \t" << service->GetDirectories().GetPathModules() << std::endl
             << "| PathResource:\t" << service->GetDirectories().GetPathResources() << std::endl
