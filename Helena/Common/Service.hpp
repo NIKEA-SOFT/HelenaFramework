@@ -124,7 +124,7 @@ namespace Helena
         static BOOL WINAPI CtrlHandler(DWORD);
         static int SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException);
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
-        static void SigHandler(int);
+        static void SigHandler(int signal);
     #endif
 
     private:

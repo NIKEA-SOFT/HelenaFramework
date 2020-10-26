@@ -66,14 +66,10 @@ namespace Helena
         SetConsoleTitle(m_Name.c_str());
         SetConsoleCtrlHandler(Service::CtrlHandler, TRUE);
     #elif HF_PLATFORM == HF_PLATFORM_LINUX
-        signal(SIGHUP, SIG_IGN);
-        signal(SIGQUIT, SIG_IGN);
-        signal(SIGPIPE, SIG_IGN);
-        signal(SIGTTOU, SIG_IGN);
-        signal(SIGTTIN, SIG_IGN);
         signal(SIGTERM, Service::SigHandler);
         signal(SIGSTOP, Service::SigHandler);
-        signal(SIGINT, Service::SigHandler);
+        signal(SIGINT,  Service::SigHandler);
+        signal(SIGKILL, Service::SigHandler);
     #else
     #error Unknown platform
     #endif
@@ -121,11 +117,11 @@ namespace Helena
 
     inline void Service::Finalize() {
         m_ModuleManager->FreeModules();
-        m_Service = nullptr;
-
         if(m_IsShutdown) {
             HF_CONSOLE_ERROR(m_ShutdownLog);
         }
+
+        m_Service = nullptr;
     }
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
@@ -148,16 +144,8 @@ namespace Helena
         return EXCEPTION_EXECUTE_HANDLER;
     }
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
-    inline void Service::SigHandler(int)
-    {
-        static std::mutex mutex;
-        std::lock_guard lock{mutex};
-        if(m_Service) {
-            m_Service->Shutdown(HF_FILE_LINE);
-            while(m_Service) {
-                Util::Sleep(1000);
-            }
-        }
+    inline void Service::SigHandler(int signal) {
+        m_Service->Shutdown(HF_FILE_LINE);
     }
 #endif
 }

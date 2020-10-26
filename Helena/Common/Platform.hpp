@@ -106,6 +106,7 @@
     // Including
     #include <signal.h>
     #include <dlfcn.h>
+    #include <unistd.h>
 
     // Definition
     #define HF_API                  extern "C" __attribute__((visibility("default")))
