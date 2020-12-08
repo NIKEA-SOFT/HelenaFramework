@@ -3,14 +3,13 @@
 
 namespace Helena
 {
-    class Service;
     class IPlugin
     {
         // Friend is used to get a clean interface without Set methods
         friend class ModuleManager;
         
     public:
-        IPlugin() : m_Service(nullptr) {}
+        IPlugin() : m_pModuleManager(nullptr) {}
         virtual ~IPlugin() = default;
         IPlugin(const IPlugin&) = delete;
         IPlugin(IPlugin&&) = delete;
@@ -38,12 +37,12 @@ namespace Helena
         }
 
     public:
-        [[nodiscard]] Service* GetService() const noexcept {
-            return m_Service;
+        [[nodiscard]] ModuleManager* GetModuleManager() const noexcept {
+            return m_pModuleManager;
         }
 
     private:
-        Service* m_Service;
+        ModuleManager* m_pModuleManager;
     };
 }
 

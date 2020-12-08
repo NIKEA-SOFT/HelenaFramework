@@ -1,5 +1,5 @@
-#ifndef __COMMON_HFPLATFORM_HPP__
-#define __COMMON_HFPLATFORM_HPP__
+#ifndef COMMON_PLATFORM_HPP
+#define COMMON_PLATFORM_HPP
 
 #define HF_PLATFORM_WIN     1
 #define HF_PLATFORM_LINUX   2
@@ -50,10 +50,20 @@
         #define WIN32_LEAN_AND_MEAN
     #endif
 
+    #if _MSC_VER >= 1910
+        #pragma execution_character_set("utf-8")
+    #endif // _MSC_VER >= 1910
+
     // Including
     #include <Windows.h>
     #include <WinSock2.h>
     #include <minidumpapiset.h>
+
+    inline const auto ENABLE_UNICODE_CONSOLE = []() {
+        SetConsoleCP(65001);
+        SetConsoleOutputCP(65001);
+        return 0;
+    }();
 
     // Definition
     #define HF_API                  extern "C" __declspec(dllexport)
@@ -96,14 +106,16 @@
     // Including
     #include <signal.h>
     #include <dlfcn.h>
+    #include <unistd.h>
 
     // Definition
-    #define HF_API                  __attribute__((visibility("default")))
+    #define HF_API                  extern "C" __attribute__((visibility("default")))
 
     #define HF_MODULE_HANDLE        void*
     #define HF_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
-    #define HF_MODULE_GETSYM(a, b)  dlsym((a), (b))
-    #define HF_MODULE_UNLOAD(a)     dlclose((a))
+    #define HF_MODULE_CALLBACK      "HFMain"
+    #define HF_MODULE_GETSYM(a, b)  dlsym(a, b)
+    #define HF_MODULE_UNLOAD(a)     dlclose(a)
 
     #define HF_SEPARATOR '/'
 
@@ -139,4 +151,4 @@
 #define HF_CLASSNAME(type)          (#type)
 #define HF_CLASSNAME_RT(type)       typeid(type).name()
 
-#endif  // __COMMON_HFPLATFORM_HPP__
+#endif  // COMMON_PLATFORM_HPP

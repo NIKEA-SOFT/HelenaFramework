@@ -1,6 +1,6 @@
 #include <Include/PluginTestB.hpp>
 
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 
 #include <Module/ModuleLog/Interface/IPluginLog.hpp>
 

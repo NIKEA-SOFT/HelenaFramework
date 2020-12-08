@@ -1,11 +1,68 @@
 #include <iostream>
 #include <filesystem>
 
+#include <Common/Service.hpp>
 #include <Common/Xml.hpp>
 #include <Common/Meta.hpp>
-#include <Common/ModuleManager.hpp>
 
 using namespace Helena;
+
+std::unique_ptr<Service> ServiceParse(const std::filesystem::path service, std::string& moduleNames)
+{
+    auto serviceName = service.stem().string();
+    std::error_code error;
+    if(!std::filesystem::is_regular_file(service, error) || !std::filesystem::exists(service, error)) {
+        HF_CONSOLE_ERROR("Service file: {} not found!", serviceName);
+        return std::unique_ptr<Service>();
+    }
+
+    pugi::xml_document xmlDoc;
+    if(!xmlDoc.load_file(service.c_str(), pugi::parse_default | pugi::parse_comments)) {
+        HF_CONSOLE_ERROR("Parse file: {} failed!", serviceName);
+        return std::unique_ptr<Service>();
+    }
+
+    // Find xml node
+    const auto node = xmlDoc.child(Meta::ConfigService::Service());
+    if(node.empty()) {
+        HF_CONSOLE_ERROR("Parse file: {}, node: {} not found!", serviceName, Meta::ConfigService::Service());
+        return std::unique_ptr<Service>();
+    }
+
+    // Create configs/modules/resources directories if not exists
+    std::string pathConfigs = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathConfigs()).as_string()).string();
+    if(!std::filesystem::exists(pathConfigs, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
+        return std::unique_ptr<Service>();
+    }
+
+    std::string pathModules = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathModules()).as_string()).string();
+    if(!std::filesystem::exists(pathModules, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathModules(), pathModules);
+        return std::unique_ptr<Service>();
+    }
+
+    std::string pathResources = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathResources()).as_string()).string();
+    if(!std::filesystem::exists(pathResources, error)) {
+        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathResources(), pathResources);
+        return std::unique_ptr<Service>();
+    }
+   
+    if(pathConfigs.back() != HF_SEPARATOR) {
+        pathConfigs += HF_SEPARATOR;
+    }
+
+    if(pathModules.back() != HF_SEPARATOR) {
+        pathModules += HF_SEPARATOR;
+    }
+
+    if(pathResources.back() != HF_SEPARATOR) {
+        pathResources += HF_SEPARATOR;
+    }
+    
+    moduleNames = node.attribute(Meta::ConfigService::Modules()).as_string();
+    return std::make_unique<Service>(serviceName, pathConfigs, pathModules, pathResources);
+}
 
 int main(int argc, char** argv)
 {
@@ -26,104 +83,26 @@ int main(int argc, char** argv)
 #endif
 
     if(argc != 2) {
-        UTIL_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
+        HF_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
         return 0;
     }
 
-    // Parse service xml path from arg
-    const std::filesystem::path service{argv[1]};
-    if(std::error_code error; !std::filesystem::is_regular_file(service, error) || !std::filesystem::exists(service, error)) {
-        UTIL_CONSOLE_ERROR("Service file: {} not found!", service.string());
-        return 0;
-    }
+    std::string moduleNames;
+    if(const auto service = ServiceParse(argv[1], moduleNames); service) {
+        std::cout
+            << " ______________________________________" << std::endl
+            << "| \t    Helena Framework" << std::endl
+            << "|--------------------------------------" << std::endl
+            << "| Service: \t\"" << service->GetName() << "\"" << std::endl
+            << "| PathConfig: \t" << service->GetDirectories().GetPathConfigs() << std::endl
+            << "| PathModule: \t" << service->GetDirectories().GetPathModules() << std::endl
+            << "| PathResource:\t" << service->GetDirectories().GetPathResources() << std::endl
+            << "| Modules: \t\"" << moduleNames << "\"" << std::endl
+            << "|______________________________________" << std::endl
+            << std::endl;
 
-    // Load xml file
-    pugi::xml_document xmlDoc;
-    if(!xmlDoc.load_file(service.c_str(), pugi::parse_default | pugi::parse_comments)) {
-        UTIL_CONSOLE_ERROR("Parse file: {} failed!", service.string());
-        return 0;
-    }
-
-
-    // Find xml node
-    const auto node = xmlDoc.child(Meta::ConfigService::Service());
-    if(node.empty()) {
-        UTIL_CONSOLE_ERROR("Parse file: {}, node: {} not found!", service.string(), Meta::ConfigService::Service());
-        return 0;
-    }
-
-    // Read attribute from xml node
-    std::filesystem::path pathConfig {node.attribute(Meta::ConfigService::PathConfigs()).as_string()};
-    std::filesystem::path pathModule {node.attribute(Meta::ConfigService::PathModules()).as_string()};
-    std::filesystem::path pathResource {node.attribute(Meta::ConfigService::PathResources()).as_string()};
-    std::string_view modules = node.attribute(Meta::ConfigService::Modules()).as_string();
-
-    // Create configs/modules/resources directories if not exists
-    std::error_code error;
-    if(!std::filesystem::exists(pathConfig, error) && !std::filesystem::create_directory(pathConfig, error)) {
-        UTIL_CONSOLE_ERROR("Path: {} create folder failed!", pathConfig.string());
-        return 0;
-    }
-
-    if(!std::filesystem::exists(pathModule, error) && !std::filesystem::create_directory(pathModule, error)) {
-        UTIL_CONSOLE_ERROR("Path: {} create folder failed!", pathModule.string());
-        return 0;
-    }
-
-    if(!std::filesystem::exists(pathResource, error) && !std::filesystem::create_directory(pathResource, error)) {
-        UTIL_CONSOLE_ERROR("Path: {} create folder failed!", pathResource.string());
-        return 0;
-    }
-
-    // Get absolute path if path is relative
-    pathConfig = std::filesystem::absolute(pathConfig, error);
-    pathModule = std::filesystem::absolute(pathModule, error);
-    pathResource = std::filesystem::absolute(pathResource, error);
-    auto moduleNames = Util::Split<std::string>(modules);
-    auto serviceName = service.stem().string();
-
-    std::cout
-        << " ______________________________________" << std::endl
-        << "| \t    Helena Framework" << std::endl
-        << "|--------------------------------------" << std::endl
-        << "| Service: \t\"" << serviceName << "\"" << std::endl
-        << "| PathService: \t" << service << std::endl
-        << "| PathConfig: \t" << pathConfig << std::endl
-        << "| PathModule: \t" << pathModule << std::endl
-        << "| PathResource:\t" << pathResource << std::endl
-        << "| Modules: \t\"" << modules << "\"" << std::endl
-        << "|______________________________________" << std::endl
-        << std::endl;
-
-    // Check exist directories and module names not empty
-    if(!std::filesystem::exists(pathConfig, error)) {
-        UTIL_CONSOLE_ERROR("Parse: {}, node: {}, attribute: {} failed! Path: {} path not exist!", 
-            service.string(), 
-            Meta::ConfigService::Service(), 
-            Meta::ConfigService::PathConfigs(), 
-            pathConfig.string());
-    }
-    else if(!std::filesystem::exists(pathModule, error)) {
-        UTIL_CONSOLE_ERROR("Parse: {}, node: {}, attribute: {} failed! Path: {} not exist!",
-            service.string(), 
-            Meta::ConfigService::Service(),
-            Meta::ConfigService::PathModules(),
-            pathModule.string());
-    }
-    else if(!std::filesystem::exists(pathResource, error)) {
-        UTIL_CONSOLE_ERROR("Parse: {}, node: {}, attribute: {} failed! Path: {} not exist!",
-            service.string(), 
-            Meta::ConfigService::Service(),
-            Meta::ConfigService::PathResources(),
-            pathResource.string());
-    }
-    else if(moduleNames.empty()) {
-        UTIL_CONSOLE_ERROR("Parse: {}, node: {}, attribute: {} failed! Attribute is empty!",
-            service.string(),
-            Meta::ConfigService::Service(),
-            Meta::ConfigService::Modules());
-    } else {
-        HelenaFramework(serviceName, pathConfig.string(), pathModule.string(), pathResource.string(), moduleNames);
+        service->Initialize(moduleNames);
+        service->Finalize();
     }
 
 #if HF_PLATFORM == HF_PLATFORM_WIN

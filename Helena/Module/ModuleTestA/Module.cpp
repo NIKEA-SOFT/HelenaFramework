@@ -1,4 +1,4 @@
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 #include <Include/PluginTestA.hpp>
 
 namespace Helena
@@ -25,7 +25,7 @@ namespace Helena
                 // It may sound confusing, but it's actually not difficult.
                 // The CreatePlugin method accepts arguments that can be passed to 
                 // the constructor of the PluginTestA class.
-                pModuleManager->CreatePlugin<IPluginTestA, PluginTestA>();
+                pModuleManager->CreatePlugin<IPluginTestA, PluginTestA>(EPluginPriority::NORMAL);
             } break;
 
             case EModuleState::Free:

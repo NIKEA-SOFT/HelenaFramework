@@ -1,4 +1,4 @@
-#include <Common/ModuleManager.hpp>
+#include <Common/Service.hpp>
 #include <Include/PluginConfig.hpp>
 
 namespace Helena
