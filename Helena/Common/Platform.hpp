@@ -70,7 +70,7 @@
     
     #define HF_MODULE_HANDLE        HINSTANCE
     #define HF_MODULE_LOAD(a)       LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)
-    #define HF_MODULE_CALLBACK      "HFMain"
+    #define HF_MODULE_CALLBACK      "PluginMain"
     #define HF_MODULE_GETSYM(a, b)  GetProcAddress(a, b)
     #define HF_MODULE_UNLOAD(a)     FreeLibrary(a)
 
@@ -81,7 +81,7 @@
 		#define HF_ASSERT(cond, msg) {                          \
             do {                                                \
                 if(!(cond)) {                                   \
-	                char logInfo[1024];                         \
+	                char logInfo[2048];                         \
 	                snprintf(logInfo, sizeof(logInfo),          \
 	                    "File: %s | Line: %d\n"                 \
 	                    "Condition: %s\n"                       \
@@ -113,7 +113,7 @@
 
     #define HF_MODULE_HANDLE        void*
     #define HF_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
-    #define HF_MODULE_CALLBACK      "HFMain"
+    #define HF_MODULE_CALLBACK      "PluginMain"
     #define HF_MODULE_GETSYM(a, b)  dlsym(a, b)
     #define HF_MODULE_UNLOAD(a)     dlclose(a)
 
