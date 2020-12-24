@@ -7,63 +7,84 @@ namespace Helena
 {
 	class ResourceManager final 
 	{
-		template <typename Resource>
-		struct ResourceIndexer final {
-			[[nodiscard]] static auto value() noexcept {
-				static auto value = ResourceManager::GetResourceEntity(Hash::HashType<Resource>::value());
+		template <typename Type>
+		struct StorageIndexer final {
+			[[nodiscard]] static auto GetIndex() noexcept {
+				static auto value = ResourceManager::GetStorageIndex(entt::type_hash<Type>::value());
 				return value;
+			}
+		};
+		
+		template <typename Type>
+		struct ResourceNull {
+			[[nodiscard]] static auto& Get() noexcept {
+				static Type instance{};
+				return instance;
 			}
 		};
 
 		struct ResourceManagerCtx {
 			entt::registry m_Registry;
-			std::unordered_map<entt::id_type, entt::entity> m_ResourceIndexes;
+			std::unordered_map<entt::id_type, entt::entity> m_StorageIndexes;
 		};
 
 	private:
 		static auto GetContext() -> ResourceManagerCtx&;
-		static auto GetResourceEntity(entt::id_type name) noexcept -> entt::entity;
+		static auto GetStorageIndex(entt::id_type key) noexcept -> entt::entity;
 
 	public:
 		ResourceManager() = delete;
 		~ResourceManager() = delete;
 		ResourceManager(const ResourceManager&) = delete;
-		ResourceManager(ResourceManager&&) = delete;
+		ResourceManager(ResourceManager&&) noexcept = delete;
 		ResourceManager& operator=(const ResourceManager&) = delete;
-		ResourceManager& operator=(ResourceManager&&) = delete;
+		ResourceManager& operator=(ResourceManager&&) noexcept = delete;
 
-		template <typename Resource>
-		using Storage = std::unordered_map<entt::id_type, std::shared_ptr<Resource>>;
 
-		template <typename Resource, typename... Args>
-		static auto AddResource(entt::id_type id, Args&&... args) -> std::shared_ptr<Resource>;
+		template <typename Type>
+		using Resource = std::shared_ptr<Type>;
 
-		template <typename Callback>
-		static auto AddResource(Callback func) -> bool;
+		template <typename Type>
+		class Storage final 
+		{
+			using ResourceMap = std::unordered_map<entt::id_type, Resource<Type>>;
 
-		template <typename Resource>
-		static auto GetResource(entt::id_type id) noexcept -> std::shared_ptr<Resource>;
+		public:
+			Storage() = default;
+			~Storage() = default;
+			Storage(const Storage&) = default;
+			Storage(Storage&&) noexcept = default;
+			Storage& operator=(const Storage&) = default;
+			Storage& operator=(Storage&&) noexcept = default;
 
-		template <typename Resource>
-		static auto HasResource(entt::id_type id) noexcept -> bool;
+			template <typename... Args>
+			auto CreateResource(Args&&... args) -> Resource<Type>&;
+			template <typename... Args>
+			auto AddResource(entt::id_type key, Args&&... args) -> Resource<Type>&;
+			auto GetResource(entt::id_type key) noexcept -> Resource<Type>&;
+			auto GetResources() noexcept -> const ResourceMap&;
+			auto RemoveResource(entt::id_type key = entt::type_hash<Type>::value()) -> void;
+			template <typename Callback>
+			auto EachResources(Callback func) -> void;
+		private:
+			ResourceMap m_Resources;
+		};
 
-		template <typename Resource>
-		static auto RemoveResource(entt::id_type id) noexcept -> void;
+		template <typename Type>
+		using Container = std::shared_ptr<Storage<Type>>;
 
-		template <typename Resource>
-		static auto AddStorage() -> Storage<Resource>&;
-
-		template <typename Resource>
-		static auto GetStorage() noexcept -> Storage<Resource>&;
-
-		template <typename Resource>
+		template <typename Type>
+		static auto SetStorage(const Container<Type>&) -> void;
+		template <typename Type>
+		static auto CreateStorage() -> Container<Type>&;
+		template <typename Type>
+		static auto ExtractStorage() noexcept -> Container<Type>;
+		template <typename Type>
 		static auto HasStorage() noexcept -> bool;
-
-		template <typename Resource>
-		static auto RemoveStorage() noexcept -> void;
-
-		template <typename Resource, typename Callback>
-		static auto Each(Callback func) -> void;
+		template <typename Type>
+		static auto GetStorage() noexcept -> Container<Type>&;
+		template <typename Type>
+		static auto RemoveStorage() -> void;
 	};
 }
 

@@ -324,20 +324,85 @@ struct Test {
     std::string m_Name;
 };
 
+const std::shared_ptr<std::string> testfn() {
+    static auto value = std::make_shared<std::string>("Hello world");
+    return value;
+}
+
+struct MyContext {
+    std::string m_Name;
+};
+
+struct MyResource {
+    std::string m_Name;
+};
+
 int main(int argc, char** argv)
 {
     Core::SetArgs(argc, argv); // storage argc and argv in context
     Core::GetSignal(); // return true if ctrl handler signaled
+    
+    // Core context manager test
+    {
+        HF_PRINTEX(fmt::terminal_color::cyan, "[Core Context] Test:");
+        if(!Core::HasContext<MyContext>()) {
+            auto& ctx = Core::CreateContext<MyContext>("Alex");
+            HF_PRINT("Your created context name {}", ctx.m_Name);
+        }
 
-    ResourceManager::AddResource<Test>("Ivan"_hs, "Hello, Ivan");
-    ResourceManager::AddResource<Test>("Vasya"_hs, "Hello, Vasya");
-    ResourceManager::AddResource<Test>("Sergey"_hs, "Hello, Sergey");
+        auto& ctx = Core::GetContext<MyContext>();
+        HF_PRINT("Your get'ed context name {}", ctx.m_Name);
 
-    ResourceManager::Each<Test>([](auto key, auto& resource) -> void {
-        std::cout << "Key: " << key << " It's " << resource->m_Name << std::endl;
-    });
+        if(Core::RemoveContext<MyContext>(); !Core::HasContext<MyContext>()) {
+            HF_PRINT("Your context not exist");
+        }
+    }
 
-    ResourceManager::RemoveStorage<Test>();
+    // ResourceManager test
+    {
+        // Single resource storage
+        {
+            HF_PRINTEX(fmt::terminal_color::cyan, "[ResourceManager] Single resoure test:");
+            auto& storage = ResourceManager::CreateStorage<MyResource>();
+            storage->CreateResource("Single resource"); // used if your storage for single resource
+            storage->EachResources([](auto key, auto& resource) -> void {
+                HF_PRINT("Key: {} | Resource name: {}", key, resource->m_Name);
+            });
+            storage->RemoveResource(); // RemoveResource has argument key, he use default value for single resource erase
+            ResourceManager::RemoveStorage<MyResource>(); // Remove storage and destoy all resources
+        }
+
+        // Multiple resource storage
+        {
+            HF_PRINTEX(fmt::terminal_color::cyan, "[ResourceManager] Multiple resourcs test:");
+            {
+                auto& storage = ResourceManager::CreateStorage<MyResource>();
+                storage->AddResource(1u, "Resource #1"); // used if you add resource's in storage
+                storage->AddResource(2u, "Resource #2");
+                storage->AddResource(3u, "Resource #3");
+
+                storage->EachResources([](auto key, auto& resource) -> void {
+                    HF_PRINT("Key: {} | Resource name: {}", key, resource->m_Name);
+                });
+            }
+
+            HF_PRINTEX(fmt::terminal_color::cyan, "[ResourceManager] Extract storage test:");
+            if(ResourceManager::HasStorage<MyResource>()) {
+                HF_PRINT("Storage<{}> exist!", entt::type_name<MyResource>::value());
+            }
+
+            auto storage = ResourceManager::ExtractStorage<MyResource>(); // Extract your storage from ResourceManager
+
+            if(!ResourceManager::HasStorage<MyResource>()) {
+                HF_PRINT("Storage<{}> not exist!", entt::type_name<MyResource>::value());
+            }
+            
+            HF_PRINTEX(fmt::terminal_color::cyan, "[ResourceManager] Extracted storage test:");
+            storage->EachResources([](auto key, auto& resource) -> void {
+                HF_PRINT("Key: {} | Resource name: {}", key, resource->m_Name);
+            });
+        }
+    }
 
     // todo: PluginManager, EventManager, NetManager, LogManager, JobManager, EntityManager
     return 0;

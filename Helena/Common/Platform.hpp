@@ -8,8 +8,6 @@
 #define HF_COMPILER_CLANG   2
 #define HF_COMPILER_GCC     3
 
-#define HF_STANDARD_CPP17   201703L
-
 // Detect Platform
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__) || defined(__TOS_WIN__) || defined(__WINDOWS__)
     #define HF_PLATFORM_NAME    "Windows"
@@ -35,10 +33,78 @@
     #define HF_STANDARD_VER     __cplusplus
 #endif
 
+#if (__cplusplus == 201103L) || (defined(_MSVC_LANG) && _MSVC_LANG == 201103L)
+    #define HF_STANDARD_CPP11
+#endif
+
+#if (__cplusplus == 201402L) || (defined(_MSVC_LANG) && _MSVC_LANG == 201402L)
+    #define HF_STANDARD_CPP14
+#endif
+
+#if (__cplusplus == 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG == 201703L)
+    #define HF_STANDARD_CPP17
+#endif
+
+#if (__cplusplus > 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG > 201703L)
+    #define HF_STANDARD_CPP20
+#endif
+
+#if (__cplusplus >= 201103L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
+    #define HF_STANDARD_CPP11_OR_GREATER
+#endif
+
+#if (__cplusplus >= 201402L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
+    #define HF_STANDARD_CPP14_OR_GREATER
+#endif
+
+#if (__cplusplus >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+    #define HF_STANDARD_CPP17_OR_GREATER
+#endif
+
 #if defined(DEBUG) || defined(_DEBUG)
     #define HF_DEBUG
 #else
     #define HF_RELEASE
+#endif
+
+#ifdef HF_STANDARD_CPP17
+	namespace Helena::Internal {
+		template<class InputIt, class ForwardIt>
+		[[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
+			for(; first != last; ++first) {
+				for(ForwardIt it = s_first; it != s_last; ++it) {
+					if(*first == *it) {
+						return first;
+					}
+				}
+			}
+			return last;
+		}
+	}
+#endif
+    namespace Helena::Internal {
+	    [[nodiscard]] constexpr const char* GetPrettyFile(const std::string_view file) {
+		    constexpr char symbols[]{'\\', '/'};
+	    #ifdef HF_STANDARD_CPP17
+		    const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+        #elif defined(HF_STANDARD_CPP20)
+		    const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+	    #endif
+		    return it == file.rend() ? file.data() : &(*std::prev(it));
+	    }
+    }
+
+#ifndef HF_FILE_LINE
+    #define HF_FILE_LINE                    Helena::Internal::GetPrettyFile(__FILE__), __LINE__
+#endif
+
+#ifndef HF_FORMAT
+    #define HF_FORMAT(msg, ...)             fmt::format(msg, ##__VA_ARGS__)
+#endif
+
+#ifndef HF_PRINT
+    #define HF_PRINT(msg, ...)              fmt::print("[{:%Y.%m.%d %H:%M:%S}][{}:{}] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+    #define HF_PRINTEX(params, msg, ...)    fmt::print(fg((params)), "[{:%Y.%m.%d %H:%M:%S}][{}:{}] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
 #endif
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
@@ -66,11 +132,14 @@
     }();
 
     // Definition
+    #define HF_SLEEP(ms)            Sleep(ms)
+
     #define HF_API                  extern "C" __declspec(dllexport)
-    
+    #define HF_FORCEINLINE          __forceinline
+
     #define HF_MODULE_HANDLE        HINSTANCE
     #define HF_MODULE_LOAD(a)       LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)
-    #define HF_MODULE_CALLBACK      "PluginMain"
+    #define HF_MODULE_ENTRYPOINT    "MainPlugin"
     #define HF_MODULE_GETSYM(a, b)  GetProcAddress(a, b)
     #define HF_MODULE_UNLOAD(a)     FreeLibrary(a)
 
@@ -78,26 +147,17 @@
     
     #ifdef HF_DEBUG
         #define HF_DEBUG_BREAK()    __debugbreak()
-		#define HF_ASSERT(cond, msg) {                          \
-            do {                                                \
-                if(!(cond)) {                                   \
-	                char logInfo[2048];                         \
-	                snprintf(logInfo, sizeof(logInfo),          \
-	                    "File: %s | Line: %d\n"                 \
-	                    "Condition: %s\n"                       \
-	                    "Message: %s",                          \
-	                   __FILE__, __LINE__, (#cond),             \
-						std::string_view(msg).data());          \
-	                printf("%s", logInfo);                      \
-	                ::MessageBeep(MB_ICONERROR);                \
-	                ::MessageBoxA(NULL, logInfo,                \
-	                    "Assert happen, hey look at this!",     \
-	                    MB_RETRYCANCEL | MB_ICONERROR);         \
-	                HF_DEBUG_BREAK();                           \
-                }                                               \
-            } while(false);                                     \
-        }
+        #define HF_ASSERT(cond, msg, ...)                               \
+            do {                                                        \
+                if(!(cond)) {                                           \
+                    HF_PRINTEX(fmt::color::crimson,                     \
+                        "Assert: " ##msg, ##__VA_ARGS__);               \
+                    ::MessageBeep(MB_ICONERROR);                        \
+                    HF_DEBUG_BREAK();                                   \
+                }                                                       \
+            } while(false);
     #else
+        #define HF_DEBUG_BREAK()
         #define HF_ASSERT(cond, msg)
     #endif // HF_DEBUG
 
@@ -109,11 +169,14 @@
     #include <unistd.h>
 
     // Definition
-    #define HF_API                  extern "C" __attribute__((visibility("default")))
+    #define HF_SLEEP(ms)            usleep(ms * 1000)
 
+    #define HF_API                  extern "C" __attribute__((visibility("default")))
+    #define HF_FORCEINLINE          __attribute__((always_inline))
+    
     #define HF_MODULE_HANDLE        void*
     #define HF_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
-    #define HF_MODULE_CALLBACK      "PluginMain"
+    #define HF_MODULE_ENTRYPOINT    "MainPlugin"
     #define HF_MODULE_GETSYM(a, b)  dlsym(a, b)
     #define HF_MODULE_UNLOAD(a)     dlclose(a)
 
@@ -121,26 +184,30 @@
 
     #ifdef HF_DEBUG
         #define HF_DEBUG_BREAK()    raise(SIGTRAP)
-        #define HF_ASSERT(cond, msg) {                          \
-            do {                                                \
-                if(!(cond)) {                                   \
-	                char logInfo[1024];                         \
-	                snprintf(logInfo, sizeof(logInfo),          \
-	                    "File: %s | Line: %d\n"                 \
-	                    "Condition: %s\n"                       \
-	                    "Message: %s",                          \
-	                   __FILE__, __LINE__, (#cond),             \
-						std::string_view(msg).data());          \
-	                printf("%s", logInfo);                      \
-	                HF_DEBUG_BREAK();                           \
-                }                                               \
-            } while(false);                                     \
-        }
+        #define HF_ASSERT(cond, msg, ...)                               \
+            do {                                                        \
+                if(!(cond)) {                                           \
+                    HF_PRINTEX(fmt::color::crimson,                     \
+                        "Assert: " ##msg, ##__VA_ARGS__);               \
+                    HF_DEBUG_BREAK();                                   \
+                }                                                       \
+            } while(false);
     #else
+        #define HF_DEBUG_BREAK()
         #define HF_ASSERT(cond, msg)
     #endif // HF_DEBUG
 
-#endif // HF_PLATFORM_WIN
+#endif
+
+#if defined(HF_STANDARD_CPP11_OR_GREATER)
+    #define HF_NOEXCEPT             noexcept
+    #define HF_CONSTEXPR            constexpr
+    #define HF_FINAL                final
+#else 
+    #define HF_NOEXCEPT             throw()
+    #define HF_CONSTEXPR
+    #define HF_FINAL
+#endif
 
 #define HF_NEW                      new (std::nothrow)
 #define HF_FREE(p)                  if(p) { delete p; p = nullptr; }

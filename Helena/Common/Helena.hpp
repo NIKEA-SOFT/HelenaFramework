@@ -19,15 +19,22 @@
 #include <chrono>
 #include <type_traits>
 
+#define FMT_HEADER_ONLY
+#include <fmt/format.h>
+#include <fmt/chrono.h>
+#include <fmt/color.h>
+
 //#include <safe_ptr/safe_ptr.h>
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
+
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>
 #include <Common/Spinlock.hpp>
 #include <Common/Util.hpp>
 //#include <Common/ContextManager.hpp>
+#include <Common/IContext.hpp>
 #include <Common/Core.hpp>
 #include <Common/ResourceManager.hpp>
 //#include <Common/PluginManager.hpp>
