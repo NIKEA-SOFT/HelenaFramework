@@ -6,8 +6,21 @@ namespace Helena
 	//template <typename T>
 	//using SafePtr = sf::safe_ptr<T, std::shared_mutex, std::unique_lock<std::shared_mutex>, std::shared_lock<std::shared_mutex>>;
 
-	class Core final
+	class Core HF_FINAL
 	{
+		template<typename Type, typename = void>
+		friend struct ENTT_API entt::type_seq;
+
+		struct CoreCtx {
+			entt::entity m_Entity {entt::null};
+			entt::registry m_Registry;
+			std::atomic_bool m_Signal;
+			std::vector<std::string_view> m_Args;
+			std::unordered_map<entt::id_type, entt::id_type> m_TypeIndexes;
+		};
+
+		static inline std::shared_ptr<CoreCtx> m_Ctx {};
+
 	private:
 	#if HF_PLATFORM == HF_PLATFORM_WIN
 		static auto WINAPI CtrlHandler(DWORD) -> BOOL;
@@ -15,6 +28,8 @@ namespace Helena
 	#elif HF_PLATFORM == HF_PLATFORM_LINUX
 		static auto SigHandler(int signal) -> void;
 	#endif
+
+		[[nodiscard]] static auto GetCtxId(const entt::id_type typeIndex) -> entt::id_type;
 
 	public:
 		Core() = delete;
@@ -24,38 +39,29 @@ namespace Helena
 		Core& operator=(const Core&) = delete;
 		Core& operator=(Core&&) = delete;
 
-		struct Ctx 
-		{
-			entt::registry m_Registry;
-			std::unordered_map<entt::id_type, entt::id_type> m_TypeIndexes;
-			entt::entity m_Entity;
-			std::size_t m_ArgCount;
-			char** m_Args;
-			std::atomic_bool m_Signal;
-		};
+		[[nodiscard]] static auto Initialize(const std::shared_ptr<CoreCtx>& ctx = {}) -> bool;
 
-		static auto SetContext(const std::shared_ptr<Ctx>& ctx) noexcept -> void;
-		static auto GetContext() -> std::shared_ptr<Ctx>&;
-		static auto SetArgs(std::size_t argc, char** argv) noexcept -> void;
-		static auto GetArgs(std::size_t offset) noexcept -> const char*;
-		static auto GetArgsCount() noexcept -> std::size_t;
-		static auto GetSignal() noexcept -> bool;
+		static auto SetArgs(const std::size_t size, char** argv) -> void;
+
+		[[nodiscard]] static auto GetArgs() noexcept -> const std::vector<std::string_view>&;
+		[[nodiscard]] static auto GetSignal() noexcept -> bool;
+		[[nodiscard]] static auto GetCoreCtx() noexcept -> const std::shared_ptr<CoreCtx>&;
+
 		template <typename Type, typename... Args>
-		static auto CreateContext(Args&&... args) -> Type&;
+		static auto CreateCtx(Args&&... args) -> Type*;
+
 		template <typename Type>
-		static auto GetContext() noexcept -> Type&;
+		[[nodiscard]] static auto GetCtx() noexcept -> Type*;
+
 		template <typename Type>
-		static auto HasContext() noexcept -> bool;
-		template <typename Type>
-		static auto RemoveContext() noexcept -> void;
-		static auto GetContextIndex(entt::id_type typeIndex) -> entt::id_type;
+		static auto RemoveCtx() noexcept -> void;
 	};
 
 	namespace Internal {
 		template<typename Type>
 		struct entt::type_seq<Type> {
 			[[nodiscard]] static auto value() {
-				static const auto value = Helena::Core::GetContextIndex(entt::type_hash<Type>::value());
+				static const auto value = Helena::Core::GetCtxId(entt::type_hash<Type>::value());
 				return value;
 			}
 		};

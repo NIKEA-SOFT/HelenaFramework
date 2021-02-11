@@ -7,6 +7,7 @@
 #include <utility>
 #include <functional>
 #include <type_traits>
+#include "../core/type_traits.hpp"
 #include "../config/config.h"
 
 
@@ -99,7 +100,7 @@ class delegate<Ret(Args...)> {
     [[nodiscard]] auto wrap(std::index_sequence<Index...>) ENTT_NOEXCEPT {
         return [](const void *, Args... args) -> Ret {
             [[maybe_unused]] const auto arguments = std::forward_as_tuple(std::forward<Args>(args)...);
-            return Ret(std::invoke(Candidate, std::forward<std::tuple_element_t<Index, std::tuple<Args...>>>(std::get<Index>(arguments))...));
+            return static_cast<Ret>(std::invoke(Candidate, std::forward<type_list_element_t<Index, type_list<Args...>>>(std::get<Index>(arguments))...));
         };
     }
 
@@ -107,8 +108,8 @@ class delegate<Ret(Args...)> {
     [[nodiscard]] auto wrap(Type &, std::index_sequence<Index...>) ENTT_NOEXCEPT {
         return [](const void *payload, Args... args) -> Ret {
             [[maybe_unused]] const auto arguments = std::forward_as_tuple(std::forward<Args>(args)...);
-            Type *curr = static_cast<Type *>(const_cast<std::conditional_t<std::is_const_v<Type>, const void *, void *>>(payload));
-            return Ret(std::invoke(Candidate, *curr, std::forward<std::tuple_element_t<Index, std::tuple<Args...>>>(std::get<Index>(arguments))...));
+            Type *curr = static_cast<Type *>(const_cast<constness_as_t<void, Type> *>(payload));
+            return static_cast<Ret>(std::invoke(Candidate, *curr, std::forward<type_list_element_t<Index, type_list<Args...>>>(std::get<Index>(arguments))...));
         };
     }
 
@@ -116,8 +117,8 @@ class delegate<Ret(Args...)> {
     [[nodiscard]] auto wrap(Type *, std::index_sequence<Index...>) ENTT_NOEXCEPT {
         return [](const void *payload, Args... args) -> Ret {
             [[maybe_unused]] const auto arguments = std::forward_as_tuple(std::forward<Args>(args)...);
-            Type *curr = static_cast<Type *>(const_cast<std::conditional_t<std::is_const_v<Type>, const void *, void *>>(payload));
-            return Ret(std::invoke(Candidate, curr, std::forward<std::tuple_element_t<Index, std::tuple<Args...>>>(std::get<Index>(arguments))...));
+            Type *curr = static_cast<Type *>(const_cast<constness_as_t<void, Type> *>(payload));
+            return static_cast<Ret>(std::invoke(Candidate, curr, std::forward<type_list_element_t<Index, type_list<Args...>>>(std::get<Index>(arguments))...));
         };
     }
 
@@ -179,7 +180,7 @@ public:
                 return Ret(std::invoke(Candidate, std::forward<Args>(args)...));
             };
         } else if constexpr(std::is_member_pointer_v<decltype(Candidate)>) {
-            fn = wrap<Candidate>(internal::index_sequence_for<std::tuple_element_t<0, std::tuple<Args...>>>(internal::function_pointer_t<decltype(Candidate)>{}));
+            fn = wrap<Candidate>(internal::index_sequence_for<type_list_element_t<0, type_list<Args...>>>(internal::function_pointer_t<decltype(Candidate)>{}));
         } else {
             fn = wrap<Candidate>(internal::index_sequence_for(internal::function_pointer_t<decltype(Candidate)>{}));
         }
@@ -206,7 +207,7 @@ public:
 
         if constexpr(std::is_invocable_r_v<Ret, decltype(Candidate), Type &, Args...>) {
             fn = [](const void *payload, Args... args) -> Ret {
-                Type *curr = static_cast<Type *>(const_cast<std::conditional_t<std::is_const_v<Type>, const void *, void *>>(payload));
+                Type *curr = static_cast<Type *>(const_cast<constness_as_t<void, Type> *>(payload));
                 return Ret(std::invoke(Candidate, *curr, std::forward<Args>(args)...));
             };
         } else {
@@ -230,7 +231,7 @@ public:
 
         if constexpr(std::is_invocable_r_v<Ret, decltype(Candidate), Type *, Args...>) {
             fn = [](const void *payload, Args... args) -> Ret {
-                Type *curr = static_cast<Type *>(const_cast<std::conditional_t<std::is_const_v<Type>, const void *, void *>>(payload));
+                Type *curr = static_cast<Type *>(const_cast<constness_as_t<void, Type> *>(payload));
                 return Ret(std::invoke(Candidate, curr, std::forward<Args>(args)...));
             };
         } else {

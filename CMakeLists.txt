@@ -118,7 +118,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 
 add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Common)
-add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
+#add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
 link_directories(${HELENA_PROJECT_OUTDIR})
 
 #|--------------------------------

@@ -5,15 +5,14 @@
 
 namespace Helena
 {
-	inline auto ResourceManager::GetContext() -> ResourceManagerCtx& {
-		static auto& ctx{Core::CreateContext<ResourceManagerCtx>()};
-		return ctx;
+	inline auto ResourceManager::GetContext() -> ResourceManagerCtx* {
+		return Core::CreateCtx<ResourceManagerCtx>();
 	}
 
 	inline auto ResourceManager::GetStorageIndex(entt::id_type key) noexcept -> entt::entity {
-		auto& ctx = GetContext();
-		auto& registry = ctx.m_Registry;
-		auto& indexes = ctx.m_StorageIndexes;
+		const auto ctx = GetContext();
+		auto& registry = ctx->m_Registry;
+		auto& indexes = ctx->m_StorageIndexes;
 		const auto it = indexes.find(key);
 
 		return it != indexes.cend() ? it->second : indexes.emplace(key, registry.create()).first->second;
@@ -68,7 +67,7 @@ namespace Helena
 
 	template <typename Type>
 	auto ResourceManager::SetStorage(const Container<Type>& storage) -> void {
-		auto& registry = GetContext().m_Registry;
+		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
 		if(!registry.has<Container<Type>>(index)) {
 			registry.emplace<Container<Type>>(index, storage);
@@ -79,7 +78,7 @@ namespace Helena
 
 	template <typename Type>
 	auto ResourceManager::CreateStorage() -> Container<Type>& {
-		auto& registry = GetContext().m_Registry;
+		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
 		HF_ASSERT(!registry.has<Container<Type>>(index), "Storage<{}> already exist!", entt::type_name<Type>::value());
 		return registry.emplace<Container<Type>>(index, std::make_shared<Storage<Type>>());
@@ -87,7 +86,7 @@ namespace Helena
 
 	template <typename Type>
 	auto ResourceManager::ExtractStorage() noexcept -> Container<Type> {
-		auto& registry = GetContext().m_Registry;
+		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
 		HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
 		auto storage = std::move(registry.get<Container<Type>>(index));
@@ -97,7 +96,7 @@ namespace Helena
 
 	template <typename Type>
 	auto ResourceManager::HasStorage() noexcept -> bool {
-		auto& registry = GetContext().m_Registry;
+		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
 		return registry.has<Container<Type>>(index) ? true : false;
 	}
@@ -112,7 +111,7 @@ namespace Helena
 
 	template <typename Type>
 	auto ResourceManager::RemoveStorage() -> void {
-		auto& registry = GetContext().m_Registry;
+		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
 		HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
 		if(registry.has<Container<Type>>(index)) {

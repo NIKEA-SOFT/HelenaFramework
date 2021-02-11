@@ -9,8 +9,8 @@ namespace entt {
 struct as_ref_t {};
 
 
-/*! @brief Disambiguation tag. */
-inline constexpr as_ref_t as_ref;
+/*! @brief Empty class type used to request the _as cref_ policy. */
+struct as_cref_t {};
 
 
 /*! @brief Empty class type used to request the _as-is_ policy. */

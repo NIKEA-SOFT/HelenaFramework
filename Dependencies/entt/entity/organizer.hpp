@@ -86,13 +86,16 @@ struct resource<type_list<Args...>, type_list<Req...>> {
 
 
 template<typename... Req, typename Ret, typename... Args>
-resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> to_resource(Ret(*)(Args...));
+resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> free_function_to_resource(Ret(*)(Args...));
+
+template<typename... Req, typename Ret, typename Type, typename... Args>
+resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> constrained_function_to_resource(Ret(*)(Type &, Args...));
 
 template<typename... Req, typename Ret, typename Class, typename... Args>
-resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> to_resource(Ret(Class:: *)(Args...));
+resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> constrained_function_to_resource(Ret(Class:: *)(Args...));
 
 template<typename... Req, typename Ret, typename Class, typename... Args>
-resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> to_resource(Ret(Class:: *)(Args...) const);
+resource<type_list<std::remove_reference_t<Args>...>, type_list<Req...>> constrained_function_to_resource(Ret(Class:: *)(Args...) const);
 
 template<typename... Req>
 resource<type_list<>, type_list<Req...>> to_resource();
@@ -152,7 +155,7 @@ class basic_organizer final {
     }
 
     template<typename... Type>
-    static std::size_t fill_dependencies(type_list<Type...>, type_info *buffer, const std::size_t count) {
+    static std::size_t fill_dependencies(type_list<Type...>, [[maybe_unused]] type_info *buffer, [[maybe_unused]] const std::size_t count) {
         if constexpr(sizeof...(Type) == 0u) {
             return {};
         } else {
@@ -165,7 +168,7 @@ class basic_organizer final {
 
     template<typename... RO, typename... RW>
     void track_dependencies(std::size_t index, const bool requires_registry, type_list<RO...>, type_list<RW...>) {
-        dependencies[type_hash<basic_registry<Entity>>::value()].emplace_back(index, requires_registry && (sizeof...(RO) + sizeof...(RW) == 0u));
+        dependencies[type_hash<basic_registry<Entity>>::value()].emplace_back(index, requires_registry || (sizeof...(RO) + sizeof...(RW) == 0u));
         (dependencies[type_hash<RO>::value()].emplace_back(index, false), ...);
         (dependencies[type_hash<RW>::value()].emplace_back(index, true), ...);
     }
@@ -371,7 +374,7 @@ public:
      */
     template<auto Candidate, typename... Req>
     void emplace(const char *name = nullptr) {
-        using resource_type = decltype(internal::to_resource<Req...>(Candidate));
+        using resource_type = decltype(internal::free_function_to_resource<Req...>(Candidate));
         constexpr auto requires_registry = type_list_contains_v<typename resource_type::args, basic_registry<entity_type>>;
 
         callback_type *callback = +[](const void *, basic_registry<entity_type> &reg) {
@@ -388,7 +391,7 @@ public:
             callback,
             +[](const bool rw, type_info *buffer, const std::size_t length) { return rw ? fill_dependencies(typename resource_type::rw{}, buffer, length) : fill_dependencies(typename resource_type::ro{}, buffer, length); },
             +[](basic_registry<entity_type> &reg) { void(to_args(reg, typename resource_type::args{})); },
-            type_id<integral_constant<Candidate>>()
+            type_id<std::integral_constant<decltype(Candidate), Candidate>>()
         });
     }
 
@@ -403,11 +406,11 @@ public:
      */
     template<auto Candidate, typename... Req, typename Type>
     void emplace(Type &value_or_instance, const char *name = nullptr) {
-        using resource_type = decltype(internal::to_resource<Req...>(Candidate));
+        using resource_type = decltype(internal::constrained_function_to_resource<Req...>(Candidate));
         constexpr auto requires_registry = type_list_contains_v<typename resource_type::args, basic_registry<entity_type>>;
 
         callback_type *callback = +[](const void *payload, basic_registry<entity_type> &reg) {
-            Type *curr = static_cast<Type *>(const_cast<std::conditional_t<std::is_const_v<Type>, const void *, void *>>(payload));
+            Type *curr = static_cast<Type *>(const_cast<constness_as_t<void, Type> *>(payload));
             std::apply(Candidate, std::tuple_cat(std::forward_as_tuple(*curr), to_args(reg, typename resource_type::args{})));
         };
 
@@ -425,7 +428,7 @@ public:
             +[](basic_registry<entity_type> &reg) {
                 void(to_args(reg, typename resource_type::args{}));
             },
-            type_id<integral_constant<Candidate>>()
+            type_id<std::integral_constant<decltype(Candidate), Candidate>>()
         });
     }
 
@@ -439,7 +442,7 @@ public:
      */
     template<typename... Req>
     void emplace(function_type *func, const void *payload = nullptr, const char *name = nullptr) {
-        using resource_type = decltype(internal::to_resource<Req...>());
+        using resource_type = internal::resource<type_list<>, type_list<Req...>>;
         track_dependencies(vertices.size(), true, typename resource_type::ro{}, typename resource_type::rw{});
 
         vertices.push_back({

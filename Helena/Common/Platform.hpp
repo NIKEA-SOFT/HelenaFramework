@@ -19,11 +19,7 @@
     #error USED UNSUPPORTED PLATFORM
 #endif
 
-#if defined(_MSC_VER) 
-    #define HF_COMPILER_NAME    "MSVC"
-    #define HF_COMPILER         HF_COMPILER_MSVC
-    #define HF_STANDARD_VER     _MSVC_LANG
-#elif defined(__clang__)
+#if defined(__clang__)
     #define HF_COMPILER_NAME    "Clang"
     #define HF_COMPILER         HF_COMPILER_CLANG
     #define HF_STANDARD_VER     __cplusplus
@@ -31,6 +27,10 @@
     #define HF_COMPILER_NAME    "GCC"
     #define HF_COMPILER         HF_COMPILER_GCC
     #define HF_STANDARD_VER     __cplusplus
+#elif defined(_MSC_VER) 
+    #define HF_COMPILER_NAME    "MSVC"
+    #define HF_COMPILER         HF_COMPILER_MSVC
+    #define HF_STANDARD_VER     _MSVC_LANG
 #endif
 
 #if (__cplusplus == 201103L) || (defined(_MSVC_LANG) && _MSVC_LANG == 201103L)
@@ -63,49 +63,44 @@
 
 #if defined(DEBUG) || defined(_DEBUG)
     #define HF_DEBUG
-#else
-    #define HF_RELEASE
 #endif
 
 #ifdef HF_STANDARD_CPP17
-	namespace Helena::Internal {
-		template<class InputIt, class ForwardIt>
-		[[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
-			for(; first != last; ++first) {
-				for(ForwardIt it = s_first; it != s_last; ++it) {
-					if(*first == *it) {
-						return first;
-					}
+namespace Helena::Internal {
+	template<class InputIt, class ForwardIt>
+	[[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
+		for(; first != last; ++first) {
+			for(ForwardIt it = s_first; it != s_last; ++it) {
+				if(*first == *it) {
+					return first;
 				}
 			}
-			return last;
 		}
+		return last;
 	}
-#endif
-    namespace Helena::Internal {
-	    [[nodiscard]] constexpr const char* GetPrettyFile(const std::string_view file) {
-		    constexpr char symbols[]{'\\', '/'};
-	    #ifdef HF_STANDARD_CPP17
-		    const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
-        #elif defined(HF_STANDARD_CPP20)
-		    const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
-	    #endif
-		    return it == file.rend() ? file.data() : &(*std::prev(it));
-	    }
-    }
-
-#ifndef HF_FILE_LINE
-    #define HF_FILE_LINE                    Helena::Internal::GetPrettyFile(__FILE__), __LINE__
+}
 #endif
 
-#ifndef HF_FORMAT
-    #define HF_FORMAT(msg, ...)             fmt::format(msg, ##__VA_ARGS__)
-#endif
+namespace Helena::Internal {
+	[[nodiscard]] constexpr const char* GetPrettyFile(const std::string_view file) {
+		constexpr char symbols[]{'\\', '/'};
+	#ifdef HF_STANDARD_CPP17
+		const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+    #elif defined(HF_STANDARD_CPP20)
+		const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+	#endif
+		return it == file.rend() ? file.data() : &(*std::prev(it));
+	}
+}
 
-#ifndef HF_PRINT
-    #define HF_PRINT(msg, ...)              fmt::print("[{:%Y.%m.%d %H:%M:%S}][{}:{}] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-    #define HF_PRINTEX(params, msg, ...)    fmt::print(fg((params)), "[{:%Y.%m.%d %H:%M:%S}][{}:{}] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-#endif
+#define HF_FILE_LINE                    Helena::Internal::GetPrettyFile(__FILE__), __LINE__
+#define HF_FORMAT(msg, ...)             fmt::format(##msg, ##__VA_ARGS__)
+#define HF_MSG(msg, ...)                fmt::print(##msg "\n", ##__VA_ARGS__)
+#define HF_MSG_DEBUG(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_blue), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][DEBUG] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_INFO(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_green), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][INFO] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_WARN(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_yellow), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][WARN] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_ERROR(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][ERROR] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_FATAL(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_white) | bg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][FATAL] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
     #pragma warning(disable:4091)
@@ -150,12 +145,11 @@
         #define HF_ASSERT(cond, msg, ...)                               \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    HF_PRINTEX(fmt::color::crimson,                     \
-                        "Assert: " ##msg, ##__VA_ARGS__);               \
+                    HF_MSG_FATAL("Assert: " ##msg, ##__VA_ARGS__);      \
                     ::MessageBeep(MB_ICONERROR);                        \
                     HF_DEBUG_BREAK();                                   \
                 }                                                       \
-            } while(false);
+            } while(false)
     #else
         #define HF_DEBUG_BREAK()
         #define HF_ASSERT(cond, msg)
@@ -187,11 +181,10 @@
         #define HF_ASSERT(cond, msg, ...)                               \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    HF_PRINTEX(fmt::color::crimson,                     \
-                        "Assert: " ##msg, ##__VA_ARGS__);               \
+                    HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
                     HF_DEBUG_BREAK();                                   \
                 }                                                       \
-            } while(false);
+            } while(false)
     #else
         #define HF_DEBUG_BREAK()
         #define HF_ASSERT(cond, msg)

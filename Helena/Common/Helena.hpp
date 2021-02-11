@@ -34,7 +34,6 @@
 #include <Common/Spinlock.hpp>
 #include <Common/Util.hpp>
 //#include <Common/ContextManager.hpp>
-#include <Common/IContext.hpp>
 #include <Common/Core.hpp>
 #include <Common/ResourceManager.hpp>
 //#include <Common/PluginManager.hpp>

@@ -29,7 +29,7 @@ namespace Helena
 		};
 
 	private:
-		static auto GetContext() -> ResourceManagerCtx&;
+		static auto GetContext() -> ResourceManagerCtx*;
 		static auto GetStorageIndex(entt::id_type key) noexcept -> entt::entity;
 
 	public:

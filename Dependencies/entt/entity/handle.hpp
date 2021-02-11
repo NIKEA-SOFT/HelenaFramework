@@ -86,7 +86,7 @@ struct basic_handle {
      * @return True if the handle refers to non-null registry and entity, false otherwise.
      */
     [[nodiscard]] explicit operator bool() const ENTT_NOEXCEPT {
-        return reg && entt != null;
+        return reg && reg->valid(entt);
     }
 
     /**
@@ -114,6 +114,23 @@ struct basic_handle {
     }
 
     /**
+     * @brief Destroys the entity associated with a handle.
+     * @sa basic_registry::destroy
+     */
+    void destroy() {
+        reg->destroy(entt);
+    }
+
+    /**
+     * @brief Destroys the entity associated with a handle.
+     * @sa basic_registry::destroy
+     * @param version A desired version upon destruction.
+     */
+    void destroy(const typename registry_type::version_type version) {
+        reg->destroy(entt, version);
+    }
+
+    /**
      * @brief Assigns the given component to a handle.
      * @sa basic_registry::emplace
      * @tparam Component Type of component to create.
@@ -123,7 +140,7 @@ struct basic_handle {
      */
     template<typename Component, typename... Args>
     decltype(auto) emplace(Args &&... args) const {
-        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>));
+        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>), "Invalid type");
         return reg->template emplace<Component>(entt, std::forward<Args>(args)...);
     }
 
@@ -137,7 +154,7 @@ struct basic_handle {
      */
     template<typename Component, typename... Args>
     decltype(auto) emplace_or_replace(Args &&... args) const {
-        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>));
+        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>), "Invalid type");
         return reg->template emplace_or_replace<Component>(entt, std::forward<Args>(args)...);
     }
 
@@ -151,7 +168,7 @@ struct basic_handle {
      */
     template<typename Component, typename... Func>
     decltype(auto) patch(Func &&... func) const {
-        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>));
+        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>), "Invalid type");
         return reg->template patch<Component>(entt, std::forward<Func>(func)...);
     }
 
@@ -165,7 +182,7 @@ struct basic_handle {
      */
     template<typename Component, typename... Args>
     decltype(auto) replace(Args &&... args) const {
-        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>));
+        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>), "Invalid type");
         return reg->template replace<Component>(entt, std::forward<Args>(args)...);
     }
 
@@ -176,7 +193,7 @@ struct basic_handle {
      */
     template<typename... Component>
     void remove() const {
-        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...));
+        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...), "Invalid type");
         reg->template remove<Component...>(entt);
     }
 
@@ -188,7 +205,7 @@ struct basic_handle {
      */
     template<typename... Component>
     decltype(auto) remove_if_exists() const {
-        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...));
+        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...), "Invalid type");
         return reg->template remove_if_exists<Component...>(entt);
     }
 
@@ -197,7 +214,7 @@ struct basic_handle {
      * @sa basic_registry::remove_all
      */
     void remove_all() const {
-        static_assert(sizeof...(Type) == 0);
+        static_assert(sizeof...(Type) == 0, "Invalid operation");
         reg->remove_all(entt);
     }
 
@@ -232,7 +249,7 @@ struct basic_handle {
      */
     template<typename... Component>
     [[nodiscard]] decltype(auto) get() const {
-        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...));
+        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...), "Invalid type");
         return reg->template get<Component...>(entt);
     }
 
@@ -246,7 +263,7 @@ struct basic_handle {
      */
     template<typename Component, typename... Args>
     [[nodiscard]] decltype(auto) get_or_emplace(Args &&... args) const {
-        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>));
+        static_assert(((sizeof...(Type) == 0) || ... || std::is_same_v<Component, Type>), "Invalid type");
         return reg->template get_or_emplace<Component>(entt, std::forward<Args>(args)...);
     }
 
@@ -258,7 +275,7 @@ struct basic_handle {
      */
     template<typename... Component>
     [[nodiscard]] auto try_get() const {
-        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...));
+        static_assert(sizeof...(Type) == 0 || (type_list_contains_v<type_list<Type...>, Component> && ...), "Invalid type");
         return reg->template try_get<Component...>(entt);
     }
 
