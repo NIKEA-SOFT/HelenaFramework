@@ -5,6 +5,8 @@ namespace Helena
 {
 	class Core HF_FINAL
 	{
+		static inline std::shared_ptr<CoreCtx> m_Ctx {};
+
 		template<typename Type, typename = void>
 		friend struct ENTT_API entt::type_seq;
 
@@ -15,8 +17,6 @@ namespace Helena
 			std::vector<std::string_view> m_Args;
 			std::unordered_map<entt::id_type, entt::id_type> m_TypeIndexes;
 		};
-
-		static inline std::shared_ptr<CoreCtx> m_Ctx {};
 
 	private:
 	#if HF_PLATFORM == HF_PLATFORM_WIN
