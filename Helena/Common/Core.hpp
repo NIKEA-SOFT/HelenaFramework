@@ -3,9 +3,6 @@
 
 namespace Helena
 {
-	//template <typename T>
-	//using SafePtr = sf::safe_ptr<T, std::shared_mutex, std::unique_lock<std::shared_mutex>, std::shared_lock<std::shared_mutex>>;
-
 	class Core HF_FINAL
 	{
 		template<typename Type, typename = void>
