@@ -28,6 +28,9 @@
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
 
+extern "C" {
+#include <lua/include/lua.h>
+}
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>

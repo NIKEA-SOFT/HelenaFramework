@@ -5,8 +5,6 @@ namespace Helena
 {
 	class Core HF_FINAL
 	{
-		static inline std::shared_ptr<CoreCtx> m_Ctx {};
-
 		template<typename Type, typename = void>
 		friend struct ENTT_API entt::type_seq;
 
@@ -17,6 +15,8 @@ namespace Helena
 			std::vector<std::string_view> m_Args;
 			std::unordered_map<entt::id_type, entt::id_type> m_TypeIndexes;
 		};
+
+		static inline std::shared_ptr<CoreCtx> m_Ctx {};
 
 	private:
 	#if HF_PLATFORM == HF_PLATFORM_WIN
@@ -38,14 +38,14 @@ namespace Helena
 
 		[[nodiscard]] static auto Initialize(const std::shared_ptr<CoreCtx>& ctx = {}) -> bool;
 
-		static auto SetArgs(const std::size_t size, char** argv) -> void;
+		static auto SetArgs(const std::size_t size, const char* const* argv) -> void;
 
 		[[nodiscard]] static auto GetArgs() noexcept -> const std::vector<std::string_view>&;
 		[[nodiscard]] static auto GetSignal() noexcept -> bool;
 		[[nodiscard]] static auto GetCoreCtx() noexcept -> const std::shared_ptr<CoreCtx>&;
 
 		template <typename Type, typename... Args>
-		static auto CreateCtx(Args&&... args) -> Type*;
+		static auto CreateCtx([[maybe_unused]] Args&&... args) -> Type*;
 
 		template <typename Type>
 		[[nodiscard]] static auto GetCtx() noexcept -> Type*;

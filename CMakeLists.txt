@@ -85,7 +85,7 @@ message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${C
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-#add_subdirectory(Dependencies)
+
 
 #|--------------------------------
 #| Helena Framework Build

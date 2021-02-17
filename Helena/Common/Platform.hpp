@@ -120,9 +120,19 @@ namespace Helena::Internal {
     #include <WinSock2.h>
     #include <minidumpapiset.h>
 
-    inline const auto ENABLE_UNICODE_CONSOLE = []() {
+    inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
+        // Set UTF-8
         SetConsoleCP(65001);
         SetConsoleOutputCP(65001);
+
+        // Fix Windows fmt.print, enable virtual terminal processing
+        if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE) {
+            DWORD mode {};
+            if(GetConsoleMode(hStdOut, &mode)) {
+                SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN );
+            }
+        }
+
         return 0;
     }();
 
@@ -152,7 +162,7 @@ namespace Helena::Internal {
             } while(false)
     #else
         #define HF_DEBUG_BREAK()
-        #define HF_ASSERT(cond, msg)
+        #define HF_ASSERT(cond, msg, ...)
     #endif // HF_DEBUG
 
 
@@ -187,7 +197,7 @@ namespace Helena::Internal {
             } while(false)
     #else
         #define HF_DEBUG_BREAK()
-        #define HF_ASSERT(cond, msg)
+        #define HF_ASSERT(cond, msg, ...)
     #endif // HF_DEBUG
 
 #endif

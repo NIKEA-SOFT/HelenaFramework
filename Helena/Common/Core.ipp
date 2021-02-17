@@ -6,6 +6,7 @@ namespace Helena
 #if HF_PLATFORM == HF_PLATFORM_WIN
 	inline auto WINAPI Core::CtrlHandler(DWORD) -> BOOL {
 		Core::GetCoreCtx()->m_Signal = true;
+		HF_MSG_FATAL("CtrlHander called");
 		return TRUE;
 	}
 
@@ -53,7 +54,7 @@ namespace Helena
 		return true;
 	}
 
-	inline auto Core::SetArgs(const std::size_t argc, char** argv) -> void 
+	inline auto Core::SetArgs(const std::size_t argc, const char* const* argv) -> void 
 	{
 		if(const auto& ctx = GetCoreCtx(); ctx) 
 		{
@@ -93,7 +94,7 @@ namespace Helena
 	}
 
 	template <typename Type, typename... Args>
-	auto Core::CreateCtx(Args&&... args) -> Type* 
+	auto Core::CreateCtx([[maybe_unused]] Args&&... args) -> Type* 
 	{
 		static_assert(!std::is_empty_v<Type>, "CreateCtx with empty class");
 
@@ -140,11 +141,22 @@ namespace Helena
 	[[nodiscard]] inline auto Core::GetCtxId(const entt::id_type typeId) -> entt::id_type 
 	{
 		auto& indexes = GetCoreCtx()->m_TypeIndexes;
+
 		if(const auto it = indexes.find(typeId); it != indexes.cend()) {
 			return it->second;
 		}
 
-		return indexes.emplace(typeId, indexes.size()).first->second;
+		if(indexes.size() >= static_cast<entt::id_type>(std::numeric_limits<entt::id_type>::max())) {
+			HF_MSG_FATAL("Limit of type index");
+			std::exit(EXIT_SUCCESS);
+		}
+		
+		if(const auto [it, result] = indexes.emplace(typeId, static_cast<entt::id_type>(indexes.size())); !result) {
+			HF_MSG_FATAL("Emplace type index failed");
+			std::exit(EXIT_SUCCESS);
+		}
+
+		return static_cast<entt::id_type>(indexes.size() - 1);
 	}
 }
 
