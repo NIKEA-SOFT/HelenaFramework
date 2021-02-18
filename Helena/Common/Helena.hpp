@@ -27,7 +27,7 @@
 //#include <safe_ptr/safe_ptr.h>
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
-#include <lua/lua.hpp>
+#include <sol/sol.hpp>
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>
