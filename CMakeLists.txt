@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.9)
 project(HelenaFramework VERSION 0.0.1 LANGUAGES CXX)
 
 #|--------------------------------
@@ -44,7 +44,7 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 #|--------------------------------
 #| CMake modules
 #|--------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake") 
 
 #|--------------------------------
 #| Helena Framework Variables
@@ -116,7 +116,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 
-add_subdirectory(${HELENA_PROJECT_DIR}/Dependencies)
+#add_subdirectory(${HELENA_PROJECT_DIR}/Dependencies)
 add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Common)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
