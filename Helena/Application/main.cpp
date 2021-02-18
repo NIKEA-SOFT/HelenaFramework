@@ -6,10 +6,9 @@ struct Test {
 
 int main(int argc, char** argv)
 {
-    lua_State* L = luaL_newstate();
-    luaopen_base(L);
-	luaL_openlibs(L);
-    lua_close(L);
+    sol::state lua;
+    lua.open_libraries(sol::lib::base, sol::lib::package);
+    lua.script("print('hello lua world!')");
 
     if(Helena::Core::Initialize()) 
     {
