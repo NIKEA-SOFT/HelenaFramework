@@ -27,10 +27,7 @@
 //#include <safe_ptr/safe_ptr.h>
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
-
-extern "C" {
-#include <lua/include/lua.h>
-}
+#include <lua/lua.hpp>
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>

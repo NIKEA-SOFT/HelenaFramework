@@ -161,8 +161,8 @@ namespace Helena::Internal {
                 }                                                       \
             } while(false)
     #else
-        #define HF_DEBUG_BREAK()
-        #define HF_ASSERT(cond, msg, ...)
+        #define HF_DEBUG_BREAK() 
+        #define HF_ASSERT(cond, msg, ...) 
     #endif // HF_DEBUG
 
 
@@ -208,8 +208,8 @@ namespace Helena::Internal {
     #define HF_FINAL                final
 #else 
     #define HF_NOEXCEPT             throw()
-    #define HF_CONSTEXPR
-    #define HF_FINAL
+    #define HF_CONSTEXPR 
+    #define HF_FINAL 
 #endif
 
 #define HF_NEW                      new (std::nothrow)

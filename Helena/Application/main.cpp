@@ -6,6 +6,11 @@ struct Test {
 
 int main(int argc, char** argv)
 {
+    lua_State* L = luaL_newstate();
+    luaopen_base(L);
+	luaL_openlibs(L);
+    lua_close(L);
+
     if(Helena::Core::Initialize()) 
     {
         // Push args in Core
