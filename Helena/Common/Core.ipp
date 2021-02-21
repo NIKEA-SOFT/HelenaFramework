@@ -4,19 +4,21 @@
 namespace Helena
 {
 #if HF_PLATFORM == HF_PLATFORM_WIN
-	inline auto WINAPI Core::CtrlHandler(DWORD) -> BOOL {
+	inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType) {
 		Core::GetCoreCtx()->m_Signal = true;
 		HF_MSG_FATAL("CtrlHander called");
 		return TRUE;
 	}
 
-	inline auto Core::SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException) -> int {
+	inline int Core::SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException) {
 		HF_MSG_FATAL("SEH Handler, code: {}", code);
 		if(pException) {
 			HF_MSG_FATAL("Exception address: {}, code: {}", 
 				pException->ExceptionRecord->ExceptionAddress, 
 				pException->ExceptionRecord->ExceptionCode);
 		}
+
+		return TRUE;
 	}
 
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
@@ -86,7 +88,7 @@ namespace Helena
 	#ifndef HF_DEBUG
 		if(!m_Ctx) {
 			HF_MSG_FATAL("Core not initialized");
-			std::exit(EXIT_SUCCESS);
+			std::terminate();
 		}
 	#endif
 
@@ -148,16 +150,26 @@ namespace Helena
 
 		if(indexes.size() >= static_cast<entt::id_type>(std::numeric_limits<entt::id_type>::max())) {
 			HF_MSG_FATAL("Limit of type index");
-			std::exit(EXIT_SUCCESS);
+			std::terminate();
 		}
 		
 		if(const auto [it, result] = indexes.emplace(typeId, static_cast<entt::id_type>(indexes.size())); !result) {
 			HF_MSG_FATAL("Emplace type index failed");
-			std::exit(EXIT_SUCCESS);
+			std::terminate();
 		}
 
 		return static_cast<entt::id_type>(indexes.size() - 1);
 	}
+}
+
+namespace entt {
+	template <typename Type>
+	struct ENTT_API entt::type_seq<Type> {
+		[[nodiscard]] static auto value() {
+			static const auto value = Helena::Core::GetCtxId(entt::type_hash<Type>::value());
+			return value;
+		}
+	};
 }
 
 #endif // COMMON_CORE_IPP

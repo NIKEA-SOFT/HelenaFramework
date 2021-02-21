@@ -3,9 +3,9 @@
 
 namespace Helena
 {
-	class Core HF_FINAL
+	class Core
 	{
-		template<typename Type, typename = void>
+		template <typename, typename>
 		friend struct ENTT_API entt::type_seq;
 
 		struct CoreCtx {
@@ -20,8 +20,8 @@ namespace Helena
 
 	private:
 	#if HF_PLATFORM == HF_PLATFORM_WIN
-		static auto WINAPI CtrlHandler(DWORD) -> BOOL;
-		static auto SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException) -> int;
+		static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
+		static int SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException);
 	#elif HF_PLATFORM == HF_PLATFORM_LINUX
 		static auto SigHandler(int signal) -> void;
 	#endif
@@ -53,16 +53,6 @@ namespace Helena
 		template <typename Type>
 		static auto RemoveCtx() noexcept -> void;
 	};
-
-	namespace Internal {
-		template<typename Type>
-		struct entt::type_seq<Type> {
-			[[nodiscard]] static auto value() {
-				static const auto value = Helena::Core::GetCtxId(entt::type_hash<Type>::value());
-				return value;
-			}
-		};
-	}
 }
 
 #include <Common/Core.ipp>

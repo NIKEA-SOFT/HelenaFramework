@@ -6,6 +6,8 @@
 #include <iostream>
 #include <cstdint>
 #include <algorithm>
+#include <clocale>
+#include <filesystem>
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -19,20 +21,22 @@
 #include <chrono>
 #include <type_traits>
 
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
+
 #define FMT_HEADER_ONLY
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
 
-//#include <safe_ptr/safe_ptr.h>
+#include <safe_ptr/safe_ptr.h>
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
-#include <sol/sol.hpp>
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>
-#include <Common/Spinlock.hpp>
 #include <Common/Util.hpp>
+#include <Common/Spinlock.hpp>
 //#include <Common/ContextManager.hpp>
 #include <Common/Core.hpp>
 #include <Common/ResourceManager.hpp>

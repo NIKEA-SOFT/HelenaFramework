@@ -94,17 +94,18 @@ namespace Helena::Internal {
 }
 
 #define HF_FILE_LINE                    Helena::Internal::GetPrettyFile(__FILE__), __LINE__
-#define HF_FORMAT(msg, ...)             fmt::format(##msg, ##__VA_ARGS__)
-#define HF_MSG(msg, ...)                fmt::print(##msg "\n", ##__VA_ARGS__)
-#define HF_MSG_DEBUG(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_blue), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][DEBUG] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-#define HF_MSG_INFO(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_green), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][INFO] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-#define HF_MSG_WARN(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_yellow), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][WARN] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-#define HF_MSG_ERROR(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][ERROR] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
-#define HF_MSG_FATAL(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_white) | bg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][FATAL] " ##msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_FORMAT(msg, ...)             fmt::format(msg, ##__VA_ARGS__)
+#define HF_MSG(msg, ...)                fmt::print(msg "\n", ##__VA_ARGS__)
+#define HF_MSG_DEBUG(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_blue), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][DEBUG] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_INFO(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_green), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][INFO] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_WARN(msg, ...)           fmt::print(fg(fmt::terminal_color::bright_yellow), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][WARN] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_ERROR(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][ERROR] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
+#define HF_MSG_FATAL(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_white) | bg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][FATAL] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
     #pragma warning(disable:4091)
     #pragma warning(disable:4251)
+
     
     #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
@@ -112,7 +113,7 @@ namespace Helena::Internal {
     #endif
 
     #if _MSC_VER >= 1910
-        #pragma execution_character_set("utf-8")
+        __pragma(execution_character_set(push, "UTF-8"))
     #endif // _MSC_VER >= 1910
 
     // Including
@@ -126,11 +127,22 @@ namespace Helena::Internal {
         SetConsoleOutputCP(65001);
 
         // Fix Windows fmt.print, enable virtual terminal processing
-        if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE) {
+        if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE) 
+        {
             DWORD mode {};
-            if(GetConsoleMode(hStdOut, &mode)) {
-                SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN );
+            if(!GetConsoleMode(hStdOut, &mode)) {
+                HF_MSG_ERROR("Get console mode failed!");
+                std::terminate();
             }
+
+            if(!SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+                HF_MSG_ERROR("Set console handle virtual terminal processing failed!");
+                std::terminate();
+            }
+
+        } else {
+            HF_MSG_ERROR("Get console handle failed!");
+            std::terminate();
         }
 
         return 0;
@@ -155,9 +167,10 @@ namespace Helena::Internal {
         #define HF_ASSERT(cond, msg, ...)                               \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    HF_MSG_FATAL("Assert: " ##msg, ##__VA_ARGS__);      \
+                    HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
                     ::MessageBeep(MB_ICONERROR);                        \
                     HF_DEBUG_BREAK();                                   \
+                    std::terminate();                                   \
                 }                                                       \
             } while(false)
     #else
@@ -193,6 +206,7 @@ namespace Helena::Internal {
                 if(!(cond)) {                                           \
                     HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
                     HF_DEBUG_BREAK();                                   \
+                    std::terminate();                                   \
                 }                                                       \
             } while(false)
     #else

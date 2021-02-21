@@ -22,25 +22,25 @@ namespace Helena
 	template <typename... Args>
 	auto ResourceManager::Storage<Type>::CreateResource(Args&&... args) -> Resource<Type>& {
 		constexpr auto key = entt::type_hash<Type>::value();
-		HF_ASSERT(m_Resources.find(key) == m_Resources.cend(), "Resource<{}> already exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(m_Resources.find(key) == m_Resources.cend(), "Resource<{}> already exist!", entt::type_name<Type>::value());
 		const auto [it, result] = m_Resources.emplace(key, HF_NEW Type{std::forward<Args>(args)...});
-		HF_ASSERT(result, "Resource<{}> allocate memory failed!",  entt::type_name<Type>::value());
+		//HF_ASSERT(result, "Resource<{}> allocate memory failed!",  entt::type_name<Type>::value());
 		return it->second;
 	}
 
 	template <typename Type>
 	template <typename... Args>
 	auto ResourceManager::Storage<Type>::AddResource(entt::id_type key, Args&&... args) -> Resource<Type>& {
-		HF_ASSERT(m_Resources.find(key) == m_Resources.cend(), "Resource<{}> already exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(m_Resources.find(key) == m_Resources.cend(), "Resource<{}> already exist!", entt::type_name<Type>::value());
 		const auto [it, result] = m_Resources.emplace(key, HF_NEW Type{std::forward<Args>(args)...});
-		HF_ASSERT(result, "Resource<{}> allocate memory failed!",  entt::type_name<Type>::value());
+		//HF_ASSERT(result, "Resource<{}> allocate memory failed!",  entt::type_name<Type>::value());
 		return it->second;
 	}
 
 	template <typename Type>
 	auto ResourceManager::Storage<Type>::GetResource(entt::id_type key) noexcept -> Resource<Type>& {
 		const auto it = m_Resources.find(key);
-		HF_ASSERT(it != m_Resources.cend(), "Resource key: {} not exist!", key);
+		//HF_ASSERT(it != m_Resources.cend(), "Resource key: {} not exist!", key);
 		return it != m_Resources.cend() ? it->second : ResourceNull<Resource<Type>>::Get();
 	}
 
@@ -80,7 +80,7 @@ namespace Helena
 	auto ResourceManager::CreateStorage() -> Container<Type>& {
 		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
-		HF_ASSERT(!registry.has<Container<Type>>(index), "Storage<{}> already exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(!registry.has<Container<Type>>(index), "Storage<{}> already exist!", entt::type_name<Type>::value());
 		return registry.emplace<Container<Type>>(index, std::make_shared<Storage<Type>>());
 	}
 
@@ -88,7 +88,7 @@ namespace Helena
 	auto ResourceManager::ExtractStorage() noexcept -> Container<Type> {
 		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
-		HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
 		auto storage = std::move(registry.get<Container<Type>>(index));
 		registry.remove<Container<Type>>(index);
 		return storage;
@@ -105,7 +105,7 @@ namespace Helena
 	auto ResourceManager::GetStorage() noexcept -> Container<Type>& {
 		const auto& registry = GetContext().m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
-		HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
 		return registry.has<Container<Type>>(index) ? registry.get<Container<Type>>(index) : ResourceNull<Container<Type>>::Get();
 	}
 
@@ -113,7 +113,7 @@ namespace Helena
 	auto ResourceManager::RemoveStorage() -> void {
 		auto& registry = GetContext()->m_Registry;
 		const auto index = StorageIndexer<Type>::GetIndex();
-		HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
+		//HF_ASSERT(registry.has<Container<Type>>(index), "Storage<{}> not exist!", entt::type_name<Type>::value());
 		if(registry.has<Container<Type>>(index)) {
 			registry.remove<Container<Type>>(index);
 		}
