@@ -4,8 +4,12 @@
 namespace Helena
 {
 #if HF_PLATFORM == HF_PLATFORM_WIN
-	inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType) {
-		Core::GetCoreCtx()->m_Signal = true;
+	inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType) 
+	{
+		if(m_Context) {
+			m_Context->m_Signal = true;
+		}
+
 		HF_MSG_FATAL("CtrlHander called");
 		return TRUE;
 	}
@@ -22,14 +26,17 @@ namespace Helena
 	}
 
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
-	inline auto Core::SigHandler(int signal) -> void {
-		Core::GetContext()->m_Signal = true;
+	inline auto Core::SigHandler(int signal) -> void
+	{
+		if(m_Context) {
+			m_Context->m_Signal = true;
+		}
 	}
 #endif
 
-	[[nodiscard]] inline auto Core::Initialize(const std::shared_ptr<CoreCtx>& ctx) -> bool 
+	[[nodiscard]] inline auto Core::Initialize(const std::shared_ptr<Context>& ctx) -> bool 
 	{
-		if(m_Ctx) {
+		if(m_Context) {
 			HF_MSG_ERROR("Core context already exist");
 			return false;
 		}
@@ -47,10 +54,13 @@ namespace Helena
 			#error Unknown platform
 		#endif
 
-			m_Ctx = std::make_shared<CoreCtx>();
-			m_Ctx->m_Entity = m_Ctx->m_Registry.create();
+			if(m_Context = std::make_shared<Context>(); !m_Context) {
+				HF_MSG_ERROR("Allocate memory for core context failed!");
+				return false;
+			}
+
 		} else {
-			m_Ctx = ctx;
+			m_Context = ctx;
 		}
 
 		return true;
@@ -58,115 +68,179 @@ namespace Helena
 
 	inline auto Core::SetArgs(const std::size_t argc, const char* const* argv) -> void 
 	{
-		if(const auto& ctx = GetCoreCtx(); ctx) 
-		{
-			ctx->m_Args.clear();
-			ctx->m_Args.reserve(argc);
+		if(m_Context) {
+			HF_MSG_ERROR("Core context already exist");
+			return;
+		}
 
-			for(std::size_t i = 0; i < argc; ++i) {
-				ctx->m_Args.emplace_back(argv[i]);
-			}
+		m_Context->m_Args.clear();
+		m_Context->m_Args.reserve(argc);
+
+		for(std::size_t i = 0; i < argc; ++i) {
+			m_Context->m_Args.emplace_back(argv[i]);
 		}
 	}
 
-	[[nodiscard]] inline auto Core::GetArgs() noexcept -> const std::vector<std::string_view>& 
+	[[nodiscard]] inline auto Core::GetArgs() noexcept -> decltype(auto)
 	{
-		const auto& ctx = GetCoreCtx();
-		return ctx->m_Args;
-	}
-
-	[[nodiscard]] inline auto Core::GetSignal() noexcept -> bool 
-	{
-		const auto& ctx = GetCoreCtx();
-		return ctx->m_Signal;
-	}
-
-	[[nodiscard]] inline auto Core::GetCoreCtx() noexcept -> const std::shared_ptr<CoreCtx>& 
-	{
-		HF_ASSERT(m_Ctx, "Core not initialized");
-
-	#ifndef HF_DEBUG
-		if(!m_Ctx) {
-			HF_MSG_FATAL("Core not initialized");
-			std::terminate();
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return std::vector<std::string_view>{};
 		}
-	#endif
 
-		return m_Ctx;
+		return m_Context->m_Args;
+	}
+
+	[[nodiscard]] inline auto Core::GetSignal() noexcept -> bool {
+		// todo signal dispatcher add
+		return m_Context->m_Signal;
+	}
+
+	[[nodiscard]] inline auto Core::GetContext() noexcept -> const std::shared_ptr<Context>& {
+		return m_Context;
 	}
 
 	template <typename Type, typename... Args>
-	auto Core::CreateCtx([[maybe_unused]] Args&&... args) -> Type* 
+	auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> Type* 
 	{
-		static_assert(!std::is_empty_v<Type>, "CreateCtx with empty class");
+		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
 
-		if(const auto& ctx = GetCoreCtx(); ctx) 
-		{
-			if(!ctx->m_Registry.has<Type>(ctx->m_Entity)) {
-				return &ctx->m_Registry.emplace<Type>(ctx->m_Entity, std::forward<Args>(args)...);
-			}
-
-			HF_MSG_ERROR("Context: {} already exist!", HF_CLASSNAME_RT(Type));
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return nullptr;
 		}
 
-		return nullptr;
+		const auto index	= SystemIndex<TSystem>::GetIndex();
+		auto& systems		= m_Context->m_SystemManager.m_Systems;
+
+		if(index >= systems.size()) {
+			systems.resize(index + 1);
+		}
+		
+		auto& system = systems[index];
+		if(system.m_Instance.has_value()) {
+			HF_MSG_ERROR("System: {} already has!", entt::type_name<TSystem>().value());
+			return nullptr;
+		}
+
+		system.m_Instance = std::make_any<Test>(std::forward<Args>(args)...);
+
+		if constexpr (Internal::is_detected_v<System::fn_create_t, TSystem>) {
+			system.m_EventCreate.template connect<&TSystem::OnCreate>(std::any_cast<TSystem&>(system.m_Instance));
+		}
+
+		if constexpr (Internal::is_detected_v<System::fn_update_t, TSystem, float>) {
+			system.m_EventUpdate.template connect<&TSystem::OnUpdate>(std::any_cast<TSystem&>(system.m_Instance));
+		}
+
+		if constexpr (Internal::is_detected_v<System::fn_destroy_t, TSystem>) {
+			system.m_EventDestroy.template connect<&TSystem::OnDestroy>(std::any_cast<TSystem&>(system.m_Instance));
+		}
+
+		// Test callback's
+		//if(system.m_EventCreate) {
+		//	system.m_EventCreate();
+		//}
+
+		//if(system.m_EventUpdate) {
+		//	system.m_EventUpdate(1.0f);
+		//}
+
+		//if(system.m_EventDestroy) {
+		//	system.m_EventDestroy();
+		//}
+
+		return std::any_cast<TSystem>(&system.m_Instance);
 	}
 
 	template <typename Type>
-	[[nodiscard]] auto Core::GetCtx() noexcept -> Type* 
+	[[nodiscard]] auto Core::GetSystem() noexcept -> Type* 
 	{
-		if(const auto& ctx = GetCoreCtx(); ctx) 
-		{
-			if(const auto ptr = ctx->m_Registry.try_get<Type>(ctx->m_Entity); ptr) {
-				return ptr;
-			}
+		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
 
-			HF_MSG_ERROR("Context: {} not exist!", HF_CLASSNAME_RT(Type));
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return nullptr;
 		}
 
-		return nullptr;
+		const auto index	= SystemIndex<TSystem>::GetIndex();
+		auto& systems		= m_Context->m_SystemManager.m_Systems;
+
+		if(index >= systems.size() || !systems[index].m_Instance.has_value()) {
+			HF_MSG_ERROR("System: {} not exist!", entt::type_name<Type>().value());
+			return nullptr;
+		}
+
+		return std::any_cast<Type>(&systems[index].m_Instance);
 	}
 
 	template <typename Type>
-	auto Core::RemoveCtx() noexcept -> void 
+	auto Core::RemoveSystem() noexcept -> void
 	{
-		if(const auto& ctx = GetCoreCtx(); ctx) 
-		{
-			if(ctx->m_Registry.has<Type>(ctx->m_Entity)) {
-				ctx->m_Registry.remove<Type>(ctx->m_Entity);
-			} else {
-				HF_MSG_ERROR("Context: {} not exist!", HF_CLASSNAME_RT(Type));
-			}
+		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
+
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
 		}
+
+		const auto index	= SystemIndex<TSystem>::GetIndex();
+		auto& systems		= m_Context->m_SystemManager.m_Systems;
+
+		if(index >= systems.size() || !systems[index].m_Instance.has_value()) {
+			HF_MSG_ERROR("System: {} not exist for remove!", entt::type_name<Type>().value());
+			return;
+		}
+
+		auto& system = systems[index];
+		system.m_Instance.reset();
+		system.m_EventCreate.reset();
+		system.m_EventUpdate.reset();
+		system.m_EventDestroy.reset();
 	}
 
-	[[nodiscard]] inline auto Core::GetCtxId(const entt::id_type typeId) -> entt::id_type 
+	template <typename Event, auto Method, typename Type>
+	auto Core::RegisterEvent(Type&& instance) -> bool 
 	{
-		auto& indexes = GetCoreCtx()->m_TypeIndexes;
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return false;
+		}
 
-		if(const auto it = indexes.find(typeId); it != indexes.cend()) {
+		auto wtf = m_Context->m_Dispatcher.sink<Event>().connect<Method>(instance);
+		return true;
+	}
+
+	[[nodiscard]] inline auto Core::GetTypeIndex(indexes_hash_t& container, const entt::id_type typeIndex) -> std::size_t
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			std::terminate();
+		}
+
+		if(const auto it = container.find(typeIndex); it != container.cend()) {
 			return it->second;
 		}
 
-		if(indexes.size() >= static_cast<entt::id_type>(std::numeric_limits<entt::id_type>::max())) {
-			HF_MSG_FATAL("Limit of type index");
-			std::terminate();
-		}
+		//if(container.size() >= static_cast<entt::id_type>(std::numeric_limits<entt::id_type>::max())) {
+		//	HF_MSG_FATAL("Limit of type index");
+		//	std::terminate();
+		//}
 		
-		if(const auto [it, result] = indexes.emplace(typeId, static_cast<entt::id_type>(indexes.size())); !result) {
-			HF_MSG_FATAL("Emplace type index failed");
+		if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
+			HF_MSG_FATAL("Type index emplace failed!");
 			std::terminate();
 		}
 
-		return static_cast<entt::id_type>(indexes.size() - 1);
+		return container.size() - 1;
 	}
 }
 
 namespace entt {
 	template <typename Type>
-	struct ENTT_API entt::type_seq<Type> {
-		[[nodiscard]] static auto value() {
-			static const auto value = Helena::Core::GetCtxId(entt::type_hash<Type>::value());
+	struct ENTT_API type_seq<Type> {
+		[[nodiscard]] static id_type value() ENTT_NOEXCEPT {
+			static const auto value = static_cast<entt::id_type>(Helena::Core::GetTypeIndex(Helena::Core::GetContext()->m_TypeIndexes, entt::type_hash<Type>::value()));
 			return value;
 		}
 	};
