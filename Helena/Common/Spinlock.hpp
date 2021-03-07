@@ -3,9 +3,8 @@
 
 #include <thread>
 
-namespace Helena
+namespace Helena::Util
 {
-    // TODO: Add support C++20 for std::atomic_flag.test
     class Spinlock final
     {
     public:
