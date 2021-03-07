@@ -105,7 +105,8 @@ namespace Helena::Internal {
 #if HF_PLATFORM == HF_PLATFORM_WIN
     #pragma warning(disable:4091)
     #pragma warning(disable:4251)
-
+    
+    #pragma comment(lib, "winmm.lib")
     
     #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
@@ -120,12 +121,15 @@ namespace Helena::Internal {
     #include <Windows.h>
     #include <WinSock2.h>
     #include <minidumpapiset.h>
+    #include <timeapi.h>
 
     inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
         // Set UTF-8
         SetConsoleCP(65001);
         SetConsoleOutputCP(65001);
 
+        timeBeginPeriod(1);
+        
         // Fix Windows fmt.print, enable virtual terminal processing
         if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE) 
         {
