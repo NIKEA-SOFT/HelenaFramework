@@ -22,6 +22,7 @@
 #include <functional>
 #include <chrono>
 #include <any>
+#include <time.h>
 #include <type_traits>
 
 #define SOL_ALL_SAFETIES_ON 1
