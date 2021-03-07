@@ -6,11 +6,13 @@ namespace Helena
 #if HF_PLATFORM == HF_PLATFORM_WIN
 	inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType) 
 	{
-		if(m_Context) {
-			m_Context->m_Signal = true;
+		static std::mutex mutex {};
+        std::lock_guard lock{mutex};
+
+		if(m_Context && !m_Context->m_Shutdown) {
+			Core::Shutdown();
 		}
 
-		HF_MSG_FATAL("CtrlHander called");
 		return TRUE;
 	}
 
@@ -22,7 +24,7 @@ namespace Helena
 				pException->ExceptionRecord->ExceptionCode);
 		}
 
-		return TRUE;
+		return EXCEPTION_EXECUTE_HANDLER;
 	}
 
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
@@ -66,10 +68,91 @@ namespace Helena
 		return true;
 	}
 
+	inline auto Core::Heartbeat(float tickrate) -> void 
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+		
+		auto& ctx = *m_Context;
+		ctx.m_TickrateMax = tickrate;
+
+		const auto framerate = 1.0f / ctx.m_TickrateMax;
+		ctx.m_Tickrate = framerate;
+		auto currentTime = std::chrono::steady_clock::now();
+		auto previousTime = std::chrono::steady_clock::now();
+
+		//float frameTime = 0.0f;
+		//float frameTimeAVG = 0.0f;
+		//std::size_t frameCounter = 0;
+		//std::size_t frameCounterStep = 100;
+		//std::size_t frameCounterSize = frameCounterStep;
+
+		while(!ctx.m_Shutdown) 
+		{
+			//if(frameCounter >= frameCounterSize) {
+			//	//frameTimeAVG = frameTime / frameCounter;
+			//	frameCounterSize = frameCounter + frameCounterStep;
+			//	//HF_MSG_INFO("Average Frame Time: {:.8f}", frameTimeAVG);
+			//}
+
+			previousTime = currentTime;
+			currentTime = std::chrono::steady_clock::now();
+			
+			ctx.m_FrameTime = std::chrono::duration<float>{currentTime - previousTime}.count();
+			ctx.m_Tickrate += ctx.m_FrameTime;
+			/*frameTime += m_Context->m_FrameTime;*/
+
+			for(std::size_t i = 0; i < ctx.m_SystemManager.m_Systems.size(); ++i) 
+			{
+				if(auto& system = ctx.m_SystemManager.m_Systems[i]; !system.m_bInitialized && system.m_EventCreate) {
+					system.m_EventCreate();
+					system.m_bInitialized = true;
+				}
+			}
+
+			if(ctx.m_Tickrate >= framerate - 0.001f) {
+				Util::Sleep(1);
+			}
+
+			//if(!(frameTimeAVG + tickrate >= framerate - 0.001f)) {
+			//	Util::Sleep(1);
+			//} else {
+			//	//HF_MSG_WARN("Sleep ignored");
+			//}
+
+			if(ctx.m_Tickrate >= framerate)
+			{
+				ctx.m_Dispatcher.trigger<Events::Core::UpdatePre>();
+				ctx.m_Dispatcher.trigger<Events::Core::Update>();
+				ctx.m_Dispatcher.trigger<Events::Core::UpdatePost>();
+
+				//HF_MSG_WARN("Update Tickrate: {:.4f}, ticknow: {:.5f}, Framerate: {:.6f}, Avg: {:.6f}", tickrate, tickrate - framerate, m_Context->m_FrameTime, averageFrameTime);
+				ctx.m_Tickrate -= framerate;
+			}
+
+			/*++frameCounter;*/
+		}
+
+		for(const auto& system : ctx.m_SystemManager.m_Systems) 
+		{
+			if(system.m_EventDestroy) {
+				system.m_EventDestroy();
+			}
+		}
+		
+		HF_MSG_WARN("Heartbeat down");
+	}
+
+	inline auto Core::Shutdown() noexcept -> void {
+		m_Context->m_Shutdown = true;
+	}
+
 	inline auto Core::SetArgs(const std::size_t argc, const char* const* argv) -> void 
 	{
-		if(m_Context) {
-			HF_MSG_ERROR("Core context already exist");
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
 			return;
 		}
 
@@ -91,12 +174,13 @@ namespace Helena
 		return m_Context->m_Args;
 	}
 
-	[[nodiscard]] inline auto Core::GetSignal() noexcept -> bool {
-		// todo signal dispatcher add
-		return m_Context->m_Signal;
-	}
+	[[nodiscard]] inline auto Core::GetContext() noexcept -> const std::shared_ptr<Context>& 
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			std::terminate();
+		}
 
-	[[nodiscard]] inline auto Core::GetContext() noexcept -> const std::shared_ptr<Context>& {
 		return m_Context;
 	}
 
@@ -118,23 +202,23 @@ namespace Helena
 		}
 		
 		auto& system = systems[index];
-		if(system.m_Instance.has_value()) {
+		if(system.m_Instance) {
 			HF_MSG_ERROR("System: {} already has!", entt::type_name<TSystem>().value());
 			return nullptr;
 		}
 
-		system.m_Instance = std::make_any<Test>(std::forward<Args>(args)...);
+		system.m_Instance = any_t{std::in_place_type<Type>, std::forward<Args>(args)...};
 
 		if constexpr (Internal::is_detected_v<System::fn_create_t, TSystem>) {
-			system.m_EventCreate.template connect<&TSystem::OnCreate>(std::any_cast<TSystem&>(system.m_Instance));
+			system.m_EventCreate.template connect<&TSystem::OnCreate>(entt::any_cast<TSystem&>(system.m_Instance));
 		}
 
-		if constexpr (Internal::is_detected_v<System::fn_update_t, TSystem, float>) {
-			system.m_EventUpdate.template connect<&TSystem::OnUpdate>(std::any_cast<TSystem&>(system.m_Instance));
-		}
+		//if constexpr (Internal::is_detected_v<System::fn_update_t, TSystem, float>) {
+		//	system.m_EventUpdate.template connect<&TSystem::OnUpdate>(entt::any_cast<TSystem&>(system.m_Instance));
+		//}
 
 		if constexpr (Internal::is_detected_v<System::fn_destroy_t, TSystem>) {
-			system.m_EventDestroy.template connect<&TSystem::OnDestroy>(std::any_cast<TSystem&>(system.m_Instance));
+			system.m_EventDestroy.template connect<&TSystem::OnDestroy>(entt::any_cast<TSystem&>(system.m_Instance));
 		}
 
 		// Test callback's
@@ -149,12 +233,12 @@ namespace Helena
 		//if(system.m_EventDestroy) {
 		//	system.m_EventDestroy();
 		//}
-
-		return std::any_cast<TSystem>(&system.m_Instance);
+		
+		return entt::any_cast<TSystem>(&system.m_Instance);
 	}
 
 	template <typename Type>
-	[[nodiscard]] auto Core::GetSystem() noexcept -> Type* 
+	[[nodiscard]] auto Core::GetSystem() -> Type* 
 	{
 		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
 
@@ -166,16 +250,16 @@ namespace Helena
 		const auto index	= SystemIndex<TSystem>::GetIndex();
 		auto& systems		= m_Context->m_SystemManager.m_Systems;
 
-		if(index >= systems.size() || !systems[index].m_Instance.has_value()) {
+		if(index >= systems.size() || systems[index].m_Instance == any_t{}) {
 			HF_MSG_ERROR("System: {} not exist!", entt::type_name<Type>().value());
 			return nullptr;
 		}
 
-		return std::any_cast<Type>(&systems[index].m_Instance);
+		return entt::any_cast<Type>(&systems[index].m_Instance);
 	}
 
 	template <typename Type>
-	auto Core::RemoveSystem() noexcept -> void
+	auto Core::RemoveSystem() -> void
 	{
 		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
 
@@ -186,29 +270,96 @@ namespace Helena
 
 		const auto index	= SystemIndex<TSystem>::GetIndex();
 		auto& systems		= m_Context->m_SystemManager.m_Systems;
-
-		if(index >= systems.size() || !systems[index].m_Instance.has_value()) {
+		
+		if(index >= systems.size() || systems[index].m_Instance == any_t{}) {
 			HF_MSG_ERROR("System: {} not exist for remove!", entt::type_name<Type>().value());
 			return;
 		}
 
 		auto& system = systems[index];
-		system.m_Instance.reset();
+		system.m_Instance = entt::any{};
 		system.m_EventCreate.reset();
 		system.m_EventUpdate.reset();
 		system.m_EventDestroy.reset();
 	}
 
+	//template <typename Event, auto Method>
+	//auto Core::RegisterEvent() -> void 
+	//{
+	//	// Check core initialiation
+	//	if(!m_Context) {
+	//		HF_MSG_ERROR("Core not initialized!");
+	//		return;
+	//	}
+
+	//	m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
+	//}
+
+
 	template <typename Event, auto Method, typename Type>
-	auto Core::RegisterEvent(Type&& instance) -> bool 
+	auto Core::RegisterEvent(Type&& instance) -> void 
+	{
+		// Check core initialiation
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+
+		m_Context->m_Dispatcher.sink<Event>().template connect<Method>(instance);
+	}
+
+	template <typename Event, typename... Args>
+	auto Core::TriggerEvent(Args&&... args) -> void 
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return false;
+			return;
 		}
 
-		auto wtf = m_Context->m_Dispatcher.sink<Event>().connect<Method>(instance);
-		return true;
+		m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
+	}
+
+	template <typename Event, typename... Args>
+	auto Core::EnqueueEvent(Args&&... args) -> void
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+
+		m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
+	}
+
+	template <typename Event>
+	auto Core::UpdateEvent() -> void {
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+
+		m_Context->m_Dispatcher.template update<Event>();
+	}
+
+	template <typename Event, auto Method>
+	auto Core::RemoveEvent() -> void 
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+
+		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
+	}
+
+	template <typename Event, auto Method, typename Type>
+	auto Core::RemoveEvent(Type&& instance) -> void 
+	{
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			return;
+		}
+
+		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
 	}
 
 	[[nodiscard]] inline auto Core::GetTypeIndex(indexes_hash_t& container, const entt::id_type typeIndex) -> std::size_t

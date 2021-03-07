@@ -1,23 +1,40 @@
 ﻿#include <Common/Helena.hpp>
 
-struct Test {
+using namespace Helena;
+
+struct TestSystem {
+
+    TestSystem(std::string_view text) : text{text} {}
+    ~TestSystem() = default;
 
     void OnCreate() {
-        //HF_MSG_INFO("OnCreate called");
+        HF_MSG_INFO("OnCreate called zxc");
+        Core::RegisterEvent<Events::Core::UpdatePre, &TestSystem::OnUpdatePre>(this);
+        Core::RegisterEvent<Events::Core::Update, &TestSystem::OnUpdate>(this);
+        Core::RegisterEvent<Events::Core::UpdatePost, &TestSystem::OnUpdatePost>(this);
     }
 
-    void OnUpdate(float deltaTime) {
-        //HF_MSG_INFO("OnUpdate called");
+    void OnUpdatePre(Events::Core::UpdatePre update) {
+        HF_MSG_INFO("OnUpdatePre called");
+        Core::RemoveEvent<Events::Core::UpdatePre, &TestSystem::OnUpdatePre>(this);
+    }
+
+    void OnUpdate(Events::Core::Update update) {
+        HF_MSG_INFO("OnUpdate called");
+        Core::RemoveEvent<Events::Core::Update, &TestSystem::OnUpdate>(this);
+    }
+
+    void OnUpdatePost(Events::Core::UpdatePost update) {
+        HF_MSG_INFO("OnUpdatePost called");
+        Core::RemoveEvent<Events::Core::UpdatePost, &TestSystem::OnUpdatePost>(this);
     }
 
     void OnDestroy() {
-        //HF_MSG_INFO("OnDestroy called");
+        HF_MSG_INFO("OnDestroy called");
     }
 
-    int value {100};
+    std::string text;
 };
-
-using namespace Helena;
 
 int main(int argc, char** argv)
 {
@@ -40,6 +57,8 @@ int main(int argc, char** argv)
     // Helena example
     if(Core::Initialize()) 
     {
+        const auto ctx = Core::GetContext();
+
         // Push args in Core
         Core::SetArgs(argc, argv);
         
@@ -51,26 +70,29 @@ int main(int argc, char** argv)
             HF_MSG_INFO("Arg: {}", arg);
         }
 
+
         // test create
-        if(auto ptr = Core::RegisterSystem<Test>(); ptr) {
-            HF_MSG_INFO("Create system: {} success, value: {}", entt::type_name<Test>().value(), ptr->value);
+        if(auto ptr = Core::RegisterSystem<TestSystem>("WTF"); ptr) {
+            HF_MSG_INFO("Create system: {} success", entt::type_name<TestSystem>().value());
         } else {
-            HF_MSG_ERROR("Create system: {} failure", entt::type_name<Test>().value());
-        }
-        
-        // test already exist
-        if(auto ptr = Core::RegisterSystem<Test>(); ptr) {
-            HF_MSG_INFO("Create system: {} success, value: {}", entt::type_name<Test>().value(), ptr->value);
-        } else {
-            HF_MSG_ERROR("Create system: {} failure", entt::type_name<Test>().value());
+            HF_MSG_ERROR("Create system: {} failure", entt::type_name<TestSystem>().value());
         }
 
-        // test get and remove
-        if(auto ptr = Core::GetSystem<Test>(); ptr) {
-            HF_MSG_INFO("System: {} exist", entt::type_name<Test>().value());
-            Core::RemoveSystem<Test>();
-            Core::RemoveSystem<Test>();
-        }
+
+        Core::Heartbeat(30.0f);
+
+        //// test already exist
+        //if(auto ptr = Core::RegisterSystem<Test>(); ptr) {
+        //    HF_MSG_INFO("Create system: {} success, value: {}", entt::type_name<Test>().value(), ptr->value);
+        //} else {
+        //    HF_MSG_ERROR("Create system: {} failure", entt::type_name<Test>().value());
+        //}
+
+        //// test get and remove
+        //if(auto ptr = Core::GetSystem<Test>(); ptr) {
+        //    HF_MSG_INFO("System: {} exist", entt::type_name<Test>().value());
+        //    Core::RemoveSystem<Test>();
+        //}
     }
 
 
