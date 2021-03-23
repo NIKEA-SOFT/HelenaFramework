@@ -6,9 +6,12 @@ namespace Helena
 	namespace Events
 	{
 		namespace Core {
-			struct UpdatePre {};
-			struct Update {};
-			struct UpdatePost {};
+			struct HeartbeatBegin {};
+			struct HeartbeatEnd {};
+
+			struct TickPre {};
+			struct Tick {};
+			struct TickPost {};
 		}
 	}
 	
@@ -17,15 +20,11 @@ namespace Helena
 		template <typename, typename>
 		friend struct ENTT_API entt::type_seq;
 
-		using registry_t		= entt::registry;
-		using dispatcher_t		= entt::dispatcher;
-		using any_t				= entt::any;
-		using signal_t			= std::atomic_bool;
-		using args_list_t		= std::vector<std::string_view>;
-		using indexes_hash_t	= std::unordered_map<entt::id_type, std::size_t>;
-		
 		template <typename Type>
-		using delegate_t		= entt::delegate<Type>;
+		using delegate_t = entt::delegate<Type>;
+
+		template<typename Type, typename... Args>
+		using mem_ptr = void(Type::* const)(Args...);
 
 		template <typename Type>
 		struct SystemIndex {
@@ -37,14 +36,14 @@ namespace Helena
 
 		struct System {
 			template <typename Type, typename... Args>
-			using fn_create_t	= decltype(std::declval<Type>().OnCreate(std::declval<Args>()...));
-			//template <typename Type, typename... Args>
-			//using fn_update_t	= decltype(std::declval<Type>().OnUpdate(std::declval<Args>()...));
+			using fn_create_t	= decltype(std::declval<Type>().Create(std::declval<Args>()...));
 			template <typename Type, typename... Args>
-			using fn_destroy_t	= decltype(std::declval<Type>().OnDestroy(std::declval<Args>()...));
+			using fn_update_t	= decltype(std::declval<Type>().Update(std::declval<Args>()...));
+			template <typename Type, typename... Args>
+			using fn_destroy_t	= decltype(std::declval<Type>().Destroy(std::declval<Args>()...));
 
 			using ev_create_t	= delegate_t<void ()>;
-			/*using ev_update_t	= delegate_t<void (float)>;*/
+			using ev_update_t	= delegate_t<void ()>;
 			using ev_destroy_t	= delegate_t<void ()>;
 
 			System() = default;
@@ -54,18 +53,17 @@ namespace Helena
 			System& operator = (System&&) = delete;
 			System& operator = (const System&) = delete;
 
-			bool m_bInitialized {};
-			any_t m_Instance {};
+			entt::any m_Instance {};
 			ev_create_t m_EventCreate {};
-			/*ev_update_t m_EventUpdate {};*/
+			ev_update_t m_EventUpdate {};
 			ev_destroy_t m_EventDestroy {};
 		};
 
 		struct SystemManager {
-			using systems_list_t = std::vector<System>;
-
-			systems_list_t m_Systems;
-			indexes_hash_t m_Indexes;
+			std::vector<System> m_Systems;
+			std::queue<std::size_t> m_SystemsBegin;
+			std::queue<std::size_t> m_SystemsUpdatable;
+			std::unordered_map<entt::id_type, std::size_t> m_Indexes;
 		};
 
 		struct Context {
@@ -74,16 +72,20 @@ namespace Helena
 			template <typename, typename>
 			friend struct ENTT_API entt::type_seq;
 
-			registry_t m_Registry {};
-			dispatcher_t m_Dispatcher {};
-			float m_FrameTime {};
-			float m_Tickrate {};
-			float m_TickrateMax {};
+			entt::registry m_Registry {};
+			entt::dispatcher m_Dispatcher {};
 
 		private:
-			signal_t m_Shutdown;
-			args_list_t m_Args;
-			indexes_hash_t m_TypeIndexes;
+			std::chrono::steady_clock::time_point m_TimeStart {};
+			std::chrono::steady_clock::time_point m_TimeNow {};
+			std::chrono::steady_clock::time_point m_TimePrev {};
+
+			double m_TimeDelta {};
+			double m_TickRate {};
+
+			std::atomic_bool m_Shutdown;
+			std::vector<std::string_view> m_Args;
+			std::unordered_map<entt::id_type, std::size_t> m_TypeIndexes;
 			SystemManager m_SystemManager;
 		};
 
@@ -97,7 +99,9 @@ namespace Helena
 		static auto SigHandler(int signal) -> void;
 	#endif
 
-		[[nodiscard]] static auto GetTypeIndex(indexes_hash_t& container, const entt::id_type typeIndex) -> std::size_t;
+		static auto Heartbeat() -> void;
+
+		[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;
 
 	public:
 		Core() = delete;
@@ -107,13 +111,17 @@ namespace Helena
 		Core& operator=(const Core&) = delete;
 		Core& operator=(Core&&) = delete;
 
-		[[nodiscard]] static auto Initialize(const std::shared_ptr<Context>& ctx = {}) -> bool;
-		static auto Heartbeat(float tickrate) -> void;
+		[[nodiscard]] static auto Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx = {}) -> bool;
+		
 		static auto Shutdown() noexcept -> void;
 
 		static auto SetArgs(const std::size_t size, const char* const* argv) -> void;
+		static auto SetTickrate(const double tickrate) -> void;
 
 		[[nodiscard]] static auto GetArgs() noexcept -> decltype(auto);
+		[[nodiscard]] static auto GetTickrate() noexcept;
+		[[nodiscard]] static auto GetTimeElapsed() noexcept;
+		[[nodiscard]] static auto GetTimeDelta() noexcept;
 		[[nodiscard]] static auto GetContext() noexcept -> const std::shared_ptr<Context>&;
 
 		template <typename Type, typename... Args>
@@ -125,8 +133,8 @@ namespace Helena
 		template <typename Type>
 		static auto RemoveSystem() -> void;
 
-		//template <typename Event, auto Method>
-		//static auto RegisterEvent() -> void;
+		template <typename Event, auto Method>
+		static auto RegisterEvent() -> void;
 
 		template <typename Event, auto Method, typename Type>
 		static auto RegisterEvent(Type&& instance) -> void;
