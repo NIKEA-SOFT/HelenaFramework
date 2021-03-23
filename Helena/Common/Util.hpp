@@ -5,6 +5,14 @@ namespace Helena
 {
 	namespace Internal 
 	{
+		template <typename Type>
+		struct remove_cvref {
+			typedef std::remove_cv_t<std::remove_reference_t<Type>> type;
+		};
+
+		template <typename Type>
+		using remove_cvref_t = typename remove_cvref<Type>::type;
+
 		template <typename Default, typename AlwaysVoid, template<typename...> typename Op, typename... Args>
 		struct detector {
 			using value_t = std::false_type;
