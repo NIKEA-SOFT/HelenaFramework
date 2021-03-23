@@ -99,6 +99,8 @@ namespace Helena
 		static auto SigHandler(int signal) -> void;
 	#endif
 
+		static auto CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool;
+		static auto HookSignals() -> void;
 		static auto Heartbeat() -> void;
 
 		[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;

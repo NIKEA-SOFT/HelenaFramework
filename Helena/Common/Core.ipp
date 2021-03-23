@@ -40,35 +40,8 @@ namespace Helena
 			return false;
 		}
 
-		// Create context or set (set used for support modules dll/lib)
-		if(!ctx)
-		{
-			// Hook signals
-		#if HF_PLATFORM == HF_PLATFORM_WIN
-			SetConsoleCtrlHandler(CtrlHandler, TRUE);
-		#elif HF_PLATFORM == HF_PLATFORM_LINUX
-			signal(SIGTERM, Service::SigHandler);
-			signal(SIGSTOP, Service::SigHandler);
-			signal(SIGINT,  Service::SigHandler);
-			signal(SIGKILL, Service::SigHandler);
-		#else
-			#error Unknown platform
-		#endif
-
-			// Create instance of context
-			if(m_Context = std::make_shared<Context>(); !m_Context) {
-				HF_MSG_ERROR("Allocate memory for core context failed!");
-				return false;
-			}
-			
-			m_Context->m_TimeStart	= std::chrono::steady_clock::now();	// Start time (used for calculate elapsed time)
-			m_Context->m_TimeNow	= m_Context->m_TimeStart;
-			m_Context->m_TimePrev	= m_Context->m_TimeNow; 
-			m_Context->m_TickRate	= m_Context->m_TickRate ? m_Context->m_TickRate : (1.0 / 30.0);
-
-		} else {
-			// Set instance of context (for modules)
-			m_Context = ctx;
+		if(!CreateOrSetContext(ctx)) {
+			return false;
 		}
 
 		// callback for initialize and register systems
@@ -82,6 +55,44 @@ namespace Helena
 		}
 
 		return true;
+	}
+
+	inline auto Core::CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool 
+	{
+		if(!ctx)
+		{
+			// Create instance of context
+			// The context is used as a storage (shared memory) for dll/lib
+			if(m_Context = std::make_shared<Context>(); !m_Context) {
+				HF_MSG_ERROR("Allocate memory for core context failed!");
+				return false;
+			}
+			
+			m_Context->m_TimeStart	= std::chrono::steady_clock::now();	// Start time (used for calculate elapsed time)
+			m_Context->m_TimeNow	= m_Context->m_TimeStart;
+			m_Context->m_TimePrev	= m_Context->m_TimeNow; 
+			m_Context->m_TickRate	= m_Context->m_TickRate ? m_Context->m_TickRate : (1.0 / 30.0);
+
+			HookSignals();
+		} else {
+			m_Context = ctx;
+		}
+
+		return true;
+	}
+
+	inline auto Core::HookSignals() -> void 
+	{
+		#if HF_PLATFORM == HF_PLATFORM_WIN
+			SetConsoleCtrlHandler(CtrlHandler, TRUE);
+		#elif HF_PLATFORM == HF_PLATFORM_LINUX
+			signal(SIGTERM, Service::SigHandler);
+			signal(SIGSTOP, Service::SigHandler);
+			signal(SIGINT,  Service::SigHandler);
+			signal(SIGKILL, Service::SigHandler);
+		#else
+			#error Unknown platform
+		#endif
 	}
 
 	inline auto Core::Heartbeat() -> void 
@@ -101,13 +112,14 @@ namespace Helena
 			// Check new registered systems
 			while(!m_Context->m_SystemManager.m_SystemsBegin.empty()) 
 			{
-				// Pop system object and check has method "Create" for call
-				if(const auto& system = m_Context->m_SystemManager.m_Systems[m_Context->m_SystemManager.m_SystemsBegin.front()]; system.m_EventCreate) {
+				// Get reference on the system object
+				const auto index = m_Context->m_SystemManager.m_SystemsBegin.front();
+				const auto& system = m_Context->m_SystemManager.m_Systems[m_Context->m_SystemManager.m_SystemsBegin.front()];
+
+				// Pop element from systems Begin list 
+				if(m_Context->m_SystemManager.m_SystemsBegin.pop(); system.m_EventCreate) {
 					system.m_EventCreate();	// Call method "Create"
 				}
-
-				// Remove front system object from container
-				m_Context->m_SystemManager.m_SystemsBegin.pop();
 			}
 
 			// Iterate all the systems objects with the Update method
@@ -134,7 +146,7 @@ namespace Helena
 				m_Context->m_Dispatcher.trigger<Events::Core::Tick>();
 				m_Context->m_Dispatcher.trigger<Events::Core::TickPost>();
 
-				// 
+				// Temp informer
 			#if HF_PLATFORM == HF_PLATFORM_WIN
 				if(static std::size_t counter{}; !(++counter % 3)) {
 					const auto title = HF_FORMAT("Helena | Delta: {:.4f} sec | Elapsed: {:.4f} sec", m_Context->m_TimeDelta, timeElapsed);
@@ -152,10 +164,10 @@ namespace Helena
 			}
 		}
 
-		// // Call the delegates of listeners
+		// Call the delegates of listeners
 		m_Context->m_Dispatcher.trigger<Events::Core::HeartbeatEnd>();
 
-		// 
+		// Iterate all the systems objects with Destroy method
 		for(std::size_t i = 0; i < m_Context->m_SystemManager.m_Systems.size(); ++i) 
 		{
 			if(const auto& system = m_Context->m_SystemManager.m_Systems[i]; system.m_EventDestroy) {
@@ -164,6 +176,10 @@ namespace Helena
 		}
 	}
 
+	/**
+	* @brief Shutdown framework
+	* @details Hello world
+	*/
 	inline auto Core::Shutdown() noexcept -> void {
 		m_Context->m_Shutdown = true;
 	}
@@ -184,7 +200,8 @@ namespace Helena
 		}
 	}
 
-	inline auto Core::SetTickrate(const double tickrate) -> void {
+	inline auto Core::SetTickrate(const double tickrate) -> void 
+	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			return;
@@ -214,7 +231,8 @@ namespace Helena
 		return m_Context;
 	}
 
-	[[nodiscard]] inline auto Core::GetTickrate() noexcept {
+	[[nodiscard]] inline auto Core::GetTickrate() noexcept 
+	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
@@ -244,7 +262,7 @@ namespace Helena
 	template <typename Type, typename... Args>
 	auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> Type* 
 	{
-		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
+		using TSystem = Internal::remove_cvref_t<Type>;
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
@@ -264,7 +282,7 @@ namespace Helena
 			return nullptr;
 		}
 
-		system.m_Instance = entt::any{std::in_place_type<Type>, std::forward<Args>(args)...};
+		system.m_Instance.emplace<TSystem>(std::forward<Args>(args)...);
 
 		if constexpr (Internal::is_detected_v<System::fn_create_t, TSystem>) {
 			system.m_EventCreate.template connect<&TSystem::Create>(entt::any_cast<TSystem&>(system.m_Instance));
@@ -286,7 +304,7 @@ namespace Helena
 	template <typename Type>
 	[[nodiscard]] auto Core::GetSystem() -> Type* 
 	{
-		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
+		using TSystem = Internal::remove_cvref_t<Type>;
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
@@ -311,7 +329,7 @@ namespace Helena
 	template <typename Type>
 	auto Core::RemoveSystem() -> void
 	{
-		using TSystem = std::remove_cv_t<std::remove_reference_t<Type>>;
+		using TSystem = Internal::remove_cvref_t<Type>;
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
