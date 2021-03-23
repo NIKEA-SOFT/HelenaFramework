@@ -42,6 +42,11 @@ namespace Helena
 		inline void Sleep(const uint64_t milliseconds) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		}
+
+		template <typename Rep, typename Period>
+		void Sleep(const std::chrono::duration<Rep, Period>& time) {
+			std::this_thread::sleep_for(time);
+		}
 	}
 }
 
