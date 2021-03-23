@@ -7,30 +7,40 @@ struct TestSystem {
     TestSystem(std::string_view text) : text{text} {}
     ~TestSystem() = default;
 
-    void OnCreate() {
-        HF_MSG_INFO("OnCreate called zxc");
-        Core::RegisterEvent<Events::Core::UpdatePre, &TestSystem::OnUpdatePre>(this);
-        Core::RegisterEvent<Events::Core::Update, &TestSystem::OnUpdate>(this);
-        Core::RegisterEvent<Events::Core::UpdatePost, &TestSystem::OnUpdatePost>(this);
+    void Create() {
+        HF_MSG_INFO("System event Create");
+        
+        Core::RegisterEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
+        Core::RegisterEvent<Events::Core::Tick, &TestSystem::Tick>(this);
+        Core::RegisterEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
+
+        //Core::RemoveSystem<TestSystem>();
     }
 
-    void OnUpdatePre(Events::Core::UpdatePre update) {
-        HF_MSG_INFO("OnUpdatePre called");
-        Core::RemoveEvent<Events::Core::UpdatePre, &TestSystem::OnUpdatePre>(this);
+    void Update() {
+        HF_MSG_INFO("System event Update, elapsed: {:.4f}, delta: {:.4f}", Core::GetTimeElapsed(), Core::GetTimeDelta());
     }
 
-    void OnUpdate(Events::Core::Update update) {
-        HF_MSG_INFO("OnUpdate called");
-        Core::RemoveEvent<Events::Core::Update, &TestSystem::OnUpdate>(this);
+    void Destroy() {
+        HF_MSG_INFO("System event Destroy");
+
+        Core::RemoveEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
+        Core::RemoveEvent<Events::Core::Tick, &TestSystem::Tick>(this);
+        Core::RemoveEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
     }
 
-    void OnUpdatePost(Events::Core::UpdatePost update) {
-        HF_MSG_INFO("OnUpdatePost called");
-        Core::RemoveEvent<Events::Core::UpdatePost, &TestSystem::OnUpdatePost>(this);
+    void TickPre(Events::Core::TickPre update) {
+        HF_MSG_INFO("TickPre called");
+        Core::RemoveEvent<decltype(update), &TestSystem::TickPre>(this);
     }
 
-    void OnDestroy() {
-        HF_MSG_INFO("OnDestroy called");
+    void Tick(Events::Core::Tick update) {
+        HF_MSG_WARN("Tick called, var = {}", text);
+    }
+
+    void TickPost(Events::Core::TickPost update) {
+        HF_MSG_INFO("TickPost called");
+        Core::RemoveEvent<decltype(update), &TestSystem::TickPost>(this);
     }
 
     std::string text;
@@ -55,13 +65,13 @@ int main(int argc, char** argv)
     }
 
     // Helena example
-    if(Core::Initialize()) 
-    {
-        const auto ctx = Core::GetContext();
-
+    return Core::Initialize([&]() -> bool {
         // Push args in Core
         Core::SetArgs(argc, argv);
+        // Set tickrate (30 fps)
+        Core::SetTickrate(30);
         
+
         // Get args size
         HF_MSG_INFO("Args: {}", Core::GetArgs().size());
         
@@ -70,7 +80,6 @@ int main(int argc, char** argv)
             HF_MSG_INFO("Arg: {}", arg);
         }
 
-
         // test create
         if(auto ptr = Core::RegisterSystem<TestSystem>("WTF"); ptr) {
             HF_MSG_INFO("Create system: {} success", entt::type_name<TestSystem>().value());
@@ -78,24 +87,6 @@ int main(int argc, char** argv)
             HF_MSG_ERROR("Create system: {} failure", entt::type_name<TestSystem>().value());
         }
 
-
-        Core::Heartbeat(30.0f);
-
-        //// test already exist
-        //if(auto ptr = Core::RegisterSystem<Test>(); ptr) {
-        //    HF_MSG_INFO("Create system: {} success, value: {}", entt::type_name<Test>().value(), ptr->value);
-        //} else {
-        //    HF_MSG_ERROR("Create system: {} failure", entt::type_name<Test>().value());
-        //}
-
-        //// test get and remove
-        //if(auto ptr = Core::GetSystem<Test>(); ptr) {
-        //    HF_MSG_INFO("System: {} exist", entt::type_name<Test>().value());
-        //    Core::RemoveSystem<Test>();
-        //}
-    }
-
-
-    // todo: PluginManager, EventManager, NetManager, LogManager, JobManager, EntityManager
-    return 0;
+        return true;
+    });
 }
