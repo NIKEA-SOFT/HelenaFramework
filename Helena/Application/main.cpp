@@ -10,37 +10,46 @@ struct TestSystem {
     void Create() {
         HF_MSG_INFO("System event Create");
         
+        Core::RegisterEvent<Events::Core::HeartbeatBegin, &TestSystem::HeartbeatBegin>(this);
+        Core::RegisterEvent<Events::Core::HeartbeatEnd, &TestSystem::HeartbeatEnd>(this);
         Core::RegisterEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
         Core::RegisterEvent<Events::Core::Tick, &TestSystem::Tick>(this);
         Core::RegisterEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
-
-        //Core::RemoveSystem<TestSystem>();
     }
 
+    void HeartbeatBegin(const Events::Core::HeartbeatBegin& event) {
+        HF_MSG_INFO("Core HeartbeatBegin event");
+    }
+
+    // Called every tick
     void Update() {
         HF_MSG_INFO("System event Update, elapsed: {:.4f}, delta: {:.4f}", Core::GetTimeElapsed(), Core::GetTimeDelta());
+    }
+
+    void TickPre(const Events::Core::TickPre& event) {
+        HF_MSG_INFO("TickPre called");
+    }
+
+    void Tick(const Events::Core::Tick& event) {
+        HF_MSG_INFO("Tick called, var = {}", text);
+    }
+
+    void TickPost(const Events::Core::TickPost& event) {
+        HF_MSG_INFO("TickPost called");
+    }
+
+    void HeartbeatEnd(const Events::Core::HeartbeatEnd& event) {
+        HF_MSG_INFO("Core HeartbeatEnd event");
     }
 
     void Destroy() {
         HF_MSG_INFO("System event Destroy");
 
+        Core::RemoveEvent<Events::Core::HeartbeatBegin, &TestSystem::HeartbeatBegin>(this);
+        Core::RemoveEvent<Events::Core::HeartbeatEnd, &TestSystem::HeartbeatEnd>(this);
         Core::RemoveEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
         Core::RemoveEvent<Events::Core::Tick, &TestSystem::Tick>(this);
         Core::RemoveEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
-    }
-
-    void TickPre(Events::Core::TickPre update) {
-        HF_MSG_INFO("TickPre called");
-        Core::RemoveEvent<decltype(update), &TestSystem::TickPre>(this);
-    }
-
-    void Tick(Events::Core::Tick update) {
-        HF_MSG_WARN("Tick called, var = {}", text);
-    }
-
-    void TickPost(Events::Core::TickPost update) {
-        HF_MSG_INFO("TickPost called");
-        Core::RemoveEvent<decltype(update), &TestSystem::TickPost>(this);
     }
 
     std::string text;
