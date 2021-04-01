@@ -26,14 +26,13 @@ namespace Helena
 		template<typename Type, typename... Args>
 		using mem_ptr = void(Type::* const)(Args...);
 
+		/*! Class for storage a index of the system */
 		template <typename Type>
 		struct SystemIndex {
-			[[nodiscard]] static std::size_t GetIndex() {
-				static const auto value = Core::GetTypeIndex(m_Context->m_SystemManager.m_Indexes, entt::type_hash<Type>().value());
-				return value;
-			}
+			[[nodiscard]] static auto GetIndex() -> std::size_t;
 		};
 
+		/*! Class for storage a system and event delegates of the system */
 		struct System {
 			template <typename Type, typename... Args>
 			using fn_create_t	= decltype(std::declval<Type>().Create(std::declval<Args>()...));
@@ -53,29 +52,47 @@ namespace Helena
 			System& operator = (System&&) = delete;
 			System& operator = (const System&) = delete;
 
+			[[nodiscard]] explicit operator bool() const noexcept;
+
 			entt::any m_Instance {};
 			ev_create_t m_EventCreate {};
 			ev_update_t m_EventUpdate {};
 			ev_destroy_t m_EventDestroy {};
 		};
 
+		/*! @brief A storage for systems */
 		struct SystemManager {
+			template <typename Type, typename... Args>
+			auto AddSystem([[maybe_unused]] Args&&... args) -> Type*;
+			template <typename Type>
+			auto GetSystem() noexcept -> Type*;
+
+			auto EventCreate() -> void;
+			auto EventUpdate() -> void;
+			auto EventDestroy() -> void;
+
+			[[nodiscard]] auto GetSystems() noexcept -> std::vector<System>&;
+			[[nodiscard]] auto GetIndexes() noexcept -> std::unordered_map<entt::id_type, std::size_t>&;
+
+		private:
 			std::vector<System> m_Systems;
-			std::queue<std::size_t> m_SystemsBegin;
-			std::queue<std::size_t> m_SystemsUpdatable;
+			std::queue<std::size_t> m_CreatableSystems;
+			std::queue<std::size_t> m_UpdatableSystems;
 			std::unordered_map<entt::id_type, std::size_t> m_Indexes;
 		};
 
+	public:
+		/*! Context used for share memory in modules (dll/lib) */
 		struct Context {
+			entt::registry m_Registry {};
+			entt::dispatcher m_Dispatcher {};
+
+		private:
 			friend class Core;
 
 			template <typename, typename>
 			friend struct ENTT_API entt::type_seq;
 
-			entt::registry m_Registry {};
-			entt::dispatcher m_Dispatcher {};
-
-		private:
 			std::chrono::steady_clock::time_point m_TimeStart {};
 			std::chrono::steady_clock::time_point m_TimeNow {};
 			std::chrono::steady_clock::time_point m_TimePrev {};
@@ -89,6 +106,7 @@ namespace Helena
 			SystemManager m_SystemManager;
 		};
 
+	private:
 		static inline std::shared_ptr<Context> m_Context {};
 
 	private:
@@ -101,8 +119,11 @@ namespace Helena
 
 		static auto CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool;
 		static auto HookSignals() -> void;
-		static auto Heartbeat() -> void;
 
+		static auto Heartbeat() -> void;
+		static auto HeartbeatTimeCalc() -> double;
+
+		[[nodiscard]] static auto GetSystemManager() noexcept -> SystemManager&;
 		[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;
 
 	public:
@@ -114,7 +135,6 @@ namespace Helena
 		Core& operator=(Core&&) = delete;
 
 		[[nodiscard]] static auto Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx = {}) -> bool;
-		
 		static auto Shutdown() noexcept -> void;
 
 		static auto SetArgs(const std::size_t size, const char* const* argv) -> void;
@@ -148,6 +168,7 @@ namespace Helena
 		static auto EnqueueEvent(Args&&... args) -> void;
 
 		template <typename Event>
+		static auto UpdateEvent() -> void;
 		static auto UpdateEvent() -> void;
 
 		template <typename Event, auto Method>

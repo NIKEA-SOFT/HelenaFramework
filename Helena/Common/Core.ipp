@@ -33,6 +33,109 @@ namespace Helena
 	}
 #endif
 
+	template <typename Type>
+	[[nodiscard]] auto Core::SystemIndex<Type>::GetIndex() -> std::size_t {
+		static const auto value = 
+			Core::GetTypeIndex(Core::GetSystemManager().GetIndexes(),
+			Internal::type_hash_t<Type>);
+		return value;
+	}
+
+	[[nodiscard]] inline Core::System::operator bool() const noexcept {
+		return static_cast<bool>(m_Instance);
+	}
+
+	template <typename Type, typename... Args>
+	auto Core::SystemManager::AddSystem([[maybe_unused]] Args&&... args) -> Type* 
+	{
+		const auto index = SystemIndex<Type>::GetIndex();
+
+		if(index >= m_Systems.size()) {
+			m_Systems.resize(index + 1);
+		}
+
+		if(auto& system = m_Systems[index]; !system)
+		{
+			system.m_Instance.emplace<Type>(std::forward<Args>(args)...);
+		
+			if constexpr (Internal::is_detected_v<System::fn_create_t, Type>) {
+				system.m_EventCreate.template connect<&Type::Create>(
+					entt::any_cast<Type&>(system.m_Instance));
+				m_CreatableSystems.emplace(index);
+			}
+
+			if constexpr (Internal::is_detected_v<System::fn_update_t, Type>) {
+				system.m_EventUpdate.template connect<&Type::Update>(
+					entt::any_cast<Type&>(system.m_Instance));
+				m_UpdatableSystems.emplace(index);
+			}
+
+			if constexpr (Internal::is_detected_v<System::fn_destroy_t, Type>) {
+				system.m_EventDestroy.template connect<&Type::Destroy>(
+					entt::any_cast<Type&>(system.m_Instance));
+			}
+		}
+
+		//HF_MSG_ERROR("System: {} already has!", entt::type_name<Type>().value());
+		return entt::any_cast<Type>(&m_Systems[index].m_Instance);
+	}
+
+	template <typename Type>
+	auto Core::SystemManager::GetSystem() noexcept -> Type* {
+		const auto index = SystemIndex<Type>::GetIndex();
+		return index < m_Systems.size() ? entt::any_cast<Type>(&m_Systems[index].m_Instance) : nullptr;
+	}
+
+	inline auto Core::SystemManager::EventCreate() -> void 
+	{
+		for(std::size_t size = m_CreatableSystems.size(); size; --size)
+		{
+			const auto index = m_CreatableSystems.front();
+			const auto& system = m_Systems[index];
+
+			if(system.m_EventCreate) {
+				system.m_EventCreate();
+			} 
+			
+			m_CreatableSystems.pop();
+		}
+	}
+
+	inline auto Core::SystemManager::EventUpdate() -> void 
+	{
+		for(std::size_t size = m_UpdatableSystems.size(); size; --size)
+		{
+			const auto index = m_UpdatableSystems.front();
+			const auto& system = m_Systems[index];
+
+			if(system.m_EventUpdate) {
+				system.m_EventUpdate();
+				m_UpdatableSystems.emplace(index);
+			}
+
+			m_UpdatableSystems.pop();
+		}
+	}
+
+	inline auto Core::SystemManager::EventDestroy() -> void 
+	{
+		for(std::size_t i = 0; i < m_Systems.size(); ++i) 
+		{
+			const auto& system = m_Systems[i];
+			if(system.m_EventDestroy) {
+				system.m_EventDestroy();
+			}
+		}
+	}
+
+	[[nodiscard]] inline auto Core::SystemManager::GetSystems() noexcept -> std::vector<System>& {
+		return m_Systems;
+	}
+
+	[[nodiscard]] inline auto Core::SystemManager::GetIndexes() noexcept -> std::unordered_map<entt::id_type, std::size_t>& {
+		return m_Indexes;
+	}
+
 	[[nodiscard]] inline auto Core::Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx) -> bool 
 	{
 		if(m_Context) {
@@ -40,16 +143,10 @@ namespace Helena
 			return false;
 		}
 
-		if(!CreateOrSetContext(ctx)) {
+		if(!CreateOrSetContext(ctx) || !callback || !callback()) {
 			return false;
 		}
 
-		// callback for initialize and register systems
-		if(!callback || !callback()) {
-			return false;
-		}
-
-		// Core loop
 		if(!ctx) {
 			Heartbeat();
 		}
@@ -59,19 +156,12 @@ namespace Helena
 
 	inline auto Core::CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool 
 	{
-		if(!ctx)
-		{
-			// Create instance of context
-			// The context is used as a storage (shared memory) for dll/lib
-			if(m_Context = std::make_shared<Context>(); !m_Context) {
-				HF_MSG_ERROR("Allocate memory for core context failed!");
-				return false;
-			}
-			
+		if(!ctx) {
+			m_Context				= std::make_shared<Context>();
 			m_Context->m_TimeStart	= std::chrono::steady_clock::now();	// Start time (used for calculate elapsed time)
 			m_Context->m_TimeNow	= m_Context->m_TimeStart;
 			m_Context->m_TimePrev	= m_Context->m_TimeNow; 
-			m_Context->m_TickRate	= m_Context->m_TickRate ? m_Context->m_TickRate : (1.0 / 30.0);
+			m_Context->m_TickRate	= 1.0 / 30.0;
 
 			HookSignals();
 		} else {
@@ -97,65 +187,28 @@ namespace Helena
 
 	inline auto Core::Heartbeat() -> void 
 	{		
-		// Call the delegates of listeners
-		m_Context->m_Dispatcher.trigger<Events::Core::HeartbeatBegin>();
+		TriggerEvent<Events::Core::HeartbeatBegin>();
 
 		double timeElapsed {};
 		while(!m_Context->m_Shutdown) 
 		{
 			// Get time and delta
-			m_Context->m_TimePrev	= m_Context->m_TimeNow;
-			m_Context->m_TimeNow	= std::chrono::steady_clock::now();
-			m_Context->m_TimeDelta	= std::chrono::duration<double>{m_Context->m_TimeNow - m_Context->m_TimePrev}.count();
-			timeElapsed				+= m_Context->m_TimeDelta;
+			timeElapsed	+= HeartbeatTimeCalc();
 
-			// Check new registered systems
-			while(!m_Context->m_SystemManager.m_SystemsBegin.empty()) 
-			{
-				// Get reference on the system object
-				const auto index = m_Context->m_SystemManager.m_SystemsBegin.front();
-				const auto& system = m_Context->m_SystemManager.m_Systems[m_Context->m_SystemManager.m_SystemsBegin.front()];
+			GetSystemManager().EventCreate();
+			GetSystemManager().EventUpdate();
 
-				// Pop element from systems Begin list 
-				if(m_Context->m_SystemManager.m_SystemsBegin.pop(); system.m_EventCreate) {
-					system.m_EventCreate();	// Call method "Create"
-				}
-			}
-
-			// Iterate all the systems objects with the Update method
-			for(std::size_t i = 0, size = m_Context->m_SystemManager.m_SystemsUpdatable.size(); i < size; ++i)
-			{
-				// Get reference on the system object
-				const auto index = m_Context->m_SystemManager.m_SystemsUpdatable.front();
-				const auto& system = m_Context->m_SystemManager.m_Systems[index];
-
-				// Pop element from updatable list
-				// If the m_EventUpdate is empty, but it is in the list, 
-				// then this means that the System object has been destroyed and in next tick
-				// it will be removed from current updatable list
-				if(m_Context->m_SystemManager.m_SystemsUpdatable.pop(); system.m_EventUpdate) {
-					system.m_EventUpdate();	// Call method "Create"
-					m_Context->m_SystemManager.m_SystemsUpdatable.emplace(index); // emplace index in updatable queue
-				}
-			}
-
-			// if elapsed time is more the tickrate time 
 			if(timeElapsed >= m_Context->m_TickRate) {
-				// Call of the delegates of events
-				m_Context->m_Dispatcher.trigger<Events::Core::TickPre>();
-				m_Context->m_Dispatcher.trigger<Events::Core::Tick>();
-				m_Context->m_Dispatcher.trigger<Events::Core::TickPost>();
-
-				// Temp informer
-			#if HF_PLATFORM == HF_PLATFORM_WIN
-				if(static std::size_t counter{}; !(++counter % 3)) {
-					const auto title = HF_FORMAT("Helena | Delta: {:.4f} sec | Elapsed: {:.4f} sec", m_Context->m_TimeDelta, timeElapsed);
-					SetConsoleTitle(title.c_str());
-					counter = 0;
-				}
-			#endif
-
 				timeElapsed -= m_Context->m_TickRate;
+
+				TriggerEvent<Events::Core::TickPre>();
+				TriggerEvent<Events::Core::Tick>();
+				TriggerEvent<Events::Core::TickPost>();
+
+			#if HF_PLATFORM == HF_PLATFORM_WIN
+				const auto title = HF_FORMAT("Helena | Delta: {:.4f} sec | Elapsed: {:.4f} sec", m_Context->m_TimeDelta, timeElapsed);
+				SetConsoleTitle(title.c_str());
+			#endif
 			}
 			
 			if(timeElapsed < m_Context->m_TickRate) {
@@ -164,16 +217,16 @@ namespace Helena
 			}
 		}
 
-		// Call the delegates of listeners
-		m_Context->m_Dispatcher.trigger<Events::Core::HeartbeatEnd>();
+		TriggerEvent<Events::Core::HeartbeatEnd>();
+		GetSystemManager().EventDestroy();
+	}
 
-		// Iterate all the systems objects with Destroy method
-		for(std::size_t i = 0; i < m_Context->m_SystemManager.m_Systems.size(); ++i) 
-		{
-			if(const auto& system = m_Context->m_SystemManager.m_Systems[i]; system.m_EventDestroy) {
-				system.m_EventDestroy();
-			}
-		}
+	inline auto Core::HeartbeatTimeCalc() -> double {
+		m_Context->m_TimePrev	= m_Context->m_TimeNow;
+		m_Context->m_TimeNow	= std::chrono::steady_clock::now();
+		m_Context->m_TimeDelta	= std::chrono::duration<double>{m_Context->m_TimeNow - m_Context->m_TimePrev}.count();
+
+		return m_Context->m_TimeDelta;
 	}
 
 	/**
@@ -188,15 +241,14 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
-		auto& ctx = *m_Context;
-		ctx.m_Args.clear();
-		ctx.m_Args.reserve(argc);
+		m_Context->m_Args.clear();
+		m_Context->m_Args.reserve(argc);
 
 		for(std::size_t i = 0; i < argc; ++i) {
-			ctx.m_Args.emplace_back(argv[i]);
+			m_Context->m_Args.emplace_back(argv[i]);
 		}
 	}
 
@@ -204,18 +256,17 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_TickRate = 1.0 / tickrate;
-		HF_MSG_DEBUG("Hearbeat tickrate new value: {:.4f}", m_Context->m_TickRate);
 	}
 
 	[[nodiscard]] inline auto Core::GetArgs() noexcept -> decltype(auto)
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return std::vector<std::string_view>{};
+			std::terminate();
 		}
 
 		return m_Context->m_Args;
@@ -262,43 +313,12 @@ namespace Helena
 	template <typename Type, typename... Args>
 	auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> Type* 
 	{
-		using TSystem = Internal::remove_cvref_t<Type>;
-
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return nullptr;
+			std::terminate();
 		}
 
-		const auto index	= SystemIndex<TSystem>::GetIndex();
-		auto& systems		= m_Context->m_SystemManager.m_Systems;
-
-		if(index >= systems.size()) {
-			systems.resize(index + 1);
-		}
-		
-		auto& system = systems[index];
-		if(system.m_Instance) {
-			HF_MSG_ERROR("System: {} already has!", entt::type_name<TSystem>().value());
-			return nullptr;
-		}
-
-		system.m_Instance.emplace<TSystem>(std::forward<Args>(args)...);
-
-		if constexpr (Internal::is_detected_v<System::fn_create_t, TSystem>) {
-			system.m_EventCreate.template connect<&TSystem::Create>(entt::any_cast<TSystem&>(system.m_Instance));
-			m_Context->m_SystemManager.m_SystemsBegin.emplace(index);
-		}
-
-		if constexpr (Internal::is_detected_v<System::fn_update_t, TSystem>) {
-			system.m_EventUpdate.template connect<&TSystem::Update>(entt::any_cast<TSystem&>(system.m_Instance));
-			m_Context->m_SystemManager.m_SystemsUpdatable.emplace(index);
-		}
-
-		if constexpr (Internal::is_detected_v<System::fn_destroy_t, TSystem>) {
-			system.m_EventDestroy.template connect<&TSystem::Destroy>(entt::any_cast<TSystem&>(system.m_Instance));
-		}
-		
-		return entt::any_cast<TSystem>(&system.m_Instance);
+		return GetSystemManager().AddSystem<Internal::remove_cvref_t<Type>>(std::forward<Args>(args)...);
 	}
 
 	template <typename Type>
@@ -308,14 +328,14 @@ namespace Helena
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return nullptr;
+			std::terminate();
 		}
 
 		const auto index	= SystemIndex<TSystem>::GetIndex();
-		auto& systems		= m_Context->m_SystemManager.m_Systems;
+		auto& systems		= GetSystemManager().GetSystems();
 
-		if(index >= systems.size() || systems[index].m_Instance == any_t{}) {
-			HF_MSG_ERROR("System: {} not exist!", entt::type_name<Type>().value());
+		if(index >= systems.size() || !systems[index].m_Instance) {
+			HF_MSG_ERROR("System: {} not exist!", Internal::type_name_t<Type>);
 			return nullptr;
 		}
 
@@ -333,33 +353,28 @@ namespace Helena
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		// Get the reference on container of the system instances
-		auto& systems = m_Context->m_SystemManager.m_Systems;
+		const auto index	= SystemIndex<TSystem>::GetIndex();
+		auto& systems		= GetSystemManager().GetSystems();
 
-		// Get the type index from the static cache and check has of the system
-		if(const auto index = SystemIndex<TSystem>::GetIndex(); index < systems.size() && systems[index].m_Instance) 
-		{
-			// Get the reference on the system by index
-			auto& system = systems[index];
-
-			// Check if exist the "Destroy" method for the system
-			if(system.m_EventDestroy) {
-
-				// Call the method "Destroy"
-				system.m_EventDestroy();
-			}
-
-			// Destroy current system
-			system.m_Instance = entt::any{};
-			system.m_EventCreate.reset();
-			system.m_EventUpdate.reset();
-			system.m_EventDestroy.reset();
-		} else {
-			HF_MSG_ERROR("System: {} not exist for remove!", entt::type_name<Type>().value());
+		if(index >= systems.size() || !systems[index].m_Instance) {
+			HF_MSG_ERROR("System: {} not exist for remove!", Internal::type_name_t<TSystem>);
+			return;
 		}
+
+		auto& system = systems[index];
+
+		if(system.m_EventDestroy) {
+			system.m_EventDestroy();
+		}
+
+		system.m_Instance = entt::any{};
+		system.m_EventCreate.reset();
+		system.m_EventUpdate.reset();
+		system.m_EventDestroy.reset();
 	}
 
 	template <typename Event, auto Method>
@@ -368,7 +383,7 @@ namespace Helena
 		// Check core initialiation
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
@@ -380,7 +395,7 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 		
 		m_Context->m_Dispatcher.sink<Event>().template connect<Method>(instance);
@@ -391,7 +406,7 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
@@ -402,7 +417,7 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
@@ -412,10 +427,19 @@ namespace Helena
 	auto Core::UpdateEvent() -> void {
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.template update<Event>();
+	}
+
+	inline auto Core::UpdateEvent() -> void {
+		if(!m_Context) {
+			HF_MSG_ERROR("Core not initialized!");
+			std::terminate();
+		}
+
+		m_Context->m_Dispatcher.update();
 	}
 
 	template <typename Event, auto Method>
@@ -423,7 +447,7 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
@@ -434,13 +458,17 @@ namespace Helena
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
-			return;
+			std::terminate();
 		}
 
 		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
 	}
 
-	[[nodiscard]] inline auto Core::GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t
+	[[nodiscard]] inline auto Core::GetSystemManager() noexcept -> SystemManager& {
+		return m_Context->m_SystemManager;
+	}
+
+	[[nodiscard]] inline auto Core::GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t 
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
@@ -451,11 +479,6 @@ namespace Helena
 			return it->second;
 		}
 
-		//if(container.size() >= static_cast<entt::id_type>(std::numeric_limits<entt::id_type>::max())) {
-		//	HF_MSG_FATAL("Limit of type index");
-		//	std::terminate();
-		//}
-		
 		if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
 			HF_MSG_FATAL("Type index emplace failed!");
 			std::terminate();
@@ -469,7 +492,9 @@ namespace entt {
 	template <typename Type>
 	struct ENTT_API type_seq<Type> {
 		[[nodiscard]] static id_type value() ENTT_NOEXCEPT {
-			static const auto value = static_cast<entt::id_type>(Helena::Core::GetTypeIndex(Helena::Core::GetContext()->m_TypeIndexes, entt::type_hash<Type>::value()));
+			static const auto value = static_cast<entt::id_type>(
+				Helena::Core::GetTypeIndex(Helena::Core::GetContext()->m_TypeIndexes, 
+				Helena::Internal::type_hash_t<Type>));
 			return value;
 		}
 	};
