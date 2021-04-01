@@ -6,6 +6,12 @@ namespace Helena
 	namespace Internal 
 	{
 		template <typename Type>
+		inline constexpr auto type_name_t = entt::type_name<Type>().value();
+
+		template <typename Type>
+		inline constexpr auto type_hash_t = entt::type_hash<Type>().value();
+		
+		template <typename Type>
 		struct remove_cvref {
 			typedef std::remove_cv_t<std::remove_reference_t<Type>> type;
 		};
