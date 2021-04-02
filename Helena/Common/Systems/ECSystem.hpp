@@ -1,7 +1,7 @@
 #ifndef COMMON_ECSYSTEM_HPP
 #define COMMON_ECSYSTEM_HPP
 
-namespace Helena
+namespace Helena::Systems
 {
 	class ECSystem final 
 	{
@@ -32,7 +32,7 @@ namespace Helena
 
 		auto CreateEntity(const Entity id) -> Entity;
 
-		template<typename It>
+		template <typename It>
 		auto CreateEntity(It first, It last) -> void;
 
 		auto HasEntity(const Entity id) const -> bool;
@@ -41,17 +41,20 @@ namespace Helena
 
 		auto RemoveEntity(const Entity id) -> void;
 
+		template <typename It>
+		auto RemoveEntity(It first, It last) -> void;
+
 		template <typename Func>
 		auto Each(Func&& callback) const -> void;
 
 		template <typename Component, typename... Args>
-		auto AddComponent(const Entity id, Args &&... args) -> Component&;
+		auto AddComponent(const Entity id, Args&&... args) -> Component&;
 
 		template <typename Component, typename... Args>
-		auto AddOrGetComponent(const Entity id, Args &&... args) -> Component&;
+		auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
 
 		template <typename Component, typename... Args>
-		auto AddOrReplaceComponent(const Entity id, Args &&... args) -> Component&;
+		auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
 
 		template <typename... Components>
 		[[nodiscard]] auto GetComponent(const Entity id) -> decltype(auto);

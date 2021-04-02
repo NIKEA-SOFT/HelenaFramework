@@ -1,7 +1,7 @@
 #ifndef COMMON_ECSYSTEM_IPP
 #define COMMON_ECSYSTEM_IPP
 
-namespace Helena
+namespace Helena::Systems
 {
 	inline auto ECSystem::CreateEntity() -> Entity {
 		return m_Registry.create();
@@ -29,6 +29,11 @@ namespace Helena
 		m_Registry.destroy(id);
 	}
 
+	template<typename It>
+	auto ECSystem::RemoveEntity(It first, It last) -> void {
+		m_Registry.destroy(first, last);
+	}
+
 	template <typename Func>
 	auto ECSystem::Each(Func&& callback) const -> void {
 		m_Registry.each(std::move(callback));
@@ -36,20 +41,20 @@ namespace Helena
 
 	// Components
 	template <typename Component, typename... Args>
-	auto ECSystem::AddComponent(const Entity id, Args &&... args) -> Component& {
+	auto ECSystem::AddComponent(const Entity id, Args&&... args) -> Component& {
 		//HF_ASSERT(m_Registry.valid(id), "Entity id: {} not valid", id);
 		//HF_ASSERT(!m_Registry.has<Component>(id), "Entity id: {} component: {} already has!", id, Internal::type_name_t<Component>);
 		return m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
 	}
 
 	template <typename Component, typename... Args>
-	auto ECSystem::AddOrGetComponent(const Entity id, Args &&... args) -> Component& {
+	auto ECSystem::AddOrGetComponent(const Entity id, Args&&... args) -> Component& {
 		//HF_ASSERT(m_Registry.valid(id), "Entity id: {} not valid", id);
 		return m_Registry.get_or_emplace<Component>(id, std::forward<Args>(args)...);
 	}
 
 	template <typename Component, typename... Args>
-	auto ECSystem::AddOrReplaceComponent(const Entity id, Args &&... args) -> Component& {
+	auto ECSystem::AddOrReplaceComponent(const Entity id, Args&&... args) -> Component& {
 		//HF_ASSERT(m_Registry.valid(id), "Entity id: {} not valid", id);
 		return m_Registry.emplace_or_replace<Component>(id, std::forward<Args>(args)...);
 	}
