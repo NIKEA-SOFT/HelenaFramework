@@ -11,6 +11,7 @@
 #include "../core/any.hpp"
 #include "../core/type_info.hpp"
 #include "../core/type_traits.hpp"
+#include "fwd.hpp"
 
 
 namespace entt {
@@ -44,29 +45,31 @@ struct poly_inspector {
 /**
  * @brief Static virtual table factory.
  * @tparam Concept Concept descriptor.
+ * @tparam Len Size of the storage reserved for the small buffer optimization.
+ * @tparam Align Alignment requirement.
  */
-template<typename Concept>
+template<typename Concept, std::size_t Len, std::size_t Align>
 class poly_vtable {
     using inspector = typename Concept::template type<poly_inspector>;
 
     template<typename Ret, typename... Args>
-    static auto vtable_entry(Ret(*)(inspector &, Args...)) -> Ret(*)(any &, Args...);
+    static auto vtable_entry(Ret(*)(inspector &, Args...)) -> Ret(*)(basic_any<Len, Align> &, Args...);
 
     template<typename Ret, typename... Args>
-    static auto vtable_entry(Ret(*)(const inspector &, Args...)) -> Ret(*)(const any &, Args...);
+    static auto vtable_entry(Ret(*)(const inspector &, Args...)) -> Ret(*)(const basic_any<Len, Align> &, Args...);
 
     template<typename Ret, typename... Args>
-    static auto vtable_entry(Ret(*)(Args...)) -> Ret(*)(const any &, Args...);
+    static auto vtable_entry(Ret(*)(Args...)) -> Ret(*)(const basic_any<Len, Align> &, Args...);
 
     template<typename Ret, typename... Args>
-    static auto vtable_entry(Ret(inspector:: *)(Args...)) -> Ret(*)(any &, Args...);
+    static auto vtable_entry(Ret(inspector:: *)(Args...)) -> Ret(*)(basic_any<Len, Align> &, Args...);
 
     template<typename Ret, typename... Args>
-    static auto vtable_entry(Ret(inspector:: *)(Args...) const) -> Ret(*)(const any &, Args...);
+    static auto vtable_entry(Ret(inspector:: *)(Args...) const) -> Ret(*)(const basic_any<Len, Align> &, Args...);
 
     template<auto... Candidate>
     static auto make_vtable(value_list<Candidate...>)
-    -> std::tuple<decltype(vtable_entry(Candidate))...>;
+    -> decltype(std::make_tuple(vtable_entry(Candidate)...));
 
     template<typename... Func>
     [[nodiscard]] static constexpr auto make_vtable(type_list<Func...>)  {
@@ -84,8 +87,8 @@ class poly_vtable {
                 return std::invoke(Candidate, std::forward<Args>(args)...);
             };
         } else {
-            entry = +[](Any &any, Args... args) -> Ret {
-                return static_cast<Ret>(std::invoke(Candidate, any_cast<constness_as_t<Type, Any> &>(any), std::forward<Args>(args)...));
+            entry = +[](Any &instance, Args... args) -> Ret {
+                return static_cast<Ret>(std::invoke(Candidate, any_cast<constness_as_t<Type, Any> &>(instance), std::forward<Args>(args)...));
             };
         }
     }
@@ -171,20 +174,22 @@ decltype(auto) poly_call(Poly &&self, Args &&... args) {
  * Moreover, the `poly` class template also works with unmanaged objects.
  *
  * @tparam Concept Concept descriptor.
+ * @tparam Len Size of the storage reserved for the small buffer optimization.
+ * @tparam Align Optional alignment requirement.
  */
-template<typename Concept>
-class poly: private Concept::template type<poly_base<poly<Concept>>> {
+template<typename Concept, std::size_t Len, std::size_t Align>
+class basic_poly: private Concept::template type<poly_base<basic_poly<Concept, Len, Align>>> {
     /*! @brief A poly base is allowed to snoop into a poly object. */
-    friend struct poly_base<poly<Concept>>;
+    friend struct poly_base<basic_poly>;
 
-    using vtable_type = typename poly_vtable<Concept>::type;
+    using vtable_type = typename poly_vtable<Concept, Len, Align>::type;
 
 public:
     /*! @brief Concept type. */
-    using concept_type = typename Concept::template type<poly_base<poly<Concept>>>;
+    using concept_type = typename Concept::template type<poly_base<basic_poly>>;
 
     /*! @brief Default constructor. */
-    poly() ENTT_NOEXCEPT
+    basic_poly() ENTT_NOEXCEPT
         : storage{},
           vtable{}
     {}
@@ -196,9 +201,9 @@ public:
      * @param args Parameters to use to construct the instance.
      */
     template<typename Type, typename... Args>
-    explicit poly(std::in_place_type_t<Type>, Args &&... args)
+    explicit basic_poly(std::in_place_type_t<Type>, Args &&... args)
         : storage{std::in_place_type<Type>, std::forward<Args>(args)...},
-          vtable{poly_vtable<Concept>::template instance<std::remove_const_t<std::remove_reference_t<Type>>>()}
+          vtable{poly_vtable<Concept, Len, Align>::template instance<std::remove_const_t<std::remove_reference_t<Type>>>()}
     {}
 
     /**
@@ -207,8 +212,8 @@ public:
      * @param value An instance of an object to use to initialize the poly.
      */
     template<typename Type>
-    poly(std::reference_wrapper<Type> value)
-        : poly{std::in_place_type<Type &>, &value.get()}
+    basic_poly(std::reference_wrapper<Type> value)
+        : basic_poly{std::in_place_type<Type &>, value.get()}
     {}
 
     /**
@@ -216,23 +221,23 @@ public:
      * @tparam Type Type of object to use to initialize the poly.
      * @param value An instance of an object to use to initialize the poly.
      */
-    template<typename Type, typename = std::enable_if_t<!std::is_same_v<std::remove_cv_t<std::remove_reference_t<Type>>, poly>>>
-    poly(Type &&value) ENTT_NOEXCEPT
-        : poly{std::in_place_type<std::remove_cv_t<std::remove_reference_t<Type>>>, std::forward<Type>(value)}
+    template<typename Type, typename = std::enable_if_t<!std::is_same_v<std::remove_cv_t<std::remove_reference_t<Type>>, basic_poly>>>
+    basic_poly(Type &&value) ENTT_NOEXCEPT
+        : basic_poly{std::in_place_type<std::remove_cv_t<std::remove_reference_t<Type>>>, std::forward<Type>(value)}
     {}
 
     /**
      * @brief Copy constructor.
      * @param other The instance to copy from.
      */
-    poly(const poly &other) = default;
+    basic_poly(const basic_poly &other) = default;
 
     /**
      * @brief Move constructor.
      * @param other The instance to move from.
      */
-    poly(poly &&other) ENTT_NOEXCEPT
-        : poly{}
+    basic_poly(basic_poly &&other) ENTT_NOEXCEPT
+        : basic_poly{}
     {
         swap(*this, other);
     }
@@ -242,7 +247,7 @@ public:
      * @param other The instance to assign from.
      * @return This poly object.
      */
-    poly & operator=(poly other) {
+    basic_poly & operator=(basic_poly other) {
         swap(other, *this);
         return *this;
     }
@@ -276,8 +281,12 @@ public:
      */
     template<typename Type, typename... Args>
     void emplace(Args &&... args) {
-        storage.emplace<Type>(std::forward<Args>(args)...);
-        vtable = poly_vtable<Concept>::template instance<Type>();
+        *this = basic_poly{std::in_place_type<Type>, std::forward<Args>(args)...};
+    }
+
+    /*! @brief Destroys contained object */
+    void reset() {
+        *this = basic_poly{};
     }
 
     /**
@@ -306,7 +315,7 @@ public:
      * @param lhs A valid poly object.
      * @param rhs A valid poly object.
      */
-    friend void swap(poly &lhs, poly &rhs) {
+    friend void swap(basic_poly &lhs, basic_poly &rhs) {
         using std::swap;
         swap(lhs.storage, rhs.storage);
         swap(lhs.vtable, rhs.vtable);
@@ -314,26 +323,24 @@ public:
 
     /**
      * @brief Aliasing constructor.
-     * @param other A reference to an object that isn't necessarily initialized.
      * @return A poly that shares a reference to an unmanaged object.
      */
-    [[nodiscard]] friend poly as_ref(poly &other) ENTT_NOEXCEPT {
-        poly ref;
-        ref.storage = as_ref(other.storage);
-        ref.vtable = other.vtable;
+    [[nodiscard]] basic_poly as_ref() ENTT_NOEXCEPT {
+        basic_poly ref = std::as_const(*this).as_ref();
+        ref.storage = storage.as_ref();
         return ref;
     }
 
     /*! @copydoc as_ref */
-    [[nodiscard]] friend poly as_ref(const poly &other) ENTT_NOEXCEPT {
-        poly ref;
-        ref.storage = as_ref(other.storage);
-        ref.vtable = other.vtable;
+    [[nodiscard]] basic_poly as_ref() const ENTT_NOEXCEPT {
+        basic_poly ref{};
+        ref.storage = storage.as_ref();
+        ref.vtable = vtable;
         return ref;
     }
 
 private:
-    any storage;
+    basic_any<Len, Align> storage;
     const vtable_type *vtable;
 };
 
