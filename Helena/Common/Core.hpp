@@ -5,14 +5,11 @@ namespace Helena
 {
 	namespace Events
 	{
-		namespace Core {
-			struct HeartbeatBegin {};
-			struct HeartbeatEnd {};
-
-			struct TickPre {};
-			struct Tick {};
-			struct TickPost {};
-		}
+		enum class CoreInit {};
+		enum class CoreFinish {};
+		enum class CoreTickPre {};
+		enum class CoreTick {};
+		enum class CoreTickPost {};
 	}
 	
 	class Core
@@ -26,62 +23,65 @@ namespace Helena
 		template<typename Type, typename... Args>
 		using mem_ptr = void(Type::* const)(Args...);
 
-		/*! Class for storage a index of the system */
-		template <typename Type>
-		struct SystemIndex {
-			[[nodiscard]] static auto GetIndex() -> std::size_t;
-		};
-
-		/*! Class for storage a system and event delegates of the system */
-		struct System {
-			template <typename Type, typename... Args>
-			using fn_create_t	= decltype(std::declval<Type>().Create(std::declval<Args>()...));
-			template <typename Type, typename... Args>
-			using fn_update_t	= decltype(std::declval<Type>().Update(std::declval<Args>()...));
-			template <typename Type, typename... Args>
-			using fn_destroy_t	= decltype(std::declval<Type>().Destroy(std::declval<Args>()...));
-
-			using ev_create_t	= delegate_t<void ()>;
-			using ev_update_t	= delegate_t<void ()>;
-			using ev_destroy_t	= delegate_t<void ()>;
-
-			System() = default;
-			~System() = default;
-			System(const System&) noexcept = default;
-			System(System&&) noexcept = default;
-			System& operator = (System&&) = delete;
-			System& operator = (const System&) = delete;
-
-			[[nodiscard]] explicit operator bool() const noexcept;
-
-			entt::any m_Instance {};
-			ev_create_t m_EventCreate {};
-			ev_update_t m_EventUpdate {};
-			ev_destroy_t m_EventDestroy {};
-		};
 
 		/*! @brief A storage for systems */
-		struct SystemManager {
+		struct SystemManager 
+		{
+			template <typename Type>
+			struct SystemIndex {
+				[[nodiscard]] static auto GetIndex() -> std::size_t;
+			};
+
+			struct System {
+				template <typename Type, typename... Args>
+				using fn_create_t	= decltype(std::declval<Type>().Create(std::declval<Args>()...));
+				template <typename Type, typename... Args>
+				using fn_update_t	= decltype(std::declval<Type>().Update(std::declval<Args>()...));
+				template <typename Type, typename... Args>
+				using fn_destroy_t	= decltype(std::declval<Type>().Destroy(std::declval<Args>()...));
+
+				using ev_create_t	= delegate_t<void ()>;
+				using ev_update_t	= delegate_t<void ()>;
+				using ev_destroy_t	= delegate_t<void ()>;
+
+				System() = default;
+				~System() = default;
+				System(const System&) noexcept = default;
+				System(System&&) noexcept = default;
+				System& operator = (System&&) = delete;
+				System& operator = (const System&) = delete;
+
+				//[[nodiscard]] explicit operator bool() const noexcept;
+
+				entt::any m_Instance {};
+				ev_create_t m_EventCreate {};
+				ev_update_t m_EventUpdate {};
+				ev_destroy_t m_EventDestroy {};
+			};
+
 			template <typename Type, typename... Args>
 			auto AddSystem([[maybe_unused]] Args&&... args) -> Type*;
 			template <typename Type>
 			auto GetSystem() noexcept -> Type*;
+			template <typename Type>
+			auto RemoveSystem() noexcept -> void;
 
 			auto EventCreate() -> void;
 			auto EventUpdate() -> void;
 			auto EventDestroy() -> void;
 
 			[[nodiscard]] auto GetSystems() noexcept -> std::vector<System>&;
-			[[nodiscard]] auto GetIndexes() noexcept -> std::unordered_map<entt::id_type, std::size_t>&;
+			[[nodiscard]] auto GetIndexes() noexcept -> robin_hood::unordered_flat_map<entt::id_type, std::size_t>&;
 
 		private:
 			std::vector<System> m_Systems;
 			std::queue<std::size_t> m_CreatableSystems;
 			std::queue<std::size_t> m_UpdatableSystems;
-			std::unordered_map<entt::id_type, std::size_t> m_Indexes;
+			robin_hood::unordered_flat_map<entt::id_type, std::size_t> m_Indexes;
 		};
 
 	public:
+
 		/*! Context used for share memory in modules (dll/lib) */
 		struct Context {
 			entt::registry m_Registry {};
@@ -102,7 +102,7 @@ namespace Helena
 
 			std::atomic_bool m_Shutdown;
 			std::vector<std::string_view> m_Args;
-			std::unordered_map<entt::id_type, std::size_t> m_TypeIndexes;
+			robin_hood::unordered_flat_map<entt::id_type, entt::id_type> m_TypeIndexes;
 			SystemManager m_SystemManager;
 		};
 
@@ -111,6 +111,7 @@ namespace Helena
 
 	private:
 	#if HF_PLATFORM == HF_PLATFORM_WIN
+		static void Terminate();
 		static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
 		static int SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException);
 	#elif HF_PLATFORM == HF_PLATFORM_LINUX
@@ -123,8 +124,8 @@ namespace Helena
 		static auto Heartbeat() -> void;
 		static auto HeartbeatTimeCalc() -> double;
 
-		[[nodiscard]] static auto GetSystemManager() noexcept -> SystemManager&;
-		[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;
+		//[[nodiscard]] static auto GetSystemManager() noexcept -> SystemManager&;
+		//[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;
 
 	public:
 		Core() = delete;

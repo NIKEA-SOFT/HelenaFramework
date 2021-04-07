@@ -4,10 +4,21 @@
 namespace Helena
 {
 #if HF_PLATFORM == HF_PLATFORM_WIN
+	inline void Core::Terminate() {
+		HF_MSG_WARN("Terminating");
+	}
+
 	inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType) 
 	{
+        static std::mutex mutex;
+        std::lock_guard lock{mutex};
+
 		if(m_Context && !m_Context->m_Shutdown) {
 			Core::Shutdown();
+		}
+
+		while(m_Context->m_Shutdown) {
+			Util::Sleep(10);
 		}
 
 		return TRUE;
@@ -34,29 +45,31 @@ namespace Helena
 #endif
 
 	template <typename Type>
-	[[nodiscard]] auto Core::SystemIndex<Type>::GetIndex() -> std::size_t {
-		static const auto value = 
-			Core::GetTypeIndex(Core::GetSystemManager().GetIndexes(),
-			Internal::type_hash_t<Type>);
+	[[nodiscard]] auto Core::SystemManager::SystemIndex<Type>::GetIndex() -> std::size_t {
+		static const auto value = Util::AddOrGetTypeIndex(
+			m_Context->m_SystemManager.GetIndexes(), Internal::type_hash_t<Type>);
 		return value;
 	}
 
-	[[nodiscard]] inline Core::System::operator bool() const noexcept {
-		return static_cast<bool>(m_Instance);
-	}
+	//[[nodiscard]] inline Core::SystemManager::System::operator bool() const noexcept {
+	//	return static_cast<bool>(m_Instance);
+	//}
 
 	template <typename Type, typename... Args>
 	auto Core::SystemManager::AddSystem([[maybe_unused]] Args&&... args) -> Type* 
 	{
-		const auto index = SystemIndex<Type>::GetIndex();
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
 
+		const auto index = SystemIndex<Type>::GetIndex();
 		if(index >= m_Systems.size()) {
 			m_Systems.resize(index + 1);
 		}
 
-		if(auto& system = m_Systems[index]; !system)
+		auto& system = m_Systems[index];
+		if(!system.m_Instance)
 		{
-			system.m_Instance.emplace<Type>(std::forward<Args>(args)...);
+			system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
 		
 			if constexpr (Internal::is_detected_v<System::fn_create_t, Type>) {
 				system.m_EventCreate.template connect<&Type::Create>(
@@ -77,13 +90,39 @@ namespace Helena
 		}
 
 		//HF_MSG_ERROR("System: {} already has!", entt::type_name<Type>().value());
-		return entt::any_cast<Type>(&m_Systems[index].m_Instance);
+		return entt::any_cast<Type>(&system.m_Instance);
 	}
 
 	template <typename Type>
 	auto Core::SystemManager::GetSystem() noexcept -> Type* {
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
+
 		const auto index = SystemIndex<Type>::GetIndex();
 		return index < m_Systems.size() ? entt::any_cast<Type>(&m_Systems[index].m_Instance) : nullptr;
+	}
+
+	template <typename Type>
+	auto Core::SystemManager::RemoveSystem() noexcept -> void {
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
+
+		const auto index = SystemIndex<TSystem>::GetIndex();
+		
+		if(index < systems.size()) 
+		{
+			if(auto& system = m_Systems[index]; system.m_Instance) 
+			{
+				if(system.m_EventDestroy) {
+					system.m_EventDestroy();
+				}
+
+				system.m_Instance.reset();
+				system.m_EventCreate.reset();
+				system.m_EventUpdate.reset();
+				system.m_EventDestroy.reset();
+			}
+		}
 	}
 
 	inline auto Core::SystemManager::EventCreate() -> void 
@@ -132,7 +171,7 @@ namespace Helena
 		return m_Systems;
 	}
 
-	[[nodiscard]] inline auto Core::SystemManager::GetIndexes() noexcept -> std::unordered_map<entt::id_type, std::size_t>& {
+	[[nodiscard]] inline auto Core::SystemManager::GetIndexes() noexcept -> robin_hood::unordered_flat_map<entt::id_type, std::size_t>& {
 		return m_Indexes;
 	}
 
@@ -143,12 +182,24 @@ namespace Helena
 			return false;
 		}
 
-		if(!CreateOrSetContext(ctx) || !callback || !callback()) {
-			return false;
-		}
+		try 
+		{
+			if(!CreateOrSetContext(ctx) || !callback || !callback()) {
+				return false;
+			}
 
-		if(!ctx) {
-			Heartbeat();
+			if(!ctx) {
+				Heartbeat();
+			}
+
+			HF_MSG_WARN("Finalize framework");
+			m_Context->m_Shutdown = false;
+			Util::Sleep(100);
+
+		} catch(const std::exception& error) {
+			HF_MSG_FATAL("Exception code: {}", error.what());
+		} catch(...) {
+			HF_MSG_FATAL("Unknown exception!");
 		}
 
 		return true;
@@ -174,6 +225,7 @@ namespace Helena
 	inline auto Core::HookSignals() -> void 
 	{
 		#if HF_PLATFORM == HF_PLATFORM_WIN
+			set_terminate(Terminate);
 			SetConsoleCtrlHandler(CtrlHandler, TRUE);
 		#elif HF_PLATFORM == HF_PLATFORM_LINUX
 			signal(SIGTERM, Service::SigHandler);
@@ -187,7 +239,8 @@ namespace Helena
 
 	inline auto Core::Heartbeat() -> void 
 	{		
-		TriggerEvent<Events::Core::HeartbeatBegin>();
+		HeartbeatTimeCalc();
+		m_Context->m_Dispatcher.template trigger<Events::CoreInit>();
 
 		double timeElapsed {};
 		while(!m_Context->m_Shutdown) 
@@ -195,15 +248,15 @@ namespace Helena
 			// Get time and delta
 			timeElapsed	+= HeartbeatTimeCalc();
 
-			GetSystemManager().EventCreate();
-			GetSystemManager().EventUpdate();
+			m_Context->m_SystemManager.EventCreate();
+			m_Context->m_SystemManager.EventUpdate();
 
 			if(timeElapsed >= m_Context->m_TickRate) {
 				timeElapsed -= m_Context->m_TickRate;
 
-				TriggerEvent<Events::Core::TickPre>();
-				TriggerEvent<Events::Core::Tick>();
-				TriggerEvent<Events::Core::TickPost>();
+				m_Context->m_Dispatcher.template trigger<Events::CoreTickPre>();
+				m_Context->m_Dispatcher.template trigger<Events::CoreTick>();
+				m_Context->m_Dispatcher.template trigger<Events::CoreTickPost>();
 
 			#if HF_PLATFORM == HF_PLATFORM_WIN
 				const auto title = HF_FORMAT("Helena | Delta: {:.4f} sec | Elapsed: {:.4f} sec", m_Context->m_TimeDelta, timeElapsed);
@@ -217,8 +270,8 @@ namespace Helena
 			}
 		}
 
-		TriggerEvent<Events::Core::HeartbeatEnd>();
-		GetSystemManager().EventDestroy();
+		m_Context->m_Dispatcher.template trigger<Events::CoreFinish>();
+		m_Context->m_SystemManager.EventDestroy();
 	}
 
 	inline auto Core::HeartbeatTimeCalc() -> double {
@@ -313,33 +366,31 @@ namespace Helena
 	template <typename Type, typename... Args>
 	auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> Type* 
 	{
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
+		static_assert(std::is_constructible_v<Type, Args...>, 
+			"Resource type cannot be constructable");
+
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
 		}
 
-		return GetSystemManager().AddSystem<Internal::remove_cvref_t<Type>>(std::forward<Args>(args)...);
+		return m_Context->m_SystemManager.AddSystem<Internal::remove_cvref_t<Type>>(std::forward<Args>(args)...);
 	}
 
 	template <typename Type>
 	[[nodiscard]] auto Core::GetSystem() -> Type* 
 	{
-		using TSystem = Internal::remove_cvref_t<Type>;
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
 		}
 
-		const auto index	= SystemIndex<TSystem>::GetIndex();
-		auto& systems		= GetSystemManager().GetSystems();
-
-		if(index >= systems.size() || !systems[index].m_Instance) {
-			HF_MSG_ERROR("System: {} not exist!", Internal::type_name_t<Type>);
-			return nullptr;
-		}
-
-		return entt::any_cast<Type>(&systems[index].m_Instance);
+		return m_Context->m_SystemManager.GetSystem<Type>();
 	}
 
 	/**
@@ -349,32 +400,15 @@ namespace Helena
 	template <typename Type>
 	auto Core::RemoveSystem() -> void
 	{
-		using TSystem = Internal::remove_cvref_t<Type>;
+		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, 
+			"Resource type cannot be const/ptr/ref");
 
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
 		}
 
-		// Get the reference on container of the system instances
-		const auto index	= SystemIndex<TSystem>::GetIndex();
-		auto& systems		= GetSystemManager().GetSystems();
-
-		if(index >= systems.size() || !systems[index].m_Instance) {
-			HF_MSG_ERROR("System: {} not exist for remove!", Internal::type_name_t<TSystem>);
-			return;
-		}
-
-		auto& system = systems[index];
-
-		if(system.m_EventDestroy) {
-			system.m_EventDestroy();
-		}
-
-		system.m_Instance = entt::any{};
-		system.m_EventCreate.reset();
-		system.m_EventUpdate.reset();
-		system.m_EventDestroy.reset();
+		m_Context->m_SystemManager.RemoveSystem<Type>();
 	}
 
 	template <typename Event, auto Method>
@@ -464,37 +498,37 @@ namespace Helena
 		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
 	}
 
-	[[nodiscard]] inline auto Core::GetSystemManager() noexcept -> SystemManager& {
-		return m_Context->m_SystemManager;
-	}
+	//[[nodiscard]] inline auto Core::GetSystemManager() noexcept -> SystemManager& {
+	//	return m_Context->m_SystemManager;
+	//}
 
-	[[nodiscard]] inline auto Core::GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t 
-	{
-		if(!m_Context) {
-			HF_MSG_ERROR("Core not initialized!");
-			std::terminate();
-		}
+	//[[nodiscard]] inline auto Core::GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t 
+	//{
+	//	if(!m_Context) {
+	//		HF_MSG_ERROR("Core not initialized!");
+	//		std::terminate();
+	//	}
 
-		if(const auto it = container.find(typeIndex); it != container.cend()) {
-			return it->second;
-		}
+	//	if(const auto it = container.find(typeIndex); it != container.cend()) {
+	//		return it->second;
+	//	}
 
-		if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
-			HF_MSG_FATAL("Type index emplace failed!");
-			std::terminate();
-		}
+	//	if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
+	//		HF_MSG_FATAL("Type index emplace failed!");
+	//		std::terminate();
+	//	}
 
-		return container.size() - 1;
-	}
+	//	return container.size() - 1;
+	//}
 }
 
 namespace entt {
 	template <typename Type>
 	struct ENTT_API type_seq<Type> {
 		[[nodiscard]] static id_type value() ENTT_NOEXCEPT {
-			static const auto value = static_cast<entt::id_type>(
-				Helena::Core::GetTypeIndex(Helena::Core::GetContext()->m_TypeIndexes, 
-				Helena::Internal::type_hash_t<Type>));
+			static const auto value = static_cast<id_type>(
+				Util::AddOrGetTypeIndex(Helena::Core::m_Context->m_TypeIndexes, 
+				Internal::type_hash_t<Type>));
 			return value;
 		}
 	};
