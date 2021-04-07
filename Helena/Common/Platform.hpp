@@ -167,13 +167,12 @@ namespace Helena::Internal {
     #define HF_SEPARATOR '\\'
     
     #ifdef HF_DEBUG
-        #define HF_DEBUG_BREAK()    __debugbreak()
+        #define HF_DEBUG_BREAK()    _CrtDbgBreak()
         #define HF_ASSERT(cond, msg, ...)                               \
             do {                                                        \
                 if(!(cond)) {                                           \
                     HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
                     ::MessageBeep(MB_ICONERROR);                        \
-                    HF_DEBUG_BREAK();                                   \
                     std::terminate();                                   \
                 }                                                       \
             } while(false)
@@ -203,6 +202,7 @@ namespace Helena::Internal {
 
     #define HF_SEPARATOR '/'
 
+    // todo: check assert
     #ifdef HF_DEBUG
         #define HF_DEBUG_BREAK()    raise(SIGTRAP)
         #define HF_ASSERT(cond, msg, ...)                               \
