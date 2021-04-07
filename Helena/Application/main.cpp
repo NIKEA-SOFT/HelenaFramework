@@ -2,10 +2,8 @@
 
 using namespace Helena;
 
-struct TestSystem {
-
-    struct TestEvent {};
-
+namespace Helena::Components 
+{
     struct Velocity {
         std::uint32_t wtf;
     };
@@ -15,81 +13,41 @@ struct TestSystem {
         float y;
         float z;
     };
+}
 
-    TestSystem(std::string_view text) : text{text} {}
-    ~TestSystem() = default;
-
+struct TestSystem 
+{
     // Called 
     void Create() {
         HF_MSG_INFO("System event Create");
         
-        Core::RegisterEvent<Events::Core::HeartbeatBegin, &TestSystem::HeartbeatBegin>(this);
-        Core::RegisterEvent<Events::Core::HeartbeatEnd, &TestSystem::HeartbeatEnd>(this);
-        Core::RegisterEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
-        Core::RegisterEvent<Events::Core::Tick, &TestSystem::Tick>(this);
-        Core::RegisterEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
-
-        HF_MSG_WARN("Type name = {}", Internal::type_name_t<TestEvent>);
-        
-        auto ecs = Core::GetSystem<ECSystem>();
-        const auto entity = ecs->CreateEntity();
-
-        std::vector<ECSystem::Entity> entities; entities.resize(100);
-        ecs->CreateEntity(entities.begin(), entities.end());
-
-        for(const auto id : entities) {
-            HF_MSG_DEBUG("Entity ID: {}", id);
-        }
-
-        HF_MSG_DEBUG("Size of Entity: {}", ecs->SizeEntity());
-
-        ecs->AddComponent<Velocity>(entity, 55u);
-        ecs->AddComponent<Position>(entity);
-
-        auto& view = ecs->GroupComponent<>(ECSystem::Get<Velocity, Position>);
-        for(const auto id : view) {
-            auto& velocity = view.get<Velocity>(id);
-            HF_MSG_DEBUG("Entity ID: {}, Velocity: {}", id, velocity.wtf);
-        }
+        Core::RegisterEvent<Events::CoreInit,       &TestSystem::OnEventCoreInit>(this);
+        Core::RegisterEvent<Events::CoreFinish,     &TestSystem::OnEventCoreFinish>(this);
+        Core::RegisterEvent<Events::CoreTickPre,    &TestSystem::OnEventCoreTickPre>(this);
+        Core::RegisterEvent<Events::CoreTick,       &TestSystem::OnEventCoreTick>(this);
+        Core::RegisterEvent<Events::CoreTickPost,   &TestSystem::OnEventCoreTickPost>(this);
     }
 
-    void EventTest(const TestEvent& event) {
-        HF_MSG_WARN("Test event called");
-    }
 
-    void HeartbeatBegin(const Events::Core::HeartbeatBegin& event) {
-        HF_MSG_INFO("Core HeartbeatBegin event");
-    }
-
-    // Called every tick
-    void Update() {
-        //HF_MSG_INFO("System event Update, elapsed: {:.4f}, delta: {:.4f}", Core::GetTimeElapsed(), Core::GetTimeDelta());
-    }
-
-    void TickPre(const Events::Core::TickPre& event) {
-        //HF_MSG_INFO("TickPre called");
-    }
-
-    void Tick(const Events::Core::Tick& event) {
-
-    }
-
-    void TickPost(const Events::Core::TickPost& event) {
-        //HF_MSG_INFO("TickPost called");
-    }
-
-    void HeartbeatEnd(const Events::Core::HeartbeatEnd& event) {
-        HF_MSG_INFO("Core HeartbeatEnd event");
-    }
+    // Called every N milliseconds (depending on tickrate, default: 30 FPS)
+    void Update() {}
+    // Called when Core initialized
+    void OnEventCoreInit(const Events::CoreInit& event) {}
+    // Called when Core finish
+    void OnEventCoreFinish(const Events::CoreFinish& event) {}
+    // Called before Tick
+    void OnEventCoreTickPre(const Events::CoreTickPre& event) {}
+    // Called after TickPre
+    void OnEventCoreTick(const Events::CoreTick& event) {}
+    // Called after Tick
+    void OnEventCoreTickPost(const Events::CoreTickPost& event) {}
 
     void Destroy() {
-        HF_MSG_INFO("System event Destroy");
-
-        Core::RemoveEvent<Events::Core::HeartbeatBegin, &TestSystem::HeartbeatBegin>(this);
-        Core::RemoveEvent<Events::Core::HeartbeatEnd, &TestSystem::HeartbeatEnd>(this);
-        Core::RemoveEvent<Events::Core::TickPre, &TestSystem::TickPre>(this);
-        Core::RemoveEvent<Events::Core::Tick, &TestSystem::Tick>(this);
-        Core::RemoveEvent<Events::Core::TickPost, &TestSystem::TickPost>(this);
+        Core::RemoveEvent<Events::CoreInit,     &TestSystem::OnEventCoreInit>(this);
+        Core::RemoveEvent<Events::CoreFinish,   &TestSystem::OnEventCoreFinish>(this);
+        Core::RemoveEvent<Events::CoreTickPre,  &TestSystem::OnEventCoreTickPre>(this);
+        Core::RemoveEvent<Events::CoreTick,     &TestSystem::OnEventCoreTick>(this);
+        Core::RemoveEvent<Events::CoreTickPost, &TestSystem::OnEventCoreTickPost>(this);
     }
 
     std::string text;
@@ -113,6 +71,7 @@ int main(int argc, char** argv)
         HF_MSG_ERROR("Load script file failed");
     }
 
+
     // Helena example
     return Core::Initialize([&]() -> bool {
         // Push args in Core
@@ -130,17 +89,9 @@ int main(int argc, char** argv)
         }
 
         // test create
-        if(auto ptr = Core::RegisterSystem<TestSystem>("WTF"); ptr) {
-            HF_MSG_INFO("Create system: {} success", Internal::type_name_t<TestSystem>);
-        } else {
-            HF_MSG_ERROR("Create system: {} failure", Internal::type_name_t<TestSystem>);
-        }
-
-        if(auto ptr = Core::RegisterSystem<ECSystem>(); ptr) {
-            HF_MSG_INFO("Create system: {} success", Internal::type_name_t<ECSystem>);
-        } else {
-            HF_MSG_ERROR("Create system: {} failure", Internal::type_name_t<ECSystem>);
-        }
+        Core::RegisterSystem<TestSystem>();
+        Core::RegisterSystem<Systems::EntityComponent>();
+        Core::RegisterSystem<Systems::ConfigManager>();
 
         return true;
     });
