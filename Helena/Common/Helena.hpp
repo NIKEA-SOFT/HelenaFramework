@@ -34,8 +34,10 @@
 #include <fmt/color.h>
 
 #include <safe_ptr/safe_ptr.h>
+#define ENTT_ID_TYPE std::size_t
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
+#include <robin_hood/robin_hood.h>
 
 #include <Common/Platform.hpp>
 #include <Common/Hash.hpp>
@@ -44,6 +46,7 @@
 #include <Common/Core.hpp>
 
 // Systems
-#include <Common/Systems/ECSystem.hpp>
+#include <Common/Systems/EntityComponent.hpp>
+#include <Common/Systems/ConfigManager.hpp>
 
 #endif // COMMON_HELENA_HPP
