@@ -1,9 +1,9 @@
-#ifndef COMMON_ECSYSTEM_HPP
-#define COMMON_ECSYSTEM_HPP
+#ifndef COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
+#define COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
 
 namespace Helena::Systems
 {
-	class ECSystem final 
+	class EntityComponent final 
 	{
 	public:
 		using Entity = entt::entity;
@@ -15,22 +15,23 @@ namespace Helena::Systems
 		using GetType = entt::get_t<Type...>;
 
 		template<typename... Type>
-		static inline constexpr ExcludeType<Type...> Exclude{};
+		static constexpr ExcludeType<Type...> Exclude{};
 
 		template<typename... Type>
-		static inline constexpr GetType<Type...> Get{};
+		static constexpr GetType<Type...> Get{};
 
-		ECSystem() : m_Registry{Core::GetContext()->m_Registry} {}
-		~ECSystem() = default;
-		ECSystem(const ECSystem&) = default;
-		ECSystem(ECSystem&&) noexcept = default;
-		ECSystem& operator=(const ECSystem&) = default;
-		ECSystem& operator=(ECSystem&&) noexcept = default;
+		EntityComponent() : m_Registry{Core::GetContext()->m_Registry} {}
+		~EntityComponent() = default;
+		EntityComponent(const EntityComponent&) = default;
+		EntityComponent(EntityComponent&&) noexcept = default;
+		EntityComponent& operator=(const EntityComponent&) = delete;
+		EntityComponent& operator=(EntityComponent&&) noexcept = delete;
 
 	public:
 		auto CreateEntity() -> Entity;
 
-		auto CreateEntity(const Entity id) -> Entity;
+		template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
+		auto CreateEntity(const Type id) -> Entity;
 
 		template <typename It>
 		auto CreateEntity(It first, It last) -> void;
@@ -39,13 +40,20 @@ namespace Helena::Systems
 
 		auto SizeEntity() const -> std::size_t;
 
+		auto ReserveEntity(const std::size_t size) -> void;
+		
 		auto RemoveEntity(const Entity id) -> void;
 
 		template <typename It>
 		auto RemoveEntity(It first, It last) -> void;
 
+		auto CastEntity(const Entity id);
+
 		template <typename Func>
 		auto Each(Func&& callback) const -> void;
+
+		template <typename Func>
+		auto EachOrphans(Func&& callback) const -> void;
 
 		template <typename Component, typename... Args>
 		auto AddComponent(const Entity id, Args&&... args) -> Component&;
@@ -55,6 +63,12 @@ namespace Helena::Systems
 
 		template <typename Component, typename... Args>
 		auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
+
+		template <typename Func>
+		auto VisitComponent(const Entity id, Func&& callback) const -> void;
+
+		template <typename Func>
+		auto VisitComponent(Func&& callback) const -> void;
 
 		template <typename... Components>
 		[[nodiscard]] auto GetComponent(const Entity id) -> decltype(auto);
@@ -70,6 +84,11 @@ namespace Helena::Systems
 
 		template <typename... Components>
 		[[nodiscard]] auto HasComponent(const Entity id) -> bool;
+
+		[[nodiscard]] auto HasComponents(const Entity id) -> bool;
+
+		template <typename... Components>
+		[[nodiscard]] auto AnyComponent(const Entity id) const -> bool;
 
 		template <typename... Components, typename... ExcludeFilter>
 		[[nodiscard]] auto ViewComponent(ExcludeType<ExcludeFilter...> = {}) -> decltype(auto);
@@ -100,17 +119,24 @@ namespace Helena::Systems
 		template <typename... Components>
 		auto ClearComponent() -> void;
 
+		auto ClearComponents() -> void;
+
+		template <typename Component>
+		[[nodiscard]] auto SizeComponent() -> std::size_t;
+
 		template <typename Component>
 		[[nodiscard]] auto SizeComponent() const -> std::size_t;
 
 		template <typename... Components>
-		[[nodiscard]] auto AnyComponent(const Entity id) const -> bool;
+		auto ReserveComponent(const std::size_t size) -> void;
+
+		auto ReservePool(const std::size_t size) -> void;
 
 	private:
 		entt::registry& m_Registry;
 	};
 }
 
-#include <Common/Systems/ECSystem.ipp>
+#include <Common/Systems/EntityComponent.ipp>
 
-#endif // COMMON_ECSYSTEM_HPP
+#endif // COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
