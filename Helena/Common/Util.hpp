@@ -13,11 +13,15 @@ namespace Helena
 		
 		template <typename Type>
 		struct remove_cvref {
-			typedef std::remove_cv_t<std::remove_reference_t<Type>> type;
+			using type = std::remove_cv_t<std::remove_reference_t<Type>>;
 		};
 
 		template <typename Type>
 		using remove_cvref_t = typename remove_cvref<Type>::type;
+
+		template <typename Type>
+		using remove_cvrefptr_t = std::conditional_t<std::is_array_v<Type>, std::remove_all_extents_t<Type>, 
+			std::conditional_t<std::is_pointer_v<Type>, remove_cvref_t<std::remove_pointer_t<Type>>, remove_cvref_t<Type>>>;
 
 		template <typename Default, typename AlwaysVoid, template<typename...> typename Op, typename... Args>
 		struct detector {
@@ -49,10 +53,46 @@ namespace Helena
 
 		template <typename Default, template<typename...> typename Op, typename... Args>
 		using detected_or = Internal::detector<Default, void, Op, Args...>;
+
+		template <typename T, typename = void>
+		struct is_pair : std::false_type {};
+ 
+		template <typename T>
+		struct is_pair<T, std::void_t<decltype(std::declval<typename T::first_type>()), decltype(std::declval<typename T::second_type>())>> : std::true_type {};
+ 
+		template <typename T>
+		constexpr bool is_pair_v = is_pair<T>::value;
+ 
+		template<typename, typename = void>
+		struct is_mapping : std::false_type {};
+ 
+		template <typename Container>
+		struct is_mapping<Container, std::enable_if_t<is_pair_v<typename std::iterator_traits<typename Container::iterator>::value_type>>> : std::true_type {};
+ 
+		template <typename T>
+		constexpr bool is_mapping_v = is_mapping<T>::value;
 	}
 
 	namespace Util 
 	{
+		template <typename Container, 
+			typename Key = typename Container::key_type, 
+			typename Ret = typename Container::mapped_type, 
+			typename = std::enable_if_t<Internal::is_mapping_v<Internal::remove_cvref_t<Container>>, void>>
+		auto AddOrGetTypeIndex(Container& container, const Key typeIndex) -> decltype(auto)
+		{
+			if(const auto it = container.find(typeIndex); it != container.cend()) {
+				return static_cast<Ret>(it->second);
+			}
+
+			if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
+				HF_MSG_FATAL("Type index emplace failed!");
+				std::terminate();
+			}
+
+			return static_cast<Ret>(container.size()) - 1u;
+		}
+
 		inline void Sleep(const uint64_t milliseconds) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		}
