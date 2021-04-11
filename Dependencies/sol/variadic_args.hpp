@@ -57,7 +57,7 @@ namespace sol {
 		}
 		variadic_args(const variadic_args&) = default;
 		variadic_args& operator=(const variadic_args&) = default;
-		variadic_args(variadic_args&& o)
+		variadic_args(variadic_args&& o) noexcept
 			: L(o.L), index(o.index), stacktop(o.stacktop) {
 			// Must be manual, otherwise destructor will screw us
 			// return count being 0 is enough to keep things clean
@@ -66,7 +66,7 @@ namespace sol {
 			o.index = 0;
 			o.stacktop = 0;
 		}
-		variadic_args& operator=(variadic_args&& o) {
+		variadic_args& operator=(variadic_args&& o) noexcept {
 			L = o.L;
 			index = o.index;
 			stacktop = o.stacktop;

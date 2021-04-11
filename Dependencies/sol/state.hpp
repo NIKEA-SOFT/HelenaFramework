@@ -47,7 +47,7 @@ namespace sol {
 		state(const state&) = delete;
 		state(state&&) = default;
 		state& operator=(const state&) = delete;
-		state& operator=(state&& that) {
+		state& operator=(state&& that) noexcept {
 			state_view::operator=(std::move(that));
 			unique_base::operator=(std::move(that));
 			return *this;
