@@ -6,7 +6,13 @@ namespace Helena::Systems
 	class EntityComponent final 
 	{
 	public:
+		static constexpr auto Null = entt::null;
+
+		using TagID = entt::id_type;
 		using Entity = entt::entity;
+
+		template <TagID Value>
+		using Tag = entt::tag<Value>;
 
 		template <typename... Type>
 		using ExcludeType = entt::exclude_t<Type...>;
@@ -40,6 +46,8 @@ namespace Helena::Systems
 
 		auto SizeEntity() const -> std::size_t;
 
+		auto AliveEntity() const -> std::size_t;
+
 		auto ReserveEntity(const std::size_t size) -> void;
 		
 		auto RemoveEntity(const Entity id) -> void;
@@ -47,7 +55,10 @@ namespace Helena::Systems
 		template <typename It>
 		auto RemoveEntity(It first, It last) -> void;
 
-		auto CastEntity(const Entity id);
+		static auto CastFromEntity(const Entity id);
+		
+		template <typename Type>
+		static auto CastToEntity(const Type id) -> Entity;
 
 		template <typename Func>
 		auto Each(Func&& callback) const -> void;
@@ -57,6 +68,9 @@ namespace Helena::Systems
 
 		template <typename Component, typename... Args>
 		auto AddComponent(const Entity id, Args&&... args) -> Component&;
+
+		template <typename Component>
+		auto AddComponentTag(const Entity id) -> void;
 
 		template <typename Component, typename... Args>
 		auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
@@ -70,7 +84,7 @@ namespace Helena::Systems
 		template <typename Func>
 		auto VisitComponent(Func&& callback) const -> void;
 
-		template <typename... Components>
+		template <typename... Components> 
 		[[nodiscard]] auto GetComponent(const Entity id) -> decltype(auto);
 
 		template <typename... Components>
@@ -119,7 +133,7 @@ namespace Helena::Systems
 		template <typename... Components>
 		auto ClearComponent() -> void;
 
-		auto ClearComponents() -> void;
+		auto Clear() -> void;
 
 		template <typename Component>
 		[[nodiscard]] auto SizeComponent() -> std::size_t;
@@ -135,6 +149,34 @@ namespace Helena::Systems
 	private:
 		entt::registry& m_Registry;
 	};
+}
+
+namespace Helena::Events::Systems::EntityComponent 
+{
+	struct EntityBase {
+		Helena::Systems::EntityComponent::Entity m_Entity;
+	};
+
+	template <typename Component>
+	struct ComponentBase {
+		ComponentBase<Component>& operator=(const ComponentBase<Component>& event) {
+			m_Component = event.m_Component;
+			return *this;
+		}
+
+		Component& m_Component;
+	};
+
+	struct CreateEntity : EntityBase {};
+	struct RemoveEntity : EntityBase {};
+
+	template <typename Component>
+	struct AddComponent : EntityBase, ComponentBase<Component> {};
+
+	template <typename Component>
+	struct RemoveComponent : EntityBase, ComponentBase<Component> {};
+	struct RemoveComponents : EntityBase {};
+
 }
 
 #include <Common/Systems/EntityComponent.ipp>
