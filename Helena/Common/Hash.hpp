@@ -7,11 +7,11 @@ namespace Helena
 {
     namespace Hash 
     {
-        using String    = entt::hashed_string;
-        using WString   = entt::hashed_wstring; 
-        
+        using String   = entt::hashed_string;
+        using WString  = entt::hashed_wstring; 
+
         template <typename T>
-        using Type      = entt::type_hash<T>;
+        constexpr auto Type = entt::type_hash<T>().value();
 
         namespace Literals {
             using namespace entt::literals;
