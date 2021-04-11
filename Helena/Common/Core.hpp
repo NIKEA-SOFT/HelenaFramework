@@ -5,11 +5,8 @@ namespace Helena
 {
 	namespace Events
 	{
-		enum class CoreInit {};
-		enum class CoreFinish {};
-		enum class CoreTickPre {};
-		enum class CoreTick {};
-		enum class CoreTickPost {};
+		enum class Initialize {};
+		enum class Finalize {};
 	}
 	
 	class Core
@@ -27,22 +24,18 @@ namespace Helena
 		/*! @brief A storage for systems */
 		struct SystemManager 
 		{
-			template <typename Type>
-			struct SystemIndex {
-				[[nodiscard]] static auto GetIndex() -> std::size_t;
+			enum Events : std::uint8_t {
+				Create,
+				Execute,
+				Tick,
+				Update,
+				Destroy,
+				
+				Size
 			};
 
 			struct System {
-				template <typename Type, typename... Args>
-				using fn_create_t	= decltype(std::declval<Type>().Create(std::declval<Args>()...));
-				template <typename Type, typename... Args>
-				using fn_update_t	= decltype(std::declval<Type>().Update(std::declval<Args>()...));
-				template <typename Type, typename... Args>
-				using fn_destroy_t	= decltype(std::declval<Type>().Destroy(std::declval<Args>()...));
-
-				using ev_create_t	= delegate_t<void ()>;
-				using ev_update_t	= delegate_t<void ()>;
-				using ev_destroy_t	= delegate_t<void ()>;
+				using ev_array_t	= std::array<delegate_t<void ()>, Events::Size>;
 
 				System() = default;
 				~System() = default;
@@ -51,12 +44,28 @@ namespace Helena
 				System& operator = (System&&) = delete;
 				System& operator = (const System&) = delete;
 
-				//[[nodiscard]] explicit operator bool() const noexcept;
+				entt::any	m_Instance {};
+				ev_array_t	m_Events {};
+			};
 
-				entt::any m_Instance {};
-				ev_create_t m_EventCreate {};
-				ev_update_t m_EventUpdate {};
-				ev_destroy_t m_EventDestroy {};
+			template <typename Type, typename... Args>
+			using fn_create_t	= decltype(std::declval<Type>().OnSystemCreate(std::declval<Args>()...));
+			template <typename Type, typename... Args>
+			using fn_execute_t	= decltype(std::declval<Type>().OnSystemExecute(std::declval<Args>()...));
+			template <typename Type, typename... Args>
+			using fn_tick_t		= decltype(std::declval<Type>().OnSystemTick(std::declval<Args>()...));
+			template <typename Type, typename... Args>
+			using fn_update_t	= decltype(std::declval<Type>().OnSystemUpdate(std::declval<Args>()...));
+			template <typename Type, typename... Args>
+			using fn_destroy_t	= decltype(std::declval<Type>().OnSystemDestroy(std::declval<Args>()...));
+
+			using map_indexes_t		= robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
+			using vec_systems_t		= std::vector<System>;
+			using array_events_t	= std::array<std::queue<std::size_t>, Events::Size>;
+
+			template <typename Type>
+			struct SystemIndex {
+				[[nodiscard]] static auto GetIndex() -> std::size_t;
 			};
 
 			template <typename Type, typename... Args>
@@ -66,18 +75,15 @@ namespace Helena
 			template <typename Type>
 			auto RemoveSystem() noexcept -> void;
 
-			auto EventCreate() -> void;
-			auto EventUpdate() -> void;
-			auto EventDestroy() -> void;
-
-			[[nodiscard]] auto GetSystems() noexcept -> std::vector<System>&;
-			[[nodiscard]] auto GetIndexes() noexcept -> robin_hood::unordered_flat_map<entt::id_type, std::size_t>&;
+			auto Event(const Events ev)	-> void;
+			
+			[[nodiscard]] auto GetSystems() noexcept ->	vec_systems_t&;
+			[[nodiscard]] auto GetIndexer(const entt::id_type typeIndex);
 
 		private:
-			std::vector<System> m_Systems;
-			std::queue<std::size_t> m_CreatableSystems;
-			std::queue<std::size_t> m_UpdatableSystems;
-			robin_hood::unordered_flat_map<entt::id_type, std::size_t> m_Indexes;
+			vec_systems_t	m_Systems;
+			array_events_t	m_EventScheduler;
+			map_indexes_t	m_Indexes;
 		};
 
 	public:
@@ -142,9 +148,9 @@ namespace Helena
 		static auto SetTickrate(const double tickrate) -> void;
 
 		[[nodiscard]] static auto GetArgs() noexcept -> decltype(auto);
-		[[nodiscard]] static auto GetTickrate() noexcept;
-		[[nodiscard]] static auto GetTimeElapsed() noexcept;
-		[[nodiscard]] static auto GetTimeDelta() noexcept;
+		[[nodiscard]] static auto GetTickrate() noexcept -> double;
+		[[nodiscard]] static auto GetTimeElapsed() noexcept -> double;
+		[[nodiscard]] static auto GetTimeDelta() noexcept -> double;
 		[[nodiscard]] static auto GetContext() noexcept -> const std::shared_ptr<Context>&;
 
 		template <typename Type, typename... Args>

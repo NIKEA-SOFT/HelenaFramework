@@ -46,8 +46,7 @@ namespace Helena
 
 	template <typename Type>
 	[[nodiscard]] auto Core::SystemManager::SystemIndex<Type>::GetIndex() -> std::size_t {
-		static const auto value = Util::AddOrGetTypeIndex(
-			m_Context->m_SystemManager.GetIndexes(), Internal::type_hash_t<Type>);
+		static const auto value = m_Context->m_SystemManager.GetIndexer(Hash::Type<Type>);
 		return value;
 	}
 
@@ -71,21 +70,29 @@ namespace Helena
 		{
 			system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
 		
-			if constexpr (Internal::is_detected_v<System::fn_create_t, Type>) {
-				system.m_EventCreate.template connect<&Type::Create>(
-					entt::any_cast<Type&>(system.m_Instance));
-				m_CreatableSystems.emplace(index);
+			if constexpr (Internal::is_detected_v<fn_create_t, Type>) {
+				system.m_Events[Events::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(system.m_Instance));
+				m_EventScheduler[Events::Create].emplace(index);
 			}
 
-			if constexpr (Internal::is_detected_v<System::fn_update_t, Type>) {
-				system.m_EventUpdate.template connect<&Type::Update>(
-					entt::any_cast<Type&>(system.m_Instance));
-				m_UpdatableSystems.emplace(index);
+			if constexpr (Internal::is_detected_v<fn_execute_t, Type>) {
+				system.m_Events[Events::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(system.m_Instance));
+				m_EventScheduler[Events::Execute].emplace(index);
 			}
 
-			if constexpr (Internal::is_detected_v<System::fn_destroy_t, Type>) {
-				system.m_EventDestroy.template connect<&Type::Destroy>(
-					entt::any_cast<Type&>(system.m_Instance));
+			if constexpr (Internal::is_detected_v<fn_update_t, Type>) {
+				system.m_Events[Events::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(system.m_Instance));
+				m_EventScheduler[Events::Update].emplace(index);
+			}
+
+			if constexpr (Internal::is_detected_v<fn_tick_t, Type>) {
+				system.m_Events[Events::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(system.m_Instance));
+				m_EventScheduler[Events::Tick].emplace(index);
+			}
+
+			if constexpr (Internal::is_detected_v<fn_destroy_t, Type>) {
+				system.m_Events[Events::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(system.m_Instance));
+				m_EventScheduler[Events::Destroy].emplace(index);
 			}
 		}
 
@@ -119,60 +126,45 @@ namespace Helena
 
 				system.m_Instance.reset();
 				system.m_EventCreate.reset();
+				system.m_EventExecute.reset();
 				system.m_EventUpdate.reset();
 				system.m_EventDestroy.reset();
 			}
 		}
 	}
 
-	inline auto Core::SystemManager::EventCreate() -> void 
+
+	inline auto Core::SystemManager::Event(const Events type) -> void 
 	{
-		for(std::size_t size = m_CreatableSystems.size(); size; --size)
+		auto& container = m_EventScheduler[type];
+		for(std::size_t size = container.size(); size; --size) 
 		{
-			const auto index = m_CreatableSystems.front();
-			const auto& system = m_Systems[index];
+			const auto index	= container.front();
+			const auto& event	= m_Systems[index].m_Events[type];
 
-			if(system.m_EventCreate) {
-				system.m_EventCreate();
-			} 
-			
-			m_CreatableSystems.pop();
-		}
-	}
-
-	inline auto Core::SystemManager::EventUpdate() -> void 
-	{
-		for(std::size_t size = m_UpdatableSystems.size(); size; --size)
-		{
-			const auto index = m_UpdatableSystems.front();
-			const auto& system = m_Systems[index];
-
-			if(system.m_EventUpdate) {
-				system.m_EventUpdate();
-				m_UpdatableSystems.emplace(index);
+			if(event) {
+				event();
 			}
 
-			m_UpdatableSystems.pop();
-		}
-	}
+			container.pop();
 
-	inline auto Core::SystemManager::EventDestroy() -> void 
-	{
-		for(std::size_t i = 0; i < m_Systems.size(); ++i) 
-		{
-			const auto& system = m_Systems[i];
-			if(system.m_EventDestroy) {
-				system.m_EventDestroy();
+			// For tick and update methods we emplace it again (it's scheduler for event)
+			switch(type) {
+				case Events::Tick: [[fallthrough]];
+				case Events::Update: {
+					container.emplace(index);
+				} break;
+				default: break;
 			}
 		}
 	}
 
-	[[nodiscard]] inline auto Core::SystemManager::GetSystems() noexcept -> std::vector<System>& {
+	[[nodiscard]] inline auto Core::SystemManager::GetSystems() noexcept -> vec_systems_t& {
 		return m_Systems;
 	}
 
-	[[nodiscard]] inline auto Core::SystemManager::GetIndexes() noexcept -> robin_hood::unordered_flat_map<entt::id_type, std::size_t>& {
-		return m_Indexes;
+	[[nodiscard]] inline auto Core::SystemManager::GetIndexer(const entt::id_type typeIndex) {
+		return Util::AddOrGetTypeIndex(m_Indexes, typeIndex);
 	}
 
 	[[nodiscard]] inline auto Core::Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx) -> bool 
@@ -215,6 +207,7 @@ namespace Helena
 			m_Context->m_TickRate	= 1.0 / 30.0;
 
 			HookSignals();
+			HeartbeatTimeCalc();
 		} else {
 			m_Context = ctx;
 		}
@@ -239,29 +232,33 @@ namespace Helena
 
 	inline auto Core::Heartbeat() -> void 
 	{		
-		HeartbeatTimeCalc();
-		m_Context->m_Dispatcher.template trigger<Events::CoreInit>();
+		m_Context->m_Dispatcher.template trigger<Events::Initialize>();
 
 		double timeElapsed {};
+		double timeFPS {};
+		std::uint32_t fps {};
 		while(!m_Context->m_Shutdown) 
 		{
 			// Get time and delta
 			timeElapsed	+= HeartbeatTimeCalc();
+			//++fps;
+			m_Context->m_SystemManager.Event(SystemManager::Events::Create);
+			m_Context->m_SystemManager.Event(SystemManager::Events::Execute);
+			m_Context->m_SystemManager.Event(SystemManager::Events::Tick);
 
-			m_Context->m_SystemManager.EventCreate();
-			m_Context->m_SystemManager.EventUpdate();
+			if(const auto time = GetTimeElapsed(); time > timeFPS) {
+				timeFPS = time + 1.0;
+			#if HF_PLATFORM == HF_PLATFORM_WIN
+				const auto title = HF_FORMAT("Helena | FPS: {}", fps);
+				SetConsoleTitle(title.c_str());
+			#endif
+				fps = 0;
+			}
 
 			if(timeElapsed >= m_Context->m_TickRate) {
 				timeElapsed -= m_Context->m_TickRate;
-
-				m_Context->m_Dispatcher.template trigger<Events::CoreTickPre>();
-				m_Context->m_Dispatcher.template trigger<Events::CoreTick>();
-				m_Context->m_Dispatcher.template trigger<Events::CoreTickPost>();
-
-			#if HF_PLATFORM == HF_PLATFORM_WIN
-				const auto title = HF_FORMAT("Helena | Delta: {:.4f} sec | Elapsed: {:.4f} sec", m_Context->m_TimeDelta, timeElapsed);
-				SetConsoleTitle(title.c_str());
-			#endif
+				fps++;
+				m_Context->m_SystemManager.Event(SystemManager::Events::Update);
 			}
 			
 			if(timeElapsed < m_Context->m_TickRate) {
@@ -270,8 +267,8 @@ namespace Helena
 			}
 		}
 
-		m_Context->m_Dispatcher.template trigger<Events::CoreFinish>();
-		m_Context->m_SystemManager.EventDestroy();
+		m_Context->m_Dispatcher.template trigger<Events::Finalize>();
+		m_Context->m_SystemManager.Event(SystemManager::Events::Destroy);
 	}
 
 	inline auto Core::HeartbeatTimeCalc() -> double {
@@ -335,7 +332,7 @@ namespace Helena
 		return m_Context;
 	}
 
-	[[nodiscard]] inline auto Core::GetTickrate() noexcept 
+	[[nodiscard]] inline auto Core::GetTickrate() noexcept -> double
 	{
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
@@ -345,7 +342,7 @@ namespace Helena
 		return m_Context->m_TickRate;
 	}
 
-	[[nodiscard]] inline auto Core::GetTimeElapsed() noexcept {
+	[[nodiscard]] inline auto Core::GetTimeElapsed() noexcept -> double {
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
@@ -354,7 +351,7 @@ namespace Helena
 		return std::chrono::duration<double>{std::chrono::steady_clock::now() - m_Context->m_TimeStart}.count();
 	}
 
-	[[nodiscard]] inline auto Core::GetTimeDelta() noexcept {
+	[[nodiscard]] inline auto Core::GetTimeDelta() noexcept -> double {
 		if(!m_Context) {
 			HF_MSG_ERROR("Core not initialized!");
 			std::terminate();
@@ -528,7 +525,7 @@ namespace entt {
 		[[nodiscard]] static id_type value() ENTT_NOEXCEPT {
 			static const auto value = static_cast<id_type>(
 				Util::AddOrGetTypeIndex(Helena::Core::m_Context->m_TypeIndexes, 
-				Internal::type_hash_t<Type>));
+				Hash::Type<Type>));
 			return value;
 		}
 	};
