@@ -6,11 +6,8 @@ namespace Helena
 	namespace Internal 
 	{
 		template <typename Type>
-		inline constexpr auto type_name_t = entt::type_name<Type>().value();
+		constexpr auto type_name_t = entt::type_name<Type>().value();
 
-		template <typename Type>
-		inline constexpr auto type_hash_t = entt::type_hash<Type>().value();
-		
 		template <typename Type>
 		struct remove_cvref {
 			using type = std::remove_cv_t<std::remove_reference_t<Type>>;
@@ -71,6 +68,24 @@ namespace Helena
  
 		template <typename T>
 		constexpr bool is_mapping_v = is_mapping<T>::value;
+
+		template <typename T, bool B = std::is_enum<T>::value>
+		struct is_scoped_enum : std::false_type {};
+
+		template <typename T>
+		struct is_scoped_enum<T, true> : std::integral_constant<bool, !std::is_convertible<T, typename std::underlying_type<T>::type>::value> {};
+
+		template <typename T>
+		constexpr bool is_scoped_enum_t = typename is_scoped_enum<T>::value;
+
+		template <typename T> 
+		struct is_integral_constant : std::false_type {};
+
+		template <typename T, T V> 
+		struct is_integral_constant<std::integral_constant<T, V>> : std::true_type {};
+
+		template <typename T> 
+		constexpr bool is_integral_constant_v = is_integral_constant<T>::value;
 	}
 
 	namespace Util 
