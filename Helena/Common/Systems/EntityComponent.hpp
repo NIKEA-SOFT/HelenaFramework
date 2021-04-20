@@ -26,8 +26,8 @@ namespace Helena::Systems
 		template<typename... Type>
 		static constexpr GetType<Type...> Get{};
 
-		EntityComponent() : m_Registry{Core::GetContext()->m_Registry} {}
-		~EntityComponent() = default;
+		EntityComponent() = default;
+		~EntityComponent();
 		EntityComponent(const EntityComponent&) = default;
 		EntityComponent(EntityComponent&&) noexcept = default;
 		EntityComponent& operator=(const EntityComponent&) = delete;
@@ -67,16 +67,16 @@ namespace Helena::Systems
 		auto EachOrphans(Func&& callback) const -> void;
 
 		template <typename Component, typename... Args>
-		auto AddComponent(const Entity id, Args&&... args) -> Component&;
+		auto AddComponent(const Entity id, Args&&... args) -> decltype(auto);
 
-		template <typename Component>
-		auto AddComponentTag(const Entity id) -> void;
+		//template <std::size_t Type, std::integral_constant<typename Type> Component>
+		//auto AddComponentTag(const Entity id) -> void;
 
-		template <typename Component, typename... Args>
-		auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
+		//template <typename Component, typename... Args>
+		//auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
 
-		template <typename Component, typename... Args>
-		auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
+		//template <typename Component, typename... Args>
+		//auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
 
 		template <typename Func>
 		auto VisitComponent(const Entity id, Func&& callback) const -> void;
@@ -147,36 +147,37 @@ namespace Helena::Systems
 		auto ReservePool(const std::size_t size) -> void;
 
 	private:
-		entt::registry& m_Registry;
+		entt::registry m_Registry;
 	};
 }
 
 namespace Helena::Events::Systems::EntityComponent 
 {
-	struct EntityBase {
-		Helena::Systems::EntityComponent::Entity m_Entity;
+	using System = Helena::Systems::EntityComponent;
+
+	struct CreateEntity {
+		System::Entity m_Entity {System::Null};
+	};
+
+	struct RemoveEntity {
+		System::Entity m_Entity {System::Null};
 	};
 
 	template <typename Component>
-	struct ComponentBase {
-		ComponentBase<Component>& operator=(const ComponentBase<Component>& event) {
-			m_Component = event.m_Component;
-			return *this;
-		}
-
-		Component& m_Component;
+	struct AddComponent {
+		using Type = Internal::remove_cvrefptr_t<Component>;
+		System::Entity m_Entity {System::Null};
 	};
 
-	struct CreateEntity : EntityBase {};
-	struct RemoveEntity : EntityBase {};
-
 	template <typename Component>
-	struct AddComponent : EntityBase, ComponentBase<Component> {};
+	struct RemoveComponent {
+		using Type = Internal::remove_cvrefptr_t<Component>;
+		System::Entity m_Entity {System::Null};
+	};
 
-	template <typename Component>
-	struct RemoveComponent : EntityBase, ComponentBase<Component> {};
-	struct RemoveComponents : EntityBase {};
-
+	struct RemoveComponents {
+		System::Entity m_Entity {System::Null};
+	};
 }
 
 #include <Common/Systems/EntityComponent.ipp>
