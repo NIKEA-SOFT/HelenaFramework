@@ -90,7 +90,8 @@ namespace Helena
 
 	namespace Util 
 	{
-		template <typename Container, 
+		template <
+			typename Container, 
 			typename Key = typename Container::key_type, 
 			typename Ret = typename Container::mapped_type, 
 			typename = std::enable_if_t<Internal::is_mapping_v<Internal::remove_cvref_t<Container>>, void>>
