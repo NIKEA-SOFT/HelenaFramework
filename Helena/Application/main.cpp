@@ -14,18 +14,24 @@ namespace Helena::Components
         float y;
         float z;
     };
+
+    // Tag components
+    struct PlayerState {
+        using Die = Systems::EntityComponent::Tag<"PlayerState_Die"_hs>;
+    };
 }
 
 using namespace Hash::Literals;
 
 struct TestSystem 
 {
-    using Entity    = Systems::EntityComponent::Entity;
+
+    using Entity = Systems::EntityComponent::Entity;
 
     // Current method called when system initialized (it's system event)
     void OnSystemCreate() {
         HF_MSG_DEBUG("OnSystemCreate");
-
+        
         // Test Core events
         Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
         Core::RegisterEvent<Events::Finalize,       &TestSystem::OnCoreFinalize>(this);
@@ -39,66 +45,79 @@ struct TestSystem
 
         Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::Velocity>,       &TestSystem::OnComponentAddVelocity>(this);
         Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>,    &TestSystem::OnComponentRemoveVelocity>(this);
+
+        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>,       &TestSystem::OnComponentAddPlayerStateDie>(this);
+        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>,    &TestSystem::OnComponentRemovePlayerStateDie>(this);
     }
 
+    enum class Item {};
     // Current method called after OnSystemCreate (it's system event)
     void OnSystemExecute() {
         HF_MSG_DEBUG("OnSystemExecute");
 
         //test ecs system
-        if(const auto ecs = Core::GetSystem<Systems::EntityComponent>(); ecs) 
-        {            
-            std::vector<Entity> entities; entities.resize(5);       // Create vector with elements
-            ecs->CreateEntity(entities.begin(), entities.end());    // Fill vector with entities
+        auto& ecs = Core::GetSystem<Systems::EntityComponent>();
 
-            // Tag components
-            struct PlayerState {
-                using Die = Systems::EntityComponent::Tag<"PlayerState_Die"_hs>;
-            };
+        std::vector<Entity> entities; entities.resize(5);       // Create vector with elements
+        ecs.CreateEntity(entities.begin(), entities.end());    // Fill vector with entities
 
-            // iterate each entity
-            for(const auto id : entities) {
-                ecs->AddComponent<Components::Position>(id, 1.f, 1.f, 1.f); // Set component to entity
-                ecs->AddComponentTag<PlayerState::Die>(id); // Set tag component to entity
-            }
-
-            // View/Group
-            const auto view = ecs->ViewComponent<PlayerState::Die>();   // Search all entities with component
-            for(const auto id : view) {
-                // Player: <id> is die...
-            }
-
-            const auto group = ecs->GroupComponent<Components::Position>(Systems::EntityComponent::Get<PlayerState::Die>);
-            for(const auto id : group) {
-                auto& pos = group.get<Components::Position>(id);
-                
-                pos.x = 5.f;
-                pos.y = 5.f;
-                pos.z = 5.f;
-
-                // Let's remove components from each entity
-                ecs->RemoveComponent<Components::Position, PlayerState::Die>(id);
-            }
-
-            // Destroy all entities and remove components
-            ecs->Clear();
+        // iterate each entity
+        for(const auto id : entities) {
+            ecs.AddComponent<Components::Position>(id, 1.f, 1.f, 1.f); // Set component to entity
+            ecs.AddComponent<Components::PlayerState::Die>(id); // Set tag component to entity
         }
+
+        // View/Group
+        const auto view = ecs.ViewComponent<Components::PlayerState::Die>();   // Search all entities with component
+        for(const auto id : view) {
+            // Player: <id> is die...
+        }
+
+        const auto group = ecs.GroupComponent<Components::Position>(Systems::EntityComponent::Get<Components::PlayerState::Die>);
+        for(const auto id : group) {
+            auto& pos = group.get<Components::Position>(id);
+                
+            pos.x = 5.f;
+            pos.y = 5.f;
+            pos.z = 5.f;
+
+            // Let's remove components from each entity
+            ecs.RemoveComponent<Components::Position, Components::PlayerState::Die>(id);
+        }
+
+        // Destroy all entities and remove components
+        ecs.Clear();
+        
     }
 
     void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
+        using Position = typename Internal::remove_cvref_t<decltype(event)>::Type;
         HF_MSG_DEBUG("Entity: {} component Position add!", event.m_Entity);
     }
 
     void OnComponentRemovePosition(const Events::Systems::EntityComponent::RemoveComponent<Components::Position>& event) {
+        using Position = typename Internal::remove_cvref_t<decltype(event)>::Type;
         HF_MSG_DEBUG("Entity: {} component Position removed!", event.m_Entity);
     }
 
     void OnComponentAddVelocity(const Events::Systems::EntityComponent::AddComponent<Components::Velocity>& event) {
+        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
         HF_MSG_DEBUG("Entity: {} component Velocity add!", event.m_Entity);
     }
 
     void OnComponentRemoveVelocity(const Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>& event) {
+        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
         HF_MSG_DEBUG("Entity: {} component Velocity removed!", event.m_Entity);
+    }
+
+    void OnComponentAddPlayerStateDie(const Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>& event) {
+        using PlayerStateDie = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        HF_MSG_DEBUG("Entity: {} component PlayerState::Die add!", event.m_Entity);
+    }
+
+    void OnComponentRemovePlayerStateDie(const Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>& event) {
+        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        HF_MSG_DEBUG("Entity: {} component PlayerState::Die removed!", event.m_Entity);
     }
 
     void OnCreateEntity(const Events::Systems::EntityComponent::CreateEntity& event) {
@@ -163,8 +182,8 @@ int main(int argc, char** argv)
     } else {
         HF_MSG_ERROR("Load script file failed");
     }
-
-
+    
+    
     // Helena example
     return Core::Initialize([&]() -> bool {
         // Push args in Core
@@ -184,7 +203,7 @@ int main(int argc, char** argv)
 
         // test create
         Core::RegisterSystem<Systems::EntityComponent>();
-        Core::RegisterSystem<Systems::ConfigManager>();
+        //Core::RegisterSystem<Systems::ConfigManager>();
         Core::RegisterSystem<TestSystem>();
 
         return true;
