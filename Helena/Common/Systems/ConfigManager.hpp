@@ -5,13 +5,40 @@ namespace Helena::Systems
 {
 	class ConfigManager final 
 	{
+		using map_index_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
+		using vec_any_t = std::vector<entt::any>;
+
 		template <typename Resource>
 		struct ResourceIndex {
-			[[nodiscard]] static auto GetIndex() -> std::size_t;
+			[[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
+		};
+
+		template <typename Resource, typename Propertie>
+		struct PropertieIndex {
+			[[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
 		};
 
 	public:
+		using KeyID = entt::id_type;
 
+		template <KeyID Type>
+		using Key = entt::tag<Type>;
+
+		template <typename Resource>
+		class Storage 
+		{
+			using Type = Resource;
+
+			template <KeyID Hash, typename Propertie, typename... Args>
+			auto AddPropertie(Args&&... args) -> decltype(auto); 
+
+		private:
+			Resource m_Instance;
+			vec_any_t m_Properties;
+			map_index_t m_PropertieIndexes;
+		};
+
+	public:
 
 		ConfigManager() = default;
 		~ConfigManager() = default;
@@ -20,12 +47,26 @@ namespace Helena::Systems
 		ConfigManager& operator=(const ConfigManager&) = delete;
 		ConfigManager& operator=(ConfigManager&&) noexcept = delete;
 
-		template <typename Resource, typename... Args>
-		auto AddResource(Args&&... args) -> Resource&;
+		//template <typename Resource, typename Key, typename... Args>
+		//auto AddResource(const Key& key, Args&&... args) -> decltype(auto) {
 
-	public:
-		std::vector<entt::any> m_Storage;
-		robin_hood::unordered_flat_map<entt::id_type, std::size_t> m_Indexes;
+		//}
+
+		template <typename Resource, typename... Args>
+		auto AddResource(Args&&... args) -> Resource*;
+
+		template <typename Resource>
+		auto GetResource() -> Resource*;
+
+		template <typename Resource>
+		auto GetStorage() -> Storage<Resource>*;
+
+		template <typename Resource>
+		auto RemoveResource() -> void;
+
+	private:
+		vec_any_t m_Storage;
+		map_index_t m_ResourceIndexes;
 	};
 }
 
