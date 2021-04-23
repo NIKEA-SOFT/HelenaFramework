@@ -3,6 +3,10 @@
 #ifndef COMMON_HELENA_HPP
 #define COMMON_HELENA_HPP
 
+#define HELENA_VERSION_MAJOR 1
+#define HELENA_VERSION_MINOR 0
+#define HELENA_VERSION_PATCH 0
+
 #include <iostream>
 #include <cstdint>
 #include <algorithm>
