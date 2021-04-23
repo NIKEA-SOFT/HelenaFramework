@@ -87,7 +87,6 @@ struct TestSystem
 
         // Destroy all entities and remove components
         ecs.Clear();
-        
     }
 
     void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
@@ -182,7 +181,6 @@ int main(int argc, char** argv)
     } else {
         HF_MSG_ERROR("Load script file failed");
     }
-    
     
     // Helena example
     return Core::Initialize([&]() -> bool {
