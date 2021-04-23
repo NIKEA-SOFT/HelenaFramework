@@ -94,7 +94,7 @@ namespace Helena
 
 	[[nodiscard]] inline auto Core::Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx) -> bool  
 	{
-		HF_ASSERT(m_Context, "Core not initialized!");
+		HF_ASSERT(!m_Context, "Core is already initialized!");
 
 		try 
 		{
@@ -106,7 +106,7 @@ namespace Helena
 				Heartbeat();
 			}
 
-			HF_MSG_WARN("Finalize framework");
+			HF_MSG_DEBUG("Finalize framework");
 			m_Context->m_Shutdown = false;
 			Util::Sleep(100);
 
@@ -157,8 +157,8 @@ namespace Helena
 			}
 		}
 
-		m_Context->m_Dispatcher.template trigger<Helena::Events::Finalize>();
 		EventSystems(SystemEvent::Destroy);
+		m_Context->m_Dispatcher.template trigger<Helena::Events::Finalize>();
 	}
 
 	inline auto Core::EventSystems(const SystemEvent type) -> void 
@@ -166,8 +166,8 @@ namespace Helena
 		auto& container = m_Context->m_EventScheduler[type];
 		for(std::size_t size = container.size(); size; --size) 
 		{
-			const auto index	= container.front();
-			const auto& event	= m_Context->m_Systems[index].m_Events[type];
+			const auto index = container.front();
+			const auto& event = m_Context->m_Systems[index].m_Events[type];
 
 			if(event) {
 				event();
@@ -248,7 +248,7 @@ namespace Helena
 		}
 
 		auto& system = m_Context->m_Systems[index];
-		HF_ASSERT(system.m_Instance, "Instance of system {} is already registered", Internal::type_name_t<Type>);
+		HF_ASSERT(!system.m_Instance, "Instance of system {} is already registered", Internal::type_name_t<Type>);
 		if(!system.m_Instance) 
 		{
 			system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
@@ -285,7 +285,7 @@ namespace Helena
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
 		HF_ASSERT(m_Context, "Core not initialized");
-		const auto index	= SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
+		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, 
 			"Instance of system {} does not exist", Internal::type_name_t<Type>);
 		return entt::any_cast<Type&>(m_Context->m_Systems[index].m_Instance);
@@ -301,22 +301,23 @@ namespace Helena
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
 		HF_ASSERT(m_Context, "Core not initialized");
-		const auto index = SystemIndex<Type>::GetIndex(m_TypeIndexes);
+		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, 
 			"Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
-		if(index < systems.size()) 
+		if(index < m_Context->m_Systems.size()) 
 		{
-			if(auto& system = m_Systems[index]; system.m_Instance) 
+			if(auto& system = m_Context->m_Systems[index]; system.m_Instance) 
 			{
-				if(system.m_EventDestroy) {
-					system.m_EventDestroy();
+				if(system.m_Events[SystemEvent::Destroy]) {
+					system.m_Events[SystemEvent::Destroy]();
 				}
 
 				system.m_Instance.reset();
-				system.m_EventCreate.reset();
-				system.m_EventExecute.reset();
-				system.m_EventUpdate.reset();
-				system.m_EventDestroy.reset();
+				system.m_Events[SystemEvent::Create].reset();
+				system.m_Events[SystemEvent::Execute].reset();
+				system.m_Events[SystemEvent::Tick].reset();
+				system.m_Events[SystemEvent::Update].reset();
+				system.m_Events[SystemEvent::Destroy].reset();
 			}
 		}
 	}
