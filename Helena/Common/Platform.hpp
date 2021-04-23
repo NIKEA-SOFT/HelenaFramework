@@ -112,16 +112,17 @@ namespace Helena::Internal {
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
-
+    
     #if _MSC_VER >= 1910
-        __pragma(execution_character_set(push, "UTF-8"))
+        #pragma execution_character_set("utf-8")
     #endif // _MSC_VER >= 1910
 
     // Including
     #include <Windows.h>
     #include <WinSock2.h>
-    #include <minidumpapiset.h>
     #include <timeapi.h>
+    #include <Dbghelp.h>
+    #include <minidumpapiset.h>
 
     inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
         // Set UTF-8
