@@ -19,23 +19,17 @@ namespace Helena::Systems
 		};
 
 	public:
-		using KeyID = entt::id_type;
-
-		template <KeyID Type>
-		using Key = entt::tag<Type>;
+		using ResourceID = entt::id_type;
 
 		template <typename Resource>
-		class Storage 
-		{
-			using Type = Resource;
+		struct Storage {
+			template <typename... Args>
+			Storage([[maybe_unused]] Args&&... args) : m_Instance{std::forward<Args>(args)...} {}
+			~Storage() = default;
 
-			template <KeyID Hash, typename Propertie, typename... Args>
-			auto AddPropertie(Args&&... args) -> decltype(auto); 
-
-		private:
-			Resource m_Instance;
-			vec_any_t m_Properties;
-			map_index_t m_PropertieIndexes;
+			Resource	m_Instance;
+			vec_any_t	m_Properties;
+			map_index_t	m_PropertieIndexes;
 		};
 
 	public:
@@ -53,13 +47,10 @@ namespace Helena::Systems
 		//}
 
 		template <typename Resource, typename... Args>
-		auto AddResource(Args&&... args) -> Resource*;
+		auto AddResource(Args&&... args) -> void;
 
 		template <typename Resource>
 		auto GetResource() -> Resource*;
-
-		template <typename Resource>
-		auto GetStorage() -> Storage<Resource>*;
 
 		template <typename Resource>
 		auto RemoveResource() -> void;
