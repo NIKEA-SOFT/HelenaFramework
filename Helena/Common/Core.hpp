@@ -43,14 +43,15 @@ namespace Helena
 		struct System {
 			using ev_array_t = std::array<delegate_t<void ()>, SystemEvent::Size>;
 
-			entt::any	m_Instance;
 			ev_array_t	m_Events;
+			entt::any	m_Instance;
 		};
 
 		using map_indexes_t		= robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
 		using vec_args_t		= std::vector<std::string_view>;
 		using vec_systems_t		= std::vector<System>;
 		using array_events_t	= std::array<std::queue<std::size_t>, SystemEvent::Size>;
+		using dispatcher_t		= entt::dispatcher;
 
 		template <typename Type>
 		struct SystemIndex {
@@ -67,22 +68,18 @@ namespace Helena
 			template <typename, typename>
 			friend struct ENTT_API entt::type_seq;
 
-			std::chrono::steady_clock::time_point m_TimeStart {};
-			std::chrono::steady_clock::time_point m_TimeNow {};
-			std::chrono::steady_clock::time_point m_TimePrev {};
-
-			std::atomic_bool	m_Shutdown;
-			entt::dispatcher	m_Dispatcher {};
-			vec_args_t	m_Args;
-
-			double m_TimeDelta {};
-			double m_TickRate {};
-
-			vec_systems_t	m_Systems;
-			array_events_t	m_EventScheduler;
-			map_indexes_t	m_TypeIndexes;
-
-			map_indexes_t	m_SequenceIndexes;
+			array_events_t m_EventScheduler;
+			map_indexes_t m_TypeIndexes;
+			map_indexes_t m_SequenceIndexes;
+			vec_systems_t m_Systems;
+			vec_args_t m_Args;
+			dispatcher_t m_Dispatcher;
+			std::chrono::steady_clock::time_point m_TimeStart{};
+			std::chrono::steady_clock::time_point m_TimeNow{};
+			std::chrono::steady_clock::time_point m_TimePrev{};
+			double m_TimeDelta{};
+			double m_TickRate{};
+			std::atomic_bool m_Shutdown;
 		};
 
 	private:
@@ -102,9 +99,6 @@ namespace Helena
 		static auto HookSignals() -> void;
 		static auto Heartbeat() -> void;
 		static auto EventSystems(const SystemEvent type) -> void;
-
-		//[[nodiscard]] static auto GetSystemManager() noexcept -> SystemManager&;
-		//[[nodiscard]] static auto GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t;
 
 	public:
 		Core() = delete;
