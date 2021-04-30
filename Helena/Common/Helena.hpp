@@ -26,6 +26,7 @@
 #include <functional>
 #include <chrono>
 #include <any>
+#include <variant>
 #include <time.h>
 #include <type_traits>
 
