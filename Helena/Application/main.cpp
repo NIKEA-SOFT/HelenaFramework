@@ -21,8 +21,6 @@ namespace Helena::Components
     };
 }
 
-using namespace Hash::Literals;
-
 struct TestSystem 
 {
 
@@ -164,13 +162,14 @@ struct TestSystem
     }
 };
 
+
 int main(int argc, char** argv)
 {
     // Lua example
     sol::state lua;
     lua.open_libraries(sol::lib::base, sol::lib::package);
     lua.script("print('hello lua world!')");
-
+    
     if(auto script = lua.load_file(std::filesystem::path{argv[0]}.parent_path().string() + HF_SEPARATOR + "test.lua"); script.valid()) 
     {
         if(const auto fnScript = script(); fnScript.valid()) {
@@ -190,7 +189,7 @@ int main(int argc, char** argv)
         //Core::SetArgs(argc, argv);
         // Set tickrate (30 fps)
         Core::SetTickrate(60.0);
-        
+
         // Get args size
         HF_MSG_INFO("Args: {}", Core::GetArgs().size());
         
