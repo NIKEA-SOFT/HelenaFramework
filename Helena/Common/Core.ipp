@@ -249,34 +249,31 @@ namespace Helena
 
 		auto& system = m_Context->m_Systems[index];
 		HF_ASSERT(!system.m_Instance, "Instance of system {} is already registered", Internal::type_name_t<Type>);
-		if(!system.m_Instance) 
-		{
-			system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
-		
-			if constexpr (Internal::is_detected_v<fn_create_t, Type>) {
-				system.m_Events[SystemEvent::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(system.m_Instance));
-				m_Context->m_EventScheduler[SystemEvent::Create].emplace(index);
-			}
 
-			if constexpr (Internal::is_detected_v<fn_execute_t, Type>) {
-				system.m_Events[SystemEvent::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(system.m_Instance));
-				m_Context->m_EventScheduler[SystemEvent::Execute].emplace(index);
-			}
+		system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
+		if constexpr(Internal::is_detected_v<fn_create_t, Type>) {
+			system.m_Events[SystemEvent::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(system.m_Instance));
+			m_Context->m_EventScheduler[SystemEvent::Create].emplace(index);
+		}
 
-			if constexpr (Internal::is_detected_v<fn_update_t, Type>) {
-				system.m_Events[SystemEvent::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(system.m_Instance));
-				m_Context->m_EventScheduler[SystemEvent::Update].emplace(index);
-			}
+		if constexpr(Internal::is_detected_v<fn_execute_t, Type>) {
+			system.m_Events[SystemEvent::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(system.m_Instance));
+			m_Context->m_EventScheduler[SystemEvent::Execute].emplace(index);
+		}
 
-			if constexpr (Internal::is_detected_v<fn_tick_t, Type>) {
-				system.m_Events[SystemEvent::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(system.m_Instance));
-				m_Context->m_EventScheduler[SystemEvent::Tick].emplace(index);
-			}
+		if constexpr(Internal::is_detected_v<fn_update_t, Type>) {
+			system.m_Events[SystemEvent::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(system.m_Instance));
+			m_Context->m_EventScheduler[SystemEvent::Update].emplace(index);
+		}
 
-			if constexpr (Internal::is_detected_v<fn_destroy_t, Type>) {
-				system.m_Events[SystemEvent::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(system.m_Instance));
-				m_Context->m_EventScheduler[SystemEvent::Destroy].emplace(index);
-			}
+		if constexpr(Internal::is_detected_v<fn_tick_t, Type>) {
+			system.m_Events[SystemEvent::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(system.m_Instance));
+			m_Context->m_EventScheduler[SystemEvent::Tick].emplace(index);
+		}
+
+		if constexpr(Internal::is_detected_v<fn_destroy_t, Type>) {
+			system.m_Events[SystemEvent::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(system.m_Instance));
+			m_Context->m_EventScheduler[SystemEvent::Destroy].emplace(index);
 		}
 	}
 
@@ -286,8 +283,7 @@ namespace Helena
 
 		HF_ASSERT(m_Context, "Core not initialized");
 		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
-		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, 
-			"Instance of system {} does not exist", Internal::type_name_t<Type>);
+		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, "Instance of system {} does not exist", Internal::type_name_t<Type>);
 		return entt::any_cast<Type&>(m_Context->m_Systems[index].m_Instance);
 	}
 
@@ -302,8 +298,7 @@ namespace Helena
 
 		HF_ASSERT(m_Context, "Core not initialized");
 		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
-		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, 
-			"Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
+		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, "Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
 		if(index < m_Context->m_Systems.size()) 
 		{
 			if(auto& system = m_Context->m_Systems[index]; system.m_Instance) 
@@ -342,7 +337,7 @@ namespace Helena
 	}
 
 	template <typename Event, typename... Args>
-	auto Core::EnqueueEvent(Args&&... args) -> void {
+	auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
 	}
@@ -369,29 +364,6 @@ namespace Helena
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
 	}
-
-	//[[nodiscard]] inline auto Core::GetSystemManager() noexcept -> SystemManager& {
-	//	return m_Context->m_SystemManager;
-	//}
-
-	//[[nodiscard]] inline auto Core::GetTypeIndex(std::unordered_map<entt::id_type, std::size_t>& container, const entt::id_type typeIndex) -> std::size_t 
-	//{
-	//	if(!m_Context) {
-	//		HF_MSG_ERROR("Core not initialized!");
-	//		std::terminate();
-	//	}
-
-	//	if(const auto it = container.find(typeIndex); it != container.cend()) {
-	//		return it->second;
-	//	}
-
-	//	if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
-	//		HF_MSG_FATAL("Type index emplace failed!");
-	//		std::terminate();
-	//	}
-
-	//	return container.size() - 1;
-	//}
 }
 
 namespace entt {
