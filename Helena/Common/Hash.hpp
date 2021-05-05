@@ -1,19 +1,22 @@
-#ifndef COMMON_HASH_HPP__
-#define COMMON_HASH_HPP__
+#pragma once
 
-#include <string>
-#include <type_traits>
+#ifndef COMMON_HASH_HPP
+#define COMMON_HASH_HPP
 
 namespace Helena
 {
-    /*! @brief Heterogeneous lookup hasher */
-    struct StringHash {
-        using is_transparent = void;
-        using hash_type = std::hash<std::string_view>;
-        std::size_t operator()(const std::string& key) const { return hash_type{}(key); }
-        std::size_t operator()(std::string_view key) const { return hash_type{}(key); }
-        std::size_t operator()(const char* key) const { return hash_type{}(key); }
-    };
+    namespace Hash 
+    {
+        using String   = entt::hashed_string;
+        using WString  = entt::hashed_wstring; 
+
+        template <typename T>
+        constexpr auto Type = entt::type_hash<T>().value();
+
+        namespace Literals {
+            using namespace entt::literals;
+        }
+    }
 }
 
-#endif // COMMON_HASH_HPP__
+#endif // COMMON_HASH_HPP

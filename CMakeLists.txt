@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.9)
 project(HelenaFramework VERSION 0.0.1 LANGUAGES CXX)
 
 #|--------------------------------
@@ -36,6 +36,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_SUPPRESS_REGENERATION OFF)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;" CACHE STRING "" FORCE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
@@ -43,7 +44,7 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 #|--------------------------------
 #| CMake modules
 #|--------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake") 
 
 #|--------------------------------
 #| Helena Framework Variables
@@ -84,13 +85,13 @@ message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${C
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-#add_subdirectory(Dependencies)
+
 
 #|--------------------------------
 #| Helena Framework Build
 #|--------------------------------
 if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++latest -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
 elseif(UNIX)
     SET(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
     SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
@@ -115,15 +116,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 
+#add_subdirectory(${HELENA_PROJECT_DIR}/Dependencies)
 add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
-add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
+#add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Common)
+#add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
 link_directories(${HELENA_PROJECT_OUTDIR})
 
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
 option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
+option(HELENA_FLAG_EXAMPLES     "Build examples"        OFF)
 option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
 
 #|--------------------------------

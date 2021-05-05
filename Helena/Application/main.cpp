@@ -1,113 +1,220 @@
-#include <iostream>
-#include <filesystem>
-
-#include <Common/Service.hpp>
-#include <Common/Xml.hpp>
-#include <Common/Meta.hpp>
+﻿#include <Common/Helena.hpp>
 
 using namespace Helena;
+using namespace Helena::Hash::Literals;
 
-std::unique_ptr<Service> ServiceParse(const std::filesystem::path service, std::string& moduleNames)
+namespace Helena::Components 
 {
-    auto serviceName = service.stem().string();
-    std::error_code error;
-    if(!std::filesystem::is_regular_file(service, error) || !std::filesystem::exists(service, error)) {
-        HF_CONSOLE_ERROR("Service file: {} not found!", serviceName);
-        return std::unique_ptr<Service>();
-    }
+    struct Velocity {
+        float m_Speed;
+    };
 
-    pugi::xml_document xmlDoc;
-    if(!xmlDoc.load_file(service.c_str(), pugi::parse_default | pugi::parse_comments)) {
-        HF_CONSOLE_ERROR("Parse file: {} failed!", serviceName);
-        return std::unique_ptr<Service>();
-    }
+    struct Position {
+        float x;
+        float y;
+        float z;
+    };
 
-    // Find xml node
-    const auto node = xmlDoc.child(Meta::ConfigService::Service());
-    if(node.empty()) {
-        HF_CONSOLE_ERROR("Parse file: {}, node: {} not found!", serviceName, Meta::ConfigService::Service());
-        return std::unique_ptr<Service>();
-    }
-
-    // Create configs/modules/resources directories if not exists
-    std::string pathConfigs = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathConfigs()).as_string()).string();
-    if(!std::filesystem::exists(pathConfigs, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathConfigs(), pathConfigs);
-        return std::unique_ptr<Service>();
-    }
-
-    std::string pathModules = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathModules()).as_string()).string();
-    if(!std::filesystem::exists(pathModules, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathModules(), pathModules);
-        return std::unique_ptr<Service>();
-    }
-
-    std::string pathResources = std::filesystem::absolute(node.attribute(Meta::ConfigService::PathResources()).as_string()).string();
-    if(!std::filesystem::exists(pathResources, error)) {
-        HF_CONSOLE_ERROR("Service: {}, node: {}, path: {} folder not exist!", serviceName, Meta::ConfigService::PathResources(), pathResources);
-        return std::unique_ptr<Service>();
-    }
-   
-    if(pathConfigs.back() != HF_SEPARATOR) {
-        pathConfigs += HF_SEPARATOR;
-    }
-
-    if(pathModules.back() != HF_SEPARATOR) {
-        pathModules += HF_SEPARATOR;
-    }
-
-    if(pathResources.back() != HF_SEPARATOR) {
-        pathResources += HF_SEPARATOR;
-    }
-    
-    moduleNames = node.attribute(Meta::ConfigService::Modules()).as_string();
-    return std::make_unique<Service>(serviceName, pathConfigs, pathModules, pathResources);
+    // Tag components
+    struct PlayerState {
+        using Die = Systems::EntityComponent::Tag<"PlayerState_Die"_hs>;
+    };
 }
+
+struct TestSystem 
+{
+
+    using Entity = Systems::EntityComponent::Entity;
+
+    // Current method called when system initialized (it's system event)
+    void OnSystemCreate() {
+        HF_MSG_DEBUG("OnSystemCreate");
+        
+        // Test Core events
+        Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
+        Core::RegisterEvent<Events::Finalize,       &TestSystem::OnCoreFinalize>(this);
+
+        // Test Events for EntityComponent
+        Core::RegisterEvent<Events::Systems::EntityComponent::CreateEntity, &TestSystem::OnCreateEntity>(this);
+        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveEntity, &TestSystem::OnRemoveEntity>(this);
+
+        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::Position>,       &TestSystem::OnComponentAddPosition>(this);
+        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Position>,    &TestSystem::OnComponentRemovePosition>(this);
+
+        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::Velocity>,       &TestSystem::OnComponentAddVelocity>(this);
+        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>,    &TestSystem::OnComponentRemoveVelocity>(this);
+
+        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>,       &TestSystem::OnComponentAddPlayerStateDie>(this);
+        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>,    &TestSystem::OnComponentRemovePlayerStateDie>(this);
+    }
+
+    enum class Item {};
+    // Current method called after OnSystemCreate (it's system event)
+    void OnSystemExecute() {
+        HF_MSG_DEBUG("OnSystemExecute");
+
+        //test ecs system
+        auto& ecs = Core::GetSystem<Systems::EntityComponent>();
+
+        std::vector<Entity> entities; entities.resize(5);       // Create vector with elements
+        ecs.CreateEntity(entities.begin(), entities.end());    // Fill vector with entities
+
+        // iterate each entity
+        for(const auto id : entities) {
+            ecs.AddComponent<Components::Position>(id, 1.f, 1.f, 1.f); // Set component to entity
+            ecs.AddComponent<Components::PlayerState::Die>(id); // Set tag component to entity
+        }
+
+        // View/Group
+        const auto view = ecs.ViewComponent<Components::PlayerState::Die>();   // Search all entities with component
+        for(const auto id : view) {
+            // Player: <id> is die...
+        }
+
+        const auto group = ecs.GroupComponent<Components::Position>(Systems::EntityComponent::Get<Components::PlayerState::Die>);
+        for(const auto id : group) {
+            auto& pos = group.get<Components::Position>(id);
+                
+            pos.x = 5.f;
+            pos.y = 5.f;
+            pos.z = 5.f;
+
+            // Let's remove components from each entity
+            ecs.RemoveComponent<Components::Position, Components::PlayerState::Die>(id);
+        }
+
+        // Destroy all entities and remove components
+        ecs.Clear();
+
+        // Test ConfigManager
+        auto& configManager = Core::GetSystem<Systems::ConfigManager>();
+        if(!configManager.HasResource<Components::Velocity>()) {
+            HF_MSG_WARN("Resource not exist");
+        }
+
+        configManager.AddResource<Components::Velocity>(1.f);
+        if(configManager.HasResource<Components::Velocity>()) {
+            HF_MSG_WARN("Resource exist");
+        }
+
+    }
+
+    void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
+        using Position = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component Position add!", event.m_Entity);
+    }
+
+    void OnComponentRemovePosition(const Events::Systems::EntityComponent::RemoveComponent<Components::Position>& event) {
+        using Position = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component Position removed!", event.m_Entity);
+    }
+
+    void OnComponentAddVelocity(const Events::Systems::EntityComponent::AddComponent<Components::Velocity>& event) {
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component Velocity add!", event.m_Entity);
+    }
+
+    void OnComponentRemoveVelocity(const Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>& event) {
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component Velocity removed!", event.m_Entity);
+    }
+
+    void OnComponentAddPlayerStateDie(const Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>& event) {
+        using PlayerStateDie = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component PlayerState::Die add!", event.m_Entity);
+    }
+
+    void OnComponentRemovePlayerStateDie(const Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>& event) {
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
+        HF_MSG_DEBUG("Entity: {} component PlayerState::Die removed!", event.m_Entity);
+    }
+
+    void OnCreateEntity(const Events::Systems::EntityComponent::CreateEntity& event) {
+        HF_MSG_DEBUG("OnCreateEntity: {} event called", event.m_Entity);
+    }
+
+    void OnRemoveEntity(const Events::Systems::EntityComponent::RemoveEntity& event) {
+        HF_MSG_DEBUG("OnRemoveEntity: {} event called", event.m_Entity);
+    }
+
+    // Called when Core initialized
+    void OnCoreInitialize(const Events::Initialize& event) {
+        HF_MSG_DEBUG("OnCoreInitialize");
+    }
+    // Called when Core finish
+    void OnCoreFinalize(const Events::Finalize& event) {
+        HF_MSG_DEBUG("OnCoreFinalize");
+    }
+
+    // Called every tick (it's system event)
+    void OnSystemTick() {
+        //HF_MSG_DEBUG("OnSystemTick");
+    }
+
+    // Called every tickrate (fps) tick (default: 0.016 ms) (it's system event)
+    void OnSystemUpdate() {
+        HF_MSG_DEBUG("OnSystemUpdate, delta: {:.4f}", Core::GetTimeDelta());
+    }
+
+    // Called when System destroyed (it's system event)
+    void OnSystemDestroy() {
+        HF_MSG_DEBUG("OnSystemDestroy");
+
+        Core::RemoveEvent<Events::Initialize,   &TestSystem::OnCoreInitialize>(this);
+        Core::RemoveEvent<Events::Finalize,     &TestSystem::OnCoreFinalize>(this);
+
+        Core::RemoveEvent<Events::Systems::EntityComponent::CreateEntity, &TestSystem::OnCreateEntity>(this);
+        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveEntity, &TestSystem::OnRemoveEntity>(this);
+
+        Core::RemoveEvent<Events::Systems::EntityComponent::AddComponent<Components::Position>,       &TestSystem::OnComponentAddPosition>(this);
+        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Position>,    &TestSystem::OnComponentRemovePosition>(this);
+
+        Core::RemoveEvent<Events::Systems::EntityComponent::AddComponent<Components::Velocity>,       &TestSystem::OnComponentAddVelocity>(this);
+        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>,    &TestSystem::OnComponentRemoveVelocity>(this);
+    }
+};
+
 
 int main(int argc, char** argv)
 {
-#if HF_PLATFORM == HF_PLATFORM_WIN
-    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD dwMode{};
-
-    if(!GetConsoleMode(hOutput, &dwMode)) {
-        std::cout << "GetConsoleMode failed!" << std::endl;
-        return 0;
+    // Lua example
+    sol::state lua;
+    lua.open_libraries(sol::lib::base, sol::lib::package);
+    lua.script("print('hello lua world!')");
+    
+    if(auto script = lua.load_file(std::filesystem::path{argv[0]}.parent_path().string() + HF_SEPARATOR + "test.lua"); script.valid()) 
+    {
+        if(const auto fnScript = script(); fnScript.valid()) {
+            HF_MSG_INFO("Lua script exec success!");
+        } else {
+            HF_MSG_ERROR("Lua script exec failed!");
+        }
+    } else {
+        HF_MSG_ERROR("Load script file failed");
     }
+    
+    // Helena example
+    return Core::Initialize([&]() -> bool {
+        // Push args in Core
+        Core::SetArgs(argc, argv);
 
-    dwMode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if(!SetConsoleMode(hOutput, dwMode)) {
-        std::cout << "SetConsoleMode failed!" << std::endl;
-        return 0;
-    }
-#endif
+        //Core::SetArgs(argc, argv);
+        // Set tickrate (30 fps)
+        Core::SetTickrate(60.0);
 
-    if(argc != 2) {
-        HF_CONSOLE_ERROR("Incorrect args, usage Helena.exe Service.xml");
-        return 0;
-    }
+        // Get args size
+        HF_MSG_INFO("Args: {}", Core::GetArgs().size());
+        
+        // View arguments from vector of std::string_view
+        for(const auto& arg : Core::GetArgs()) {
+            HF_MSG_INFO("Arg: {}", arg);
+        }
+        
+        // test create
+        Core::RegisterSystem<Systems::ConfigManager>();
+        Core::RegisterSystem<Systems::EntityComponent>();
+        Core::RegisterSystem<TestSystem>();
 
-    std::string moduleNames;
-    if(const auto service = ServiceParse(argv[1], moduleNames); service) {
-        std::cout
-            << " ______________________________________" << std::endl
-            << "| \t    Helena Framework" << std::endl
-            << "|--------------------------------------" << std::endl
-            << "| Service: \t\"" << service->GetName() << "\"" << std::endl
-            << "| PathConfig: \t" << service->GetDirectories().GetPathConfigs() << std::endl
-            << "| PathModule: \t" << service->GetDirectories().GetPathModules() << std::endl
-            << "| PathResource:\t" << service->GetDirectories().GetPathResources() << std::endl
-            << "| Modules: \t\"" << moduleNames << "\"" << std::endl
-            << "|______________________________________" << std::endl
-            << std::endl;
-
-        service->Initialize(moduleNames);
-        service->Finalize();
-    }
-
-#if HF_PLATFORM == HF_PLATFORM_WIN
-    system("pause");
-    ExitProcess(NULL);
-#endif
-    return 0;
+        return true;
+    });
 }

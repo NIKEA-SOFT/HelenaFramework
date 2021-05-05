@@ -1,186 +1,123 @@
 #ifndef COMMON_UTIL_HPP
 #define COMMON_UTIL_HPP
 
-#include "Platform.hpp"
-#include "Format.hpp"
-
-#define HF_FILE_LINE						Util::Internal::Location{Helena::Util::GetFileName(__FILE__), static_cast<std::size_t>(__LINE__)}
-#define HF_CONSOLE_INFO(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Info, format, ##__VA_ARGS__)
-#define HF_CONSOLE_WARN(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Warn, format, ##__VA_ARGS__)
-#define HF_CONSOLE_ERROR(format, ...)		Helena::Util::Console(HF_FILE_LINE, Helena::Util::ELevelLog::Error, format, ##__VA_ARGS__)
-
-namespace Helena::Util
+namespace Helena
 {
-	namespace Internal {
-		struct Location {
-			constexpr Location() : m_Filename(nullptr), m_Line(0) {}
-			constexpr Location(const char* filename, const std::size_t line) : m_Filename(filename), m_Line(line) {}
-			constexpr bool IsEmpty() const noexcept { return !m_Filename; }
-			const char* m_Filename;
-			const std::size_t m_Line;
+	namespace Internal 
+	{
+		template <typename Type>
+		constexpr auto type_name_t = entt::type_name<Type>().value();
+
+		template <typename Type>
+		struct remove_cvref {
+			using type = std::remove_cv_t<std::remove_reference_t<Type>>;
 		};
 
-	#if HF_STANDARD_VER == HF_STANDARD_CPP17
-		template<class InputIt, class ForwardIt>
-		[[nodiscard]] static constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept;
-	#endif
+		template <typename Type>
+		using remove_cvref_t = typename remove_cvref<Type>::type;
+
+		template <typename Type>
+		using remove_cvrefptr_t = std::conditional_t<std::is_array_v<Type>, std::remove_all_extents_t<Type>, 
+			std::conditional_t<std::is_pointer_v<Type>, remove_cvref_t<std::remove_pointer_t<Type>>, remove_cvref_t<Type>>>;
+
+		template <typename Default, typename AlwaysVoid, template<typename...> typename Op, typename... Args>
+		struct detector {
+			using value_t = std::false_type;
+			using type = Default;
+		};
+
+		template <typename Default, template<typename...> typename Op, typename... Args>
+		struct detector<Default, std::void_t<Op<Args...>>, Op, Args...> {
+			using value_t = std::true_type;
+			using type = Op<Args...>;
+		};
+
+		struct nonesuch {
+			nonesuch() = delete;
+			~nonesuch() = delete;
+			nonesuch(nonesuch const&) = delete;
+			void operator=(nonesuch const&) = delete;
+		};
+
+		template <template<typename...> typename Op, typename... Args>
+		using is_detected = typename Internal::detector<nonesuch, void, Op, Args...>::value_t;
+
+		template <template<typename...> typename Op, typename... Args>
+		constexpr bool is_detected_v = is_detected<Op, Args...>::value;
+
+		template <template<typename...> typename Op, typename... Args>
+		using detected_t = typename Internal::detector<nonesuch, void, Op, Args...>::type;
+
+		template <typename Default, template<typename...> typename Op, typename... Args>
+		using detected_or = Internal::detector<Default, void, Op, Args...>;
+
+		template <typename T, typename = void>
+		struct is_pair : std::false_type {};
+ 
+		template <typename T>
+		struct is_pair<T, std::void_t<decltype(std::declval<typename T::first_type>()), decltype(std::declval<typename T::second_type>())>> : std::true_type {};
+ 
+		template <typename T>
+		constexpr bool is_pair_v = is_pair<T>::value;
+ 
+		template<typename, typename = void>
+		struct is_mapping : std::false_type {};
+ 
+		template <typename Container>
+		struct is_mapping<Container, std::enable_if_t<is_pair_v<typename std::iterator_traits<typename Container::iterator>::value_type>>> : std::true_type {};
+ 
+		template <typename T>
+		constexpr bool is_mapping_v = is_mapping<T>::value;
+
+		template <typename T, bool B = std::is_enum<T>::value>
+		struct is_scoped_enum : std::false_type {};
+
+		template <typename T>
+		struct is_scoped_enum<T, true> : std::integral_constant<bool, !std::is_convertible<T, typename std::underlying_type<T>::type>::value> {};
+
+		template <typename T>
+		constexpr bool is_scoped_enum_t = typename is_scoped_enum<T>::value;
+
+		template <typename T> 
+		struct is_integral_constant : std::false_type {};
+
+		template <typename T, T V> 
+		struct is_integral_constant<std::integral_constant<T, V>> : std::true_type {};
+
+		template <typename T> 
+		constexpr bool is_integral_constant_v = is_integral_constant<T>::value;
 	}
 
-	enum class ELevelLog : uint8_t {
-		Info,
-		Warn,
-		Error
-	};
+	namespace Util 
+	{
+		template <
+			typename Container, 
+			typename Key = typename Container::key_type, 
+			typename Ret = typename Container::mapped_type, 
+			typename = std::enable_if_t<Internal::is_mapping_v<Internal::remove_cvref_t<Container>>, void>>
+		auto AddOrGetTypeIndex(Container& container, const Key typeIndex) -> decltype(auto)
+		{
+			if(const auto it = container.find(typeIndex); it != container.cend()) {
+				return static_cast<Ret>(it->second);
+			}
 
-	/**
-	* @brief	Log message to console
-	* 
-	* @tparam	Format		Type of format
-	* @tparam	Args		Type of arguments
-	* @tparam	Char		Type of character
-	* 
-	* @param	filename	Result of Util::GetFileName(__FILE__)
-	* @param	line		Result of __LINE__
-	* @param	level		Log level
-	* @param	format		Message with formatting support
-	* @param	args		Arguments for formatting
-	*/
-	template <typename... Args>
-	void Console(const Internal::Location& location, const ELevelLog level, const std::string_view format, Args&&... args);
+			if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
+				HF_MSG_FATAL("Type index emplace failed!");
+				std::terminate();
+			}
 
-	/**
-	* @brief	Sleep current thread on N milliseconds
-	* 
-	* @param	milliseconds	Time in milliseconds
-	*/
-	inline void Sleep(const uint64_t milliseconds);
+			return static_cast<Ret>(container.size()) - 1u;
+		}
 
-	/**
-		* @brief	Split string using delimeter (support trim) 
-		* 
-		* @tparam	Type		Type of vector value 
-		* 
-		* @param	input		Input string data for split 
-		* @param	delimeter	Delimeter (default: ",") 
-		* @param	trim		Remove space from data 
-		* 
-		* @details	Split input data using delimiter and return std::vector<Type> 
-		* @note	Trim remove space char's from start and end position. 
-		*			Example: " Hello World " "Hello World" 
-		*/
-	template <typename Type>
-	[[nodiscard]] std::vector<Type> Split(std::string_view input, std::string_view delimeters = ",", bool trim = true);
+		inline void Sleep(const uint64_t milliseconds) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+		}
 
-	/**
-		* @brief	Return cutted filename in constexpr
-		* 
-		* @param	file	Macros of __FILE__
-		* 
-		* @return	@code{.cpp} const char* @endocde
-		*/
-	[[nodiscard]] constexpr const char* GetFileName(const std::string_view file);
-
-	//------------[Bit Operations]---------------//
-	/**
-		* @brief	Assign bit flags from right to left side 
-		*
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		*
-		* @note	This function assigns new flags to <left>. 
-		*			It's remove old data from <left> variable. 
-		*			Support multiple flags in <right>. 
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	void BitAssign(TypeLeft& left, TypeRight right);
-		
-	/**
-		* @brief	Add bit flag from right to left side 
-		* 
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		* 
-		* @note	Support multiple flags in <right>
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	void BitSet(TypeLeft& left, TypeRight right);
-
-	/**
-		* @brief	Get bit flag in left from right 
-		*
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		*
-		* @return	Return false if right flag disabled 
-		* 
-		* @note	This function check a <left> on flag. 
-		*			Support only single flag in <right>. 
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] bool BitGet(TypeLeft left, TypeRight right);
-
-	/**
-		* @brief	Remove bit flag from left using right 
-		* 
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag  
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		* 
-		* @note	Support multiple flags in <right>. 
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	void BitRemove(TypeLeft& left, TypeRight right);
-		
-	/**
-		* @brief	Xor bit flag in left from right 
-		*
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		* 
-		* @note	This function invert flags in <left>. \n 
-		*			Support multiple flags in <right>.
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	void BitXor(TypeLeft& left, TypeRight right);
-
-	/**
-		* @brief	Check left on has multiple flags from right 
-		*
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		* 
-		* @return	Returns false if at least one of the right flags is missing. 
-		*
-		* @note	Analog BitGet, support multiple flags in <right>. 
-		*/
-	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] bool BitHas(TypeLeft left, TypeRight right);
-
-	/**
-		* @brief	Compare left and right on equality 
-		*
-		* @tparam	TypeLeft	Type of data with flags 
-		* @tparam	TypeRight	Type of bit flag 
-		* @param	left		Data with flags 
-		* @param	right		Bit flag 
-		*
-		* @return	Returns false if at least one of the flags is missing. 
-		*/ 
-	template <typename TypeLeft, typename TypeRight>
-	[[nodiscard]] bool BitCompare(TypeLeft left, TypeRight right);
+		template <typename Rep, typename Period>
+		void Sleep(const std::chrono::duration<Rep, Period>& time) {
+			std::this_thread::sleep_for(time);
+		}
+	}
 }
 
-#include "Util.ipp"
-
-#endif	// COMMON_UTIL_HPP
+#endif // COMMON_UTIL_HPP
