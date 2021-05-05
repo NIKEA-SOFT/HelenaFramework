@@ -103,8 +103,11 @@ namespace Helena::Internal {
 #define HF_MSG_FATAL(msg, ...)          fmt::print(fg(fmt::terminal_color::bright_white) | bg(fmt::terminal_color::bright_red), "[{:%Y.%m.%d %H:%M:%S}][{}:{}][FATAL] " msg "\n", fmt::localtime(std::time(nullptr)), HF_FILE_LINE, ##__VA_ARGS__)
 
 #if HF_PLATFORM == HF_PLATFORM_WIN
-    #pragma warning(disable:4091)
-    #pragma warning(disable:4251)
+    #if HF_COMPILER == HF_COMPILER_MSVC
+        #pragma warning(disable:4091)
+        #pragma warning(disable:4251)
+        #pragma warning(disable:4068)
+    #endif
     
     #pragma comment(lib, "winmm.lib")
     
@@ -113,9 +116,11 @@ namespace Helena::Internal {
         #define WIN32_LEAN_AND_MEAN
     #endif
     
-    #if _MSC_VER >= 1910
-        #pragma execution_character_set("utf-8")
-    #endif // _MSC_VER >= 1910
+    #if HF_COMPILER == HF_COMPILER_MSVC
+        #if _MSC_VER >= 1910
+            #pragma execution_character_set("utf-8")
+        #endif // _MSC_VER >= 1910
+    #endif
 
     // Including
     #include <Windows.h>
