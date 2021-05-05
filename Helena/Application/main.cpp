@@ -85,35 +85,47 @@ struct TestSystem
 
         // Destroy all entities and remove components
         ecs.Clear();
+
+        // Test ConfigManager
+        auto& configManager = Core::GetSystem<Systems::ConfigManager>();
+        if(!configManager.HasResource<Components::Velocity>()) {
+            HF_MSG_WARN("Resource not exist");
+        }
+
+        configManager.AddResource<Components::Velocity>(1.f);
+        if(configManager.HasResource<Components::Velocity>()) {
+            HF_MSG_WARN("Resource exist");
+        }
+
     }
 
     void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
-        using Position = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using Position = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component Position add!", event.m_Entity);
     }
 
     void OnComponentRemovePosition(const Events::Systems::EntityComponent::RemoveComponent<Components::Position>& event) {
-        using Position = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using Position = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component Position removed!", event.m_Entity);
     }
 
     void OnComponentAddVelocity(const Events::Systems::EntityComponent::AddComponent<Components::Velocity>& event) {
-        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component Velocity add!", event.m_Entity);
     }
 
     void OnComponentRemoveVelocity(const Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>& event) {
-        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component Velocity removed!", event.m_Entity);
     }
 
     void OnComponentAddPlayerStateDie(const Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>& event) {
-        using PlayerStateDie = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using PlayerStateDie = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component PlayerState::Die add!", event.m_Entity);
     }
 
     void OnComponentRemovePlayerStateDie(const Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>& event) {
-        using Velocity = typename Internal::remove_cvref_t<decltype(event)>::Type;
+        using Velocity = Internal::remove_cvref_t<decltype(event)>;
         HF_MSG_DEBUG("Entity: {} component PlayerState::Die removed!", event.m_Entity);
     }
 
@@ -197,10 +209,10 @@ int main(int argc, char** argv)
         for(const auto& arg : Core::GetArgs()) {
             HF_MSG_INFO("Arg: {}", arg);
         }
-
+        
         // test create
+        Core::RegisterSystem<Systems::ConfigManager>();
         Core::RegisterSystem<Systems::EntityComponent>();
-        //Core::RegisterSystem<Systems::ConfigManager>();
         Core::RegisterSystem<TestSystem>();
 
         return true;
