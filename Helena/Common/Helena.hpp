@@ -52,6 +52,6 @@
 
 // Systems
 #include <Common/Systems/EntityComponent.hpp>
-//#include <Common/Systems/ConfigManager.hpp>
+#include <Common/Systems/ConfigManager.hpp>
 
 #endif // COMMON_HELENA_HPP
