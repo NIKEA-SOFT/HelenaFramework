@@ -5,8 +5,8 @@ namespace Helena::Systems
 {
 	class ConfigManager final 
 	{
-		using map_index_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
-		using vec_any_t = std::vector<entt::any>;
+		using map_index_t		= robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
+		using vec_storage_t		= std::vector<entt::any>;
 
 		template <typename Resource>
 		struct ResourceIndex {
@@ -18,46 +18,43 @@ namespace Helena::Systems
 			[[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
 		};
 
+		//struct Storage {
+		//	entt::any m_Instance;
+		//	vec_propertie_t m_Properties;
+		//	map_index_t	m_PropertieIndexes;
+		//};
+
+		//using vec_storage_t	= std::vector<Storage>;
+
 	public:
 		using ResourceID = entt::id_type;
-
-		template <typename Resource>
-		struct Storage {
-			template <typename... Args>
-			Storage([[maybe_unused]] Args&&... args) : m_Instance{std::forward<Args>(args)...} {}
-			~Storage() = default;
-
-			Resource	m_Instance;
-			vec_any_t	m_Properties;
-			map_index_t	m_PropertieIndexes;
-		};
 
 	public:
 
 		ConfigManager() = default;
 		~ConfigManager() = default;
-		ConfigManager(const ConfigManager&) = default;
-		ConfigManager(ConfigManager&&) noexcept = default;
+		ConfigManager(const ConfigManager&) = delete;
+		ConfigManager(ConfigManager&&) noexcept = delete;
 		ConfigManager& operator=(const ConfigManager&) = delete;
 		ConfigManager& operator=(ConfigManager&&) noexcept = delete;
 
-		//template <typename Resource, typename Key, typename... Args>
-		//auto AddResource(const Key& key, Args&&... args) -> decltype(auto) {
-
-		//}
-
 		template <typename Resource, typename... Args>
-		auto AddResource(Args&&... args) -> void;
+		auto AddResource([[maybe_unused]] Args&&... args) -> void;
 
 		template <typename Resource>
-		auto GetResource() -> Resource*;
+		auto HasResource() noexcept -> bool;
 
 		template <typename Resource>
-		auto RemoveResource() -> void;
+		auto GetResource() noexcept -> Resource&;
+
+		template <typename Resource>
+		auto RemoveResource() noexcept -> void;
 
 	private:
-		vec_any_t m_Storage;
-		map_index_t m_ResourceIndexes;
+		vec_storage_t	m_Resources;
+		vec_storage_t	m_Properties;
+		map_index_t		m_ResourceIndexes;
+		map_index_t		m_PropertieIndexes;
 	};
 }
 
