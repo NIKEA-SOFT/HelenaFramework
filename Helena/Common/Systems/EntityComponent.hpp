@@ -28,8 +28,8 @@ namespace Helena::Systems
 
 		EntityComponent() = default;
 		~EntityComponent();
-		EntityComponent(const EntityComponent&) = default;
-		EntityComponent(EntityComponent&&) noexcept = default;
+		EntityComponent(const EntityComponent&) = delete;
+		EntityComponent(EntityComponent&&) noexcept = delete;
 		EntityComponent& operator=(const EntityComponent&) = delete;
 		EntityComponent& operator=(EntityComponent&&) noexcept = delete;
 

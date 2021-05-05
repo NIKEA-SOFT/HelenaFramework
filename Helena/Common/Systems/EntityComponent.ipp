@@ -149,7 +149,7 @@ namespace Helena::Systems
 	[[nodiscard]] auto EntityComponent::GetComponent(const Entity id) -> decltype(auto) {
 		static_assert(sizeof...(Components) > 0, "Components pack is empty!");
 		static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
-		static_assert((!Internal::is_integral_constant_v<Components>) && ..., "This method not support tags!");
+		static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
 		HF_ASSERT(HasComponent<Components...>(id), "Entity id: {} one of the components is not exist!", id);
 
@@ -160,7 +160,7 @@ namespace Helena::Systems
 	[[nodiscard]] auto EntityComponent::GetComponent(const Entity id) const -> decltype(auto) {
 		static_assert(sizeof...(Components) > 0, "Components pack is empty!");
 		static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
-		static_assert((!Internal::is_integral_constant_v<Components>) && ..., "This method not support tags!");
+		static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
 		HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
 		HF_ASSERT(HasComponent<Components...>(id), "Entity id: {} one of the components is not exist!", id);
@@ -172,7 +172,7 @@ namespace Helena::Systems
 	[[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id) {
 		static_assert(sizeof...(Components) > 0, "Components pack is empty!");
 		static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
-		static_assert((!Internal::is_integral_constant_v<Components>) && ..., "This method not support tags!");
+		static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
 		HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
 		return m_Registry.try_get<Components...>(id);
@@ -182,7 +182,7 @@ namespace Helena::Systems
 	[[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id) const {
 		static_assert(sizeof...(Components) > 0, "Components pack is empty!");
 		static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
-		static_assert((!Internal::is_integral_constant_v<Components>) && ..., "This method not support tags!");
+		static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
 		HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
 		return m_Registry.try_get<Components...>(id);
@@ -210,13 +210,13 @@ namespace Helena::Systems
 	}
 
 	template <typename Func>
-	[[nodiscard]] auto EntityComponent::VisitComponent(const Entity id, Func&& callback) const -> void {
+	auto EntityComponent::VisitComponent(const Entity id, Func&& callback) const -> void {
 		HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
 		m_Registry.visit(id, std::forward<Func>(callback));
 	}
 
 	template <typename Func>
-	[[nodiscard]] auto EntityComponent::VisitComponent(Func&& callback) const -> void {
+	auto EntityComponent::VisitComponent(Func&& callback) const -> void {
 		m_Registry.visit(std::forward<Func>(callback));
 	}
 
