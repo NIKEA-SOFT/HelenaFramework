@@ -30,8 +30,8 @@
 #include <ctime>
 #include <type_traits>
 
-//#define SOL_ALL_SAFETIES_ON 1
-//#include <sol/sol.hpp>
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
 
 #define FMT_HEADER_ONLY
 #include <fmt/format.h>
