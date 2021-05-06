@@ -76,7 +76,7 @@ namespace Helena
 		struct is_scoped_enum<T, true> : std::integral_constant<bool, !std::is_convertible<T, typename std::underlying_type<T>::type>::value> {};
 
 		template <typename T>
-		constexpr bool is_scoped_enum_t = typename is_scoped_enum<T>::value;
+		constexpr bool is_scoped_enum_t = is_scoped_enum<T>::value;
 
 		template <typename T> 
 		struct is_integral_constant : std::false_type {};

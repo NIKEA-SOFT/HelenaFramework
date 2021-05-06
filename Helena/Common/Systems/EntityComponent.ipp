@@ -15,9 +15,9 @@ namespace Helena::Systems
 
 	template <typename Type, typename>
 	auto EntityComponent::CreateEntity(const Type id) -> Entity {
-		HF_ASSERT(!HasEntity(static_cast<std::underlying_type_t<entt::entity>>(id)), "Entity id: {} already exist", id);
+		HF_ASSERT(!HasEntity(static_cast<const entt::entity>(id)), "Entity id: {} already exist", id);
 
-		const auto entity = m_Registry.create(static_cast<std::underlying_type_t<entt::entity>>(id));
+		const auto entity = m_Registry.create(static_cast<const entt::entity>(id));
 		Core::TriggerEvent<Events::Systems::EntityComponent::CreateEntity>(entity);
 
 		return entity;

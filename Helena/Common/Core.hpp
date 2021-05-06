@@ -43,8 +43,8 @@ namespace Helena
 		struct System {
 			using ev_array_t = std::array<delegate_t<void ()>, SystemEvent::Size>;
 
-			ev_array_t	m_Events;
-			entt::any	m_Instance;
+			ev_array_t	m_Events {};
+			entt::any	m_Instance {};
 		};
 
 		using map_indexes_t		= robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
@@ -68,18 +68,18 @@ namespace Helena
 			template <typename, typename>
 			friend struct ENTT_API entt::type_seq;
 
-			array_events_t m_EventScheduler;
-			map_indexes_t m_TypeIndexes;
-			map_indexes_t m_SequenceIndexes;
-			vec_systems_t m_Systems;
-			vec_args_t m_Args;
-			dispatcher_t m_Dispatcher;
+			array_events_t m_EventScheduler {};
+			map_indexes_t m_TypeIndexes {};
+			map_indexes_t m_SequenceIndexes {};
+			vec_systems_t m_Systems {};
+			vec_args_t m_Args {};
+			dispatcher_t m_Dispatcher {};
 			std::chrono::steady_clock::time_point m_TimeStart{};
 			std::chrono::steady_clock::time_point m_TimeNow{};
 			std::chrono::steady_clock::time_point m_TimePrev{};
 			double m_TimeDelta{};
 			double m_TickRate{};
-			std::atomic_bool m_Shutdown;
+			std::atomic_bool m_Shutdown {};
 		};
 
 	private:

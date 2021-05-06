@@ -41,7 +41,7 @@ namespace Helena::Systems
 		}
 
 		HF_ASSERT(!m_Resources[index], "Resource type: {} already exist", Internal::type_name_t<Resource>);
-		m_Resources[index].emplace<Resource>(std::forward<Args>(args)...);
+		m_Resources[index].template emplace<Resource>(std::forward<Args>(args)...);
 	}
 
 	template <typename Resource>
@@ -58,7 +58,7 @@ namespace Helena::Systems
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Resource>, Resource>, "Resource type cannot be const/ptr/ref");
 
 		const auto index = ResourceIndex<Resource>::GetIndex(m_ResourceIndexes);
-		HF_ASSERT(index < m_Resources.size() && m_Resources[index], "Instance of Resource {} does not exist", Internal::type_name_t<Type>);
+		HF_ASSERT(index < m_Resources.size() && m_Resources[index], "Instance of Resource {} does not exist", Internal::type_name_t<Resource>);
 		return entt::any_cast<Resource&>(m_Resources[index]);
 	}
 
@@ -67,7 +67,7 @@ namespace Helena::Systems
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Resource>, Resource>, "Resource type cannot be const/ptr/ref");
 
 		const auto index = ResourceIndex<Resource>::GetIndex(m_ResourceIndexes);
-		HF_ASSERT(index < m_Resources.size() && m_Resources[index], "Instance of Resource {} does not exist for remove", Internal::type_name_t<Type>);
+		HF_ASSERT(index < m_Resources.size() && m_Resources[index], "Instance of Resource {} does not exist for remove", Internal::type_name_t<Resource>);
 		m_Resources[index].reset();
 	}
 }

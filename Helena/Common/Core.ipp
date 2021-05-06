@@ -36,10 +36,10 @@ namespace Helena
 	}
 
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
-	inline auto Core::SigHandler(int signal) -> void
+	inline auto Core::SigHandler([[maybe_unused]] int signal) -> void
 	{
 		if(m_Context) {
-			m_Context->m_Signal = true;
+			m_Context->m_Shutdown = true;
 		}
 	}
 #endif
@@ -74,10 +74,10 @@ namespace Helena
 			set_terminate(Terminate);
 			SetConsoleCtrlHandler(CtrlHandler, TRUE);
 		#elif HF_PLATFORM == HF_PLATFORM_LINUX
-			signal(SIGTERM, Service::SigHandler);
-			signal(SIGSTOP, Service::SigHandler);
-			signal(SIGINT,  Service::SigHandler);
-			signal(SIGKILL, Service::SigHandler);
+			signal(SIGTERM, SigHandler);
+			signal(SIGSTOP, SigHandler);
+			signal(SIGINT,  SigHandler);
+			signal(SIGKILL, SigHandler);
 		#else
 			#error Unknown platform
 		#endif
@@ -207,7 +207,7 @@ namespace Helena
 		}
 	}
 
-	inline auto Core::SetTickrate(const double tickrate) -> void {
+	inline auto Core::SetTickrate(double tickrate) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_TickRate = 1.0 / tickrate;
 	}
@@ -370,7 +370,9 @@ namespace entt {
 	template <typename Type>
 	struct ENTT_API type_seq<Type> {
 		[[nodiscard]] static id_type value() ENTT_NOEXCEPT {
-			static const auto value = static_cast<id_type>(Util::AddOrGetTypeIndex(Helena::Core::m_Context->m_SequenceIndexes, Hash::Type<Type>));
+			static const auto value = static_cast<id_type>(Helena::Util::AddOrGetTypeIndex(
+			        Helena::Core::m_Context->m_SequenceIndexes,
+			        Helena::Hash::Type<Type>));
 			return value;
 		}
 	};
