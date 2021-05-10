@@ -87,20 +87,14 @@ namespace Helena::Systems
 
 	// Components
 	template <typename Component, typename... Args>
-	auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> decltype(auto) {
+    auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> void {
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Component>, Component>, "Component type cannot be const/ptr/ref");
 
 		HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
 		HF_ASSERT(!HasComponent<Component>(id), "EntityID: {}, component: {} already exist", id, Internal::type_name_t<Component>); 
 
 		m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
-		if constexpr (!Internal::is_integral_constant_v<Component>) {
-			auto& component = m_Registry.get<Component>(id);
-			Core::TriggerEvent<Events::Systems::EntityComponent::AddComponent<Component>>(id);
-			return component;
-		} else {
-			Core::TriggerEvent<Events::Systems::EntityComponent::AddComponent<Component>>(id);
-		}
+        Core::TriggerEvent<Events::Systems::EntityComponent::AddComponent<Component>>(id);
 	}
 
 	//template <typename Component>

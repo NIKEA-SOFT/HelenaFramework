@@ -6,12 +6,11 @@ namespace Helena::Systems
 	class EntityComponent final 
 	{
 	public:
-		static constexpr auto Null = entt::null;
+        static constexpr auto Null = entt::null;
 
-		using TagID = entt::id_type;
 		using Entity = entt::entity;
 
-		template <TagID Value>
+        template <entt::id_type Value>
 		using Tag = entt::tag<Value>;
 
 		template <typename... Type>
@@ -67,7 +66,7 @@ namespace Helena::Systems
 		auto EachOrphans(Func&& callback) const -> void;
 
 		template <typename Component, typename... Args>
-		auto AddComponent(const Entity id, Args&&... args) -> decltype(auto);
+        auto AddComponent(const Entity id, Args&&... args) -> void;
 
 		//template <std::size_t Type, std::integral_constant<typename Type> Component>
 		//auto AddComponentTag(const Entity id) -> void;

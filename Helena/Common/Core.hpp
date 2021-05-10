@@ -1,6 +1,8 @@
 #ifndef COMMON_CORE_HPP
 #define COMMON_CORE_HPP
 
+#include <Common/Helena.hpp>
+
 namespace Helena
 {
 	namespace Events
@@ -23,9 +25,6 @@ namespace Helena
 			Size
 		};
 
-		template <typename Type>
-		using delegate_t = entt::delegate<Type>;
-
 		//template<typename Type, typename... Args>
 		//using mem_ptr = void(Type::* const)(Args...);
 
@@ -40,18 +39,7 @@ namespace Helena
 		template <typename Type, typename... Args>
 		using fn_destroy_t	= decltype(std::declval<Type>().OnSystemDestroy(std::declval<Args>()...));
 
-		struct System {
-			using ev_array_t = std::array<delegate_t<void ()>, SystemEvent::Size>;
-
-			ev_array_t	m_Events {};
-			entt::any	m_Instance {};
-		};
-
-		using map_indexes_t		= robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
-		using vec_args_t		= std::vector<std::string_view>;
-		using vec_systems_t		= std::vector<System>;
-		using array_events_t	= std::array<std::queue<std::size_t>, SystemEvent::Size>;
-		using dispatcher_t		= entt::dispatcher;
+        using map_indexes_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
 
 		template <typename Type>
 		struct SystemIndex {
@@ -68,17 +56,21 @@ namespace Helena
 			template <typename, typename>
 			friend struct ENTT_API entt::type_seq;
 
-			array_events_t m_EventScheduler {};
-			map_indexes_t m_TypeIndexes {};
-			map_indexes_t m_SequenceIndexes {};
-			vec_systems_t m_Systems {};
-			vec_args_t m_Args {};
-			dispatcher_t m_Dispatcher {};
+            std::array<std::queue<std::size_t>, SystemEvent::Size> m_EventScheduler {};
+            map_indexes_t m_TypeIndexes {};
+            map_indexes_t m_SequenceIndexes {};
+            std::vector<entt::any> m_Systems {};
+            std::array<entt::delegate<void ()>, SystemEvent::Size> m_SystemsEvent;
+            std::vector<std::string_view> m_Args {};
+            entt::dispatcher m_Dispatcher {};
+
 			std::chrono::steady_clock::time_point m_TimeStart{};
 			std::chrono::steady_clock::time_point m_TimeNow{};
 			std::chrono::steady_clock::time_point m_TimePrev{};
+
 			double m_TimeDelta{};
 			double m_TickRate{};
+
 			std::atomic_bool m_Shutdown {};
 		};
 
@@ -123,11 +115,14 @@ namespace Helena
 		template <typename Type, typename... Args>
 		static auto RegisterSystem([[maybe_unused]] Args&&... args) -> void;
 
-		template <typename Type>
-		[[nodiscard]] static auto GetSystem() -> Type&;
+        template <typename Type>
+        [[nodiscard]] static auto HasSystem() noexcept -> bool;
 
 		template <typename Type>
-		static auto RemoveSystem() -> void;
+        [[nodiscard]] static auto GetSystem() noexcept -> Type&;
+
+		template <typename Type>
+        static auto RemoveSystem() noexcept -> void;
 
 		template <typename Event, auto Method>
 		static auto RegisterEvent() -> void;

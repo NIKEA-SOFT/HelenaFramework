@@ -1,6 +1,8 @@
 #ifndef COMMON_CORE_IPP
 #define COMMON_CORE_IPP
 
+#include <Common/Helena.hpp>
+
 namespace Helena
 {
 #if HF_PLATFORM == HF_PLATFORM_WIN
@@ -38,8 +40,9 @@ namespace Helena
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
 	inline auto Core::SigHandler([[maybe_unused]] int signal) -> void
 	{
-		if(m_Context) {
-			m_Context->m_Shutdown = true;
+        HF_MSG_WARN("Signal: {} received", signal);
+        if(m_Context && !m_Context->m_Shutdown) {
+            Core::Shutdown();
 		}
 	}
 #endif
@@ -74,11 +77,12 @@ namespace Helena
 			set_terminate(Terminate);
 			SetConsoleCtrlHandler(CtrlHandler, TRUE);
 		#elif HF_PLATFORM == HF_PLATFORM_LINUX
-			signal(SIGTERM, SigHandler);
-			signal(SIGSTOP, SigHandler);
-			signal(SIGINT,  SigHandler);
-			signal(SIGKILL, SigHandler);
-		#else
+            signal(SIGTERM, SigHandler);
+            signal(SIGSTOP, SigHandler);
+            signal(SIGINT,  SigHandler);
+            signal(SIGKILL, SigHandler);
+            signal(SIGHUP,  SigHandler);
+        #else
 			#error Unknown platform
 		#endif
 	}
@@ -108,7 +112,6 @@ namespace Helena
 
 			HF_MSG_DEBUG("Finalize framework");
 			m_Context->m_Shutdown = false;
-			Util::Sleep(100);
 
 		} catch(const std::exception& error) {
 			HF_MSG_FATAL("Exception code: {}", error.what());
@@ -167,7 +170,7 @@ namespace Helena
 		for(std::size_t size = container.size(); size; --size) 
 		{
 			const auto index = container.front();
-			const auto& event = m_Context->m_Systems[index].m_Events[type];
+            const auto& event = m_Context->m_SystemsEvent[type];
 
 			if(event) {
 				event();
@@ -242,123 +245,202 @@ namespace Helena
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
 		HF_ASSERT(m_Context, "Core not initialized");
+
+        auto& systems = m_Context->m_Systems;
+        auto& events = m_Context->m_SystemsEvent;
+        auto& scheduler = m_Context->m_EventScheduler;
 		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
-		if(index >= m_Context->m_Systems.size()) {
-			m_Context->m_Systems.resize(index + 1);
+
+        if(index >= systems.size()) {
+            systems.resize(index + 1);
 		}
 
-		auto& system = m_Context->m_Systems[index];
-		HF_ASSERT(!system.m_Instance, "Instance of system {} is already registered", Internal::type_name_t<Type>);
+        HF_ASSERT(!systems[index], "Instance of system {} is already registered", Internal::type_name_t<Type>);
 
-		system.m_Instance.template emplace<Type>(std::forward<Args>(args)...);
-		if constexpr(Internal::is_detected_v<fn_create_t, Type>) {
-			system.m_Events[SystemEvent::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(system.m_Instance));
-			m_Context->m_EventScheduler[SystemEvent::Create].emplace(index);
-		}
+        if(auto& instance = systems[index]; !instance)
+        {
+            instance.template emplace<Type>(std::forward<Args>(args)...);
+            if constexpr(Internal::is_detected_v<fn_create_t, Type>) {
+                events[SystemEvent::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(instance));
+                scheduler[SystemEvent::Create].emplace(index);
+            }
 
-		if constexpr(Internal::is_detected_v<fn_execute_t, Type>) {
-			system.m_Events[SystemEvent::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(system.m_Instance));
-			m_Context->m_EventScheduler[SystemEvent::Execute].emplace(index);
-		}
+            if constexpr(Internal::is_detected_v<fn_execute_t, Type>) {
+                events[SystemEvent::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(instance));
+                scheduler[SystemEvent::Execute].emplace(index);
+            }
 
-		if constexpr(Internal::is_detected_v<fn_update_t, Type>) {
-			system.m_Events[SystemEvent::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(system.m_Instance));
-			m_Context->m_EventScheduler[SystemEvent::Update].emplace(index);
-		}
+            if constexpr(Internal::is_detected_v<fn_update_t, Type>) {
+                events[SystemEvent::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(instance));
+                scheduler[SystemEvent::Update].emplace(index);
+            }
 
-		if constexpr(Internal::is_detected_v<fn_tick_t, Type>) {
-			system.m_Events[SystemEvent::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(system.m_Instance));
-			m_Context->m_EventScheduler[SystemEvent::Tick].emplace(index);
-		}
+            if constexpr(Internal::is_detected_v<fn_tick_t, Type>) {
+                events[SystemEvent::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(instance));
+                scheduler[SystemEvent::Tick].emplace(index);
+            }
 
-		if constexpr(Internal::is_detected_v<fn_destroy_t, Type>) {
-			system.m_Events[SystemEvent::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(system.m_Instance));
-			m_Context->m_EventScheduler[SystemEvent::Destroy].emplace(index);
-		}
+            if constexpr(Internal::is_detected_v<fn_destroy_t, Type>) {
+                events[SystemEvent::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(instance));
+                scheduler[SystemEvent::Destroy].emplace(index);
+            }
+        }
 	}
 
+    /**
+     * @brief Check instance of system on exist
+     * @tparam Type Type of system
+     * @return Return true if instance of system has, otherwise false
+     */
+    template <typename Type>
+    [[nodiscard]] auto Core::HasSystem() noexcept -> bool {
+        static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
+
+        HF_ASSERT(m_Context, "Core not initialized");
+
+        const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
+        return index < m_Context->m_Systems.size() && m_Context->m_Systems[index];
+    }
+
+    /**
+     * @brief Get system instance from container
+     * @tparam Type Type of system
+     * @return Reference on system Type
+     */
 	template <typename Type>
-	[[nodiscard]] auto Core::GetSystem() -> Type& {
+    [[nodiscard]] auto Core::GetSystem() noexcept -> Type& {
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
 		HF_ASSERT(m_Context, "Core not initialized");
+
+        auto& systems = m_Context->m_Systems;
 		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
-		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, "Instance of system {} does not exist", Internal::type_name_t<Type>);
-		return entt::any_cast<Type&>(m_Context->m_Systems[index].m_Instance);
+
+        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist", Internal::type_name_t<Type>);
+        return entt::any_cast<Type&>(systems[index]);
 	}
 
 	/**
-	* @brief Remove system from the container of systems
-	* @tparam Type Type of object to use to remove the system
+    * @brief Remove system instance from container
+    * @tparam Type Type of system
 	*/
 	template <typename Type>
-	auto Core::RemoveSystem() -> void 
+    auto Core::RemoveSystem() noexcept -> void
 	{
 		static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
 		HF_ASSERT(m_Context, "Core not initialized");
+
+        auto& systems = m_Context->m_Systems;
+        auto& events = m_Context->m_SystemsEvent;
 		const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
-		HF_ASSERT(index < m_Context->m_Systems.size() && m_Context->m_Systems[index].m_Instance, "Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
-		if(index < m_Context->m_Systems.size()) 
-		{
-			if(auto& system = m_Context->m_Systems[index]; system.m_Instance) 
+
+        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
+        if(index < systems.size())
+        {
+            if(auto& instance = systems[index]; instance)
 			{
-				if(system.m_Events[SystemEvent::Destroy]) {
-					system.m_Events[SystemEvent::Destroy]();
+                if(events[SystemEvent::Destroy]) {
+                    events[SystemEvent::Destroy]();
 				}
 
-				system.m_Instance.reset();
-				system.m_Events[SystemEvent::Create].reset();
-				system.m_Events[SystemEvent::Execute].reset();
-				system.m_Events[SystemEvent::Tick].reset();
-				system.m_Events[SystemEvent::Update].reset();
-				system.m_Events[SystemEvent::Destroy].reset();
+                instance.reset();
+                events[SystemEvent::Create].reset();
+                events[SystemEvent::Execute].reset();
+                events[SystemEvent::Tick].reset();
+                events[SystemEvent::Update].reset();
+                events[SystemEvent::Destroy].reset();
 			}
-		}
+        }
 	}
 
+    /**
+     * @brief Register event
+     * @tparam Event Type of event
+     * @tparam Method Callback
+     * @note Register your callback for listen Event type
+     */
 	template <typename Event, auto Method>
 	auto Core::RegisterEvent() -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
 	}
 
-
+    /**
+     * @brief Register event
+     * @tparam Event Type of event
+     * @tparam Method Callback
+     * @tparam Type Type of class
+     * @note Register your class callback for listen Event type
+     */
 	template <typename Event, auto Method, typename Type>
 	auto Core::RegisterEvent(Type&& instance) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.sink<Event>().template connect<Method>(instance);
 	}
 
+    /**
+     * @brief Call event for listeners
+     * @tparam Event Type of event
+     * @tparam Args Type of args for initialize Event type
+     * @note Call callbacks now for all listeners of Event type
+     */
 	template <typename Event, typename... Args>
 	auto Core::TriggerEvent([[maybe_unused]] Args&&... args) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
 	}
 
+    /**
+     * @brief Add an event to the queue
+     * @tparam Event Type of event
+     * @tparam Args Type of args for initialize Event type
+     * @note Use method UpdateEvent for call callbacks for listeners from queue of Event
+     */
 	template <typename Event, typename... Args>
 	auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
 	}
 
+    /**
+     * @brief Call events from the queue
+     * @tparam Event Type of event
+     * @note Call event for listeners of Event type sequentially
+     */
 	template <typename Event>
 	auto Core::UpdateEvent() -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.template update<Event>();
 	}
 
+    /**
+     * @brief Call all events from queue
+     * @note Call events of all types for listeners
+     */
 	inline auto Core::UpdateEvent() -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.update();
 	}
 
+    /**
+     * @brief Unregister event callback
+     * @tparam Event Type of event
+     * @tparam Method Callback
+     * @note Remove registerd callback from container
+     */
 	template <typename Event, auto Method>
 	auto Core::RemoveEvent() -> void {
 		HF_ASSERT(m_Context, "Core not initialized");
 		m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
 	}
 
+    /**
+     * @brief Unregister event callback
+     * @tparam Event Type of event
+     * @tparam Method Callback
+     * @note Remove registerd callback from container
+     */
 	template <typename Event, auto Method, typename Type>
 	auto Core::RemoveEvent(Type&& instance) -> void {
 		HF_ASSERT(m_Context, "Core not initialized");

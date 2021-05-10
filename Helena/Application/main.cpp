@@ -26,6 +26,12 @@ struct TestSystem
 
     using Entity = Systems::EntityComponent::Entity;
 
+    template <Systems::ConfigManager::ID Value>
+    using Resource = Systems::ConfigManager::Resource<Value>;
+
+    template <Systems::ConfigManager::ID Value>
+    using Key = Systems::ConfigManager::Key<Value>;
+
     // Current method called when system initialized (it's system event)
     void OnSystemCreate() {
         HF_MSG_DEBUG("OnSystemCreate");
@@ -67,7 +73,7 @@ struct TestSystem
 
         // View/Group
         const auto view = ecs.ViewComponent<Components::PlayerState::Die>();   // Search all entities with component
-        for(const auto id : view) {
+        for([[maybe_unused]] const auto id : view) {
             // Player: <id> is die...
         }
 
@@ -88,15 +94,17 @@ struct TestSystem
 
         // Test ConfigManager
         auto& configManager = Core::GetSystem<Systems::ConfigManager>();
-        if(!configManager.HasResource<Components::Velocity>()) {
-            HF_MSG_WARN("Resource not exist");
+        configManager.CreateResource<Components::Velocity>(1.f);
+        configManager.CreateResource<Components::Position>(1.f, 2.f, 3.f);
+        if(configManager.HasResource<Components::Velocity, Components::Position>()) {
+            const auto& [vel, pos] = configManager.GetResource<Components::Velocity, Components::Position>();
+            HF_MSG_WARN("Resource exist, velocity: {:.2f}, pos x: {:.2f} y: {:.2f} z:{:.2f}", vel.m_Speed, pos.x, pos.y, pos.z);
+            configManager.RemoveResource<Components::Velocity, Components::Position>();
         }
 
-        configManager.AddResource<Components::Velocity>(1.f);
-        if(configManager.HasResource<Components::Velocity>()) {
-            HF_MSG_WARN("Resource exist");
-        }
-
+        using gameResourceKey = Resource<"Game"_hs>;
+        using gamePropertyCapKey = Key<"Cap"_hs>;
+        configManager.AddProperty<gameResourceKey, gamePropertyCapKey, std::uint32_t>(100);
     }
 
     void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
@@ -153,7 +161,7 @@ struct TestSystem
 
     // Called every tickrate (fps) tick (default: 0.016 ms) (it's system event)
     void OnSystemUpdate() {
-        HF_MSG_DEBUG("OnSystemUpdate, delta: {:.4f}", Core::GetTimeDelta());
+        //HF_MSG_DEBUG("OnSystemUpdate, delta: {:.4f}", Core::GetTimeDelta());
     }
 
     // Called when System destroyed (it's system event)
