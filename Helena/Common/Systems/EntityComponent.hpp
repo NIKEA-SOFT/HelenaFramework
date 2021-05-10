@@ -147,7 +147,7 @@ namespace Helena::Systems
 
     private:
         entt::registry m_Registry;
-	};
+    };
 }
 
 namespace Helena::Events::Systems::EntityComponent 
