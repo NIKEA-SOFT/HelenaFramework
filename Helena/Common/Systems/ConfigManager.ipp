@@ -3,32 +3,32 @@
 
 namespace Helena::Systems
 {
-	template <typename Resource>
-	[[nodiscard]] auto ConfigManager::ResourceIndex<Resource>::GetIndex(map_index_t& container) -> std::size_t {
-		static const std::size_t value = Util::AddOrGetTypeIndex(container, Hash::Type<Resource>);
-		return value;
-	}
+    template <typename Resource>
+    [[nodiscard]] auto ConfigManager::ResourceIndex<Resource>::GetIndex(map_index_t& container) -> std::size_t {
+        static const std::size_t value = Util::AddOrGetTypeIndex(container, Hash::Type<Resource>);
+        return value;
+    }
 
     template <typename Resource, typename Property>
     [[nodiscard]] auto ConfigManager::PropertyIndex<Resource, Property>::GetIndex(map_index_t& container) -> std::size_t {
         static const std::size_t value = Util::AddOrGetTypeIndex(container, Hash::Type<Property>);
-		return value;
-	}
+        return value;
+    }
 
-	template <typename Resource, typename... Args>
+    template <typename Resource, typename... Args>
     auto ConfigManager::CreateResource([[maybe_unused]] Args&&... args) -> void
-	{
+    {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Resource>, Resource>,
                 "Resource type cannot be const/ptr/ref");
 
-		const auto index = ResourceIndex<Resource>::GetIndex(m_ResourceIndexes);
-		if(index >= m_Resources.size()) {
-			m_Resources.resize(index + 1);
-		}
+        const auto index = ResourceIndex<Resource>::GetIndex(m_ResourceIndexes);
+        if(index >= m_Resources.size()) {
+            m_Resources.resize(index + 1);
+        }
 
         HF_ASSERT(!m_Resources[index], "Resource: {} instance already exist", Internal::type_name_t<Resource>);
-		m_Resources[index].template emplace<Resource>(std::forward<Args>(args)...);
-	}
+        m_Resources[index].template emplace<Resource>(std::forward<Args>(args)...);
+    }
 
 //	template <typename Resource>
 //	auto ConfigManager::HasResource() noexcept -> bool {
@@ -55,7 +55,7 @@ namespace Helena::Systems
 
     template <typename... Resources>
     auto ConfigManager::AnyResource() noexcept -> bool {
-        static_assert(sizeof...(Resources) > 0, "Resource pack is empty!");
+        static_assert(sizeof...(Resources) > 1, "Exclusion-only Resource are not supported");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Resources>, Resources> && ...),
                 "Resource type cannot be const/ptr/ref");
 
@@ -75,7 +75,7 @@ namespace Helena::Systems
 //	}
 
     template <typename... Resources>
-    [[nodiscard]] auto ConfigManager::GetResource() noexcept -> decltype(auto)
+    [[nodiscard]] auto ConfigManager::GetResource() -> decltype(auto)
     {
         static_assert(sizeof...(Resources) > 0, "Resource pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Resources>, Resources> && ...),
@@ -92,7 +92,7 @@ namespace Helena::Systems
     }
 
     template <typename... Resources>
-	auto ConfigManager::RemoveResource() noexcept -> void {
+    auto ConfigManager::RemoveResource() noexcept -> void {
         static_assert(sizeof...(Resources) > 0, "Resource pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Resources>, Resources> && ...),
                 "Resource type cannot be const/ptr/ref");
@@ -102,11 +102,10 @@ namespace Helena::Systems
             HF_ASSERT(index < m_Resources.size() && m_Resources[index], "Resource {} instance not exist for remove",
                       Internal::type_name_t<Resources...>);
             m_Resources[index].reset();
-            HF_MSG_DEBUG("Resource: {} removed!", Internal::type_name_t<Resources...>);
         } else {
             (RemoveResource<Resources>(), ...);
         }
-	}
+    }
 
     template <typename Resource, typename Key, typename Type, typename... Args>
     auto ConfigManager::AddProperty([[maybe_unused]] Args&&... args) -> void {

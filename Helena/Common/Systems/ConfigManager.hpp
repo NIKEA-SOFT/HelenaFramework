@@ -3,8 +3,8 @@
 
 namespace Helena::Systems
 {
-	class ConfigManager final 
-	{
+    class ConfigManager final
+    {
 //        struct Hasher {
 //            std::size_t operator()(const entt::id_type key) const {
 //                return static_cast<std::size_t>(key);
@@ -20,15 +20,15 @@ namespace Helena::Systems
 //        using map_property_t = robin_hood::unordered_flat_map<entt::id_type, entt::any, Hasher, Equal>;
         using map_index_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
 
-		template <typename Resource>
-		struct ResourceIndex {
-			[[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
-		};
+        template <typename Resource>
+        struct ResourceIndex {
+            [[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
+        };
 
         template <typename Resource, typename Property>
         struct PropertyIndex {
-			[[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
-		};
+            [[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
+        };
 
     public:
         using ID = entt::id_type;
@@ -39,15 +39,15 @@ namespace Helena::Systems
         template <ID Value>
         using Key = entt::tag<Value>;
 
-	public:
-		ConfigManager() = default;
-		~ConfigManager() = default;
-		ConfigManager(const ConfigManager&) = delete;
-		ConfigManager(ConfigManager&&) noexcept = delete;
-		ConfigManager& operator=(const ConfigManager&) = delete;
-		ConfigManager& operator=(ConfigManager&&) noexcept = delete;
+    public:
+        ConfigManager() = default;
+        ~ConfigManager() = default;
+        ConfigManager(const ConfigManager&) = delete;
+        ConfigManager(ConfigManager&&) noexcept = delete;
+        ConfigManager& operator=(const ConfigManager&) = delete;
+        ConfigManager& operator=(ConfigManager&&) noexcept = delete;
 
-		template <typename Resource, typename... Args>
+        template <typename Resource, typename... Args>
         auto CreateResource([[maybe_unused]] Args&&... args) -> void;
 
 //		template <typename Resource>
@@ -66,7 +66,7 @@ namespace Helena::Systems
         [[nodiscard]] auto GetResource() noexcept -> decltype(auto);
 
         template <typename... Resources>
-		auto RemoveResource() noexcept -> void;
+        auto RemoveResource() noexcept -> void;
 
         // Compiletime properties
         template <typename Resource, typename Key, typename Type, typename... Args>
@@ -76,7 +76,7 @@ namespace Helena::Systems
         [[nodiscard]] auto HasProperty() noexcept -> bool;
 
         template <typename Resource, typename Key, typename Type>
-        [[nodiscard]] auto GetProperty() noexcept -> Type&;
+        [[nodiscard]] auto GetProperty() -> Type&;
 
         template <typename Resource, typename Key>
         auto RemoveProperty() noexcept -> void;
@@ -92,13 +92,13 @@ namespace Helena::Systems
 
 //        auto RemoveProperty(const std::string_view key) noexcept -> void;
 
-	private:
+    private:
         std::vector<entt::any> m_Resources;
         std::vector<entt::any> m_Properties;
         //map_property_t m_PropertyMap;
         map_index_t m_ResourceIndexes;
         map_index_t m_PropertyIndexes;
-	};
+    };
 }
 
 #include <Common/Systems/ConfigManager.ipp>
