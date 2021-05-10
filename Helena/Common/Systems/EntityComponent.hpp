@@ -25,6 +25,7 @@ namespace Helena::Systems
         template<typename... Type>
         static constexpr GetType<Type...> Get{};
 
+    public:
         EntityComponent() = default;
         ~EntityComponent();
         EntityComponent(const EntityComponent&) = delete;
@@ -32,7 +33,6 @@ namespace Helena::Systems
         EntityComponent& operator=(const EntityComponent&) = delete;
         EntityComponent& operator=(EntityComponent&&) noexcept = delete;
 
-    public:
         auto CreateEntity() -> Entity;
 
         template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
@@ -150,7 +150,7 @@ namespace Helena::Systems
     };
 }
 
-namespace Helena::Events::Systems::EntityComponent 
+namespace Helena::Events::Systems::EntityComponent
 {
     using System = Helena::Systems::EntityComponent;
 
