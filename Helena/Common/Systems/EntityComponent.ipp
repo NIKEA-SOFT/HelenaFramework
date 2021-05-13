@@ -1,46 +1,55 @@
 #ifndef COMMON_SYSTEMS_ENTITYCOMPONENT_IPP
 #define COMMON_SYSTEMS_ENTITYCOMPONENT_IPP
 
+#include <Common/Helena.hpp>
+
 namespace Helena::Systems
 {
     inline EntityComponent::~EntityComponent() {
         Clear();
     }
 
-    inline auto EntityComponent::CreateEntity() -> Entity {
+    [[nodiscard]] inline auto EntityComponent::CreateEntity() -> Entity
+    {
+        using Event = Events::Systems::EntityComponent::CreateEntity;
         const auto entity = m_Registry.create();
-        Core::TriggerEvent<Events::Systems::EntityComponent::CreateEntity>(entity);
+
+        Core::TriggerEvent<Event>(entity);
+
         return entity;
     }
 
     template <typename Type, typename>
-    auto EntityComponent::CreateEntity(const Type id) -> Entity {
-        HF_ASSERT(!HasEntity(static_cast<const entt::entity>(id)), "Entity id: {} already exist", id);
+    [[nodiscard]] auto EntityComponent::CreateEntity(const Type id) -> Entity
+    {
+        using Event = Events::Systems::EntityComponent::CreateEntity;
 
+        HF_ASSERT(!HasEntity(static_cast<const Entity>(id)), "Entity {} is already exist", id);
         const auto entity = m_Registry.create(static_cast<const entt::entity>(id));
-        Core::TriggerEvent<Events::Systems::EntityComponent::CreateEntity>(entity);
+        Core::TriggerEvent<Event>(entity);
 
         return entity;
     }
 
     template<typename It>
     auto EntityComponent::CreateEntity(It first, It last) -> void {
-        m_Registry.create(first, last);
+        using Event = Events::Systems::EntityComponent::CreateEntity;
 
+        m_Registry.create(first, last);
         for(; first != last; ++first) {
-            Core::TriggerEvent<Events::Systems::EntityComponent::CreateEntity>(*first);
+            Core::TriggerEvent<Event>(*first);
         }
     }
 
-    inline auto EntityComponent::HasEntity(const Entity id) const -> bool {
+    [[nodiscard]] inline auto EntityComponent::HasEntity(const Entity id) const -> bool {
         return m_Registry.valid(id);
     }
 
-    inline auto EntityComponent::SizeEntity() const -> std::size_t {
+    [[nodiscard]] inline auto EntityComponent::SizeEntity() const noexcept -> std::size_t {
         return m_Registry.size();
     }
 
-    inline auto EntityComponent::AliveEntity() const -> std::size_t {
+    [[nodiscard]] inline auto EntityComponent::AliveEntity() const noexcept -> std::size_t {
         return m_Registry.alive();
     }
 
@@ -48,53 +57,61 @@ namespace Helena::Systems
         m_Registry.reserve(size);
     }
 
-    inline auto EntityComponent::RemoveEntity(const Entity id) -> void {
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-        Core::TriggerEvent<Events::Systems::EntityComponent::RemoveEntity>(id);
+    inline auto EntityComponent::RemoveEntity(const Entity id) -> void
+    {
+        using Event = Events::Systems::EntityComponent::RemoveEntity;
+
+        HF_ASSERT(HasEntity(id), "Entity {} is not valid", id);
+        Core::TriggerEvent<Event>(id);
         m_Registry.destroy(id);
     }
 
     template<typename It>
-    auto EntityComponent::RemoveEntity(It first, It last) -> void {
-        HF_ASSERT(std::all_of(first, last, [this](const auto id) {
-            return HasEntity(id);
-        }), "One of the Entity is not valid");
+    auto EntityComponent::RemoveEntity(It first, It last) -> void
+    {
+        using Event = Events::Systems::EntityComponent::RemoveEntity;
 
         for(; first != last; ++first) {
-            Core::TriggerEvent<Events::Systems::EntityComponent::RemoveEntity>(*first);
+            HF_ASSERT(HasEntity(*first), "Entity {} is not valid", *first);
+            Core::TriggerEvent<Event>(*first);
             m_Registry.destroy(*first);
         }
     }
 
-    inline auto EntityComponent::CastFromEntity(const Entity id) {
-        return entt::to_integral(id);
+    template <typename Type, typename>
+    [[nodiscard]] auto EntityComponent::Cast(const Type id) noexcept {
+        static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Component type cannot be const/ptr/ref");
+        return static_cast<std::underlying_type_t<Entity>>(id);
     }
 
-    template <typename Type>
-    auto EntityComponent::CastToEntity(const Type id) -> Entity {
-        return static_cast<entt::entity>(id);
+    [[nodiscard]] auto EntityComponent::Cast(const Entity id) noexcept {
+        return entt::to_integral(id);
     }
 
     template <typename Func>
     auto EntityComponent::Each(Func&& callback) const -> void {
+        static_assert(std::is_function_v<Func>, "Func is not a callable type");
         m_Registry.each(std::forward<Func>(callback));
     }
 
     template <typename Func>
     auto EntityComponent::EachOrphans(Func&& callback) const -> void {
+        static_assert(std::is_function_v<Func>, "Func is not a callable type");
         m_Registry.orphans(std::forward<Func>(callback));
     }
 
     // Components
     template <typename Component, typename... Args>
-    auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> void {
+    auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> void
+    {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Component>, Component>, "Component type cannot be const/ptr/ref");
+        using Event = Events::Systems::EntityComponent::AddComponent<Component>;
 
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-        HF_ASSERT(!HasComponent<Component>(id), "EntityID: {}, component: {} already exist", id, Internal::type_name_t<Component>);
+        HF_ASSERT(HasEntity(id), "Entity {} is not valid", id);
+        HF_ASSERT(!HasComponent<Component>(id), "Entity {}, component {} is already exist", id, Internal::type_name_t<Component>);
 
         m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
-        Core::TriggerEvent<Events::Systems::EntityComponent::AddComponent<Component>>(id);
+        Core::TriggerEvent<Event>(id);
     }
 
     //template <typename Component>
@@ -140,30 +157,43 @@ namespace Helena::Systems
     //}
 
     template <typename... Components>
-    [[nodiscard]] auto EntityComponent::GetComponent(const Entity id) -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::GetComponent(const Entity id) -> decltype(auto)
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
         static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
-        HF_ASSERT(HasComponent<Components...>(id), "Entity id: {} one of the components is not exist!", id);
+        HF_ASSERT(HasComponent<Components...>(id), "Entity id {} one of the components is not exist!", id);
+        return m_Registry.get<Components...>(id);
+    }
+
+    template <typename... Components>
+    [[nodiscard]] auto EntityComponent::GetComponent(const Entity id) const -> decltype(auto)
+    {
+        static_assert(sizeof...(Components) > 0, "Components pack is empty!");
+        static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
+        static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
+
+        HF_ASSERT(HasEntity(id), "Entity {} not valid", id);
+        HF_ASSERT(HasComponent<Components...>(id), "Entity {} one of the components is not exist!", id);
 
         return m_Registry.get<Components...>(id);
     }
 
     template <typename... Components>
-    [[nodiscard]] auto EntityComponent::GetComponent(const Entity id) const -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id)
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
         static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
 
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-        HF_ASSERT(HasComponent<Components...>(id), "Entity id: {} one of the components is not exist!", id);
-
-        return m_Registry.get<Components...>(id);
+        HF_ASSERT(HasEntity(id), "Entity {} not valid", id);
+        return m_Registry.try_get<Components...>(id);
     }
 
     template <typename... Components>
-    [[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id) {
+    [[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id) const
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
         static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
@@ -173,30 +203,22 @@ namespace Helena::Systems
     }
 
     template <typename... Components>
-    [[nodiscard]] auto EntityComponent::GetComponentPtr(const Entity id) const {
-        static_assert(sizeof...(Components) > 0, "Components pack is empty!");
-        static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
-        static_assert(((!Internal::is_integral_constant_v<Components>) && ...), "This method not support tags!");
-
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-        return m_Registry.try_get<Components...>(id);
-    }
-
-    template <typename... Components>
-    [[nodiscard]] auto EntityComponent::HasComponent(const Entity id) -> bool {
+    [[nodiscard]] auto EntityComponent::HasComponent(const Entity id) const -> bool
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
 
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
+        HF_ASSERT(HasEntity(id), "Entity {} not valid", id);
         return m_Registry.all_of<Components...>(id);
     }
 
-    [[nodiscard]] inline auto EntityComponent::HasComponents(const Entity id) -> bool {
+    [[nodiscard]] inline auto EntityComponent::HasComponent(const Entity id) const -> bool {
         return !m_Registry.orphan(id);
     }
 
     template <typename... Components>
-    [[nodiscard]] auto EntityComponent::AnyComponent(const Entity id) const -> bool {
+    [[nodiscard]] auto EntityComponent::AnyComponent(const Entity id) const -> bool
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
 
@@ -204,18 +226,23 @@ namespace Helena::Systems
     }
 
     template <typename Func>
-    auto EntityComponent::VisitComponent(const Entity id, Func&& callback) const -> void {
+    auto EntityComponent::VisitComponent(const Entity id, Func&& callback) const -> void
+    {
+        static_assert(std::is_function_v<Func>, "Func is not a callable type");
+
         HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
         m_Registry.visit(id, std::forward<Func>(callback));
     }
 
     template <typename Func>
     auto EntityComponent::VisitComponent(Func&& callback) const -> void {
+        static_assert(std::is_function_v<Func>, "Func is not a callable type");
         m_Registry.visit(std::forward<Func>(callback));
     }
 
     template <typename... Components, typename... ExcludeFilter>
-    [[nodiscard]] auto EntityComponent::ViewComponent(ExcludeType<ExcludeFilter...>) -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::ViewComponent(ExcludeType<ExcludeFilter...>) -> decltype(auto)
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<ExcludeFilter>, ExcludeFilter> && ...), "Exclude type cannot be const/ptr/ref");
@@ -225,7 +252,8 @@ namespace Helena::Systems
     }
 
     template <typename... Components, typename... ExcludeFilter>
-    [[nodiscard]] auto EntityComponent::ViewComponent(ExcludeType<ExcludeFilter...>) const -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::ViewComponent(ExcludeType<ExcludeFilter...>) const -> decltype(auto)
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<ExcludeFilter>, ExcludeFilter> && ...), "Exclude type cannot be const/ptr/ref");
@@ -234,7 +262,8 @@ namespace Helena::Systems
     }
 
     template <typename... Owned, typename... ExcludeFilter>
-    [[nodiscard]] auto EntityComponent::GroupComponent(ExcludeType<ExcludeFilter...>) -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::GroupComponent(ExcludeType<ExcludeFilter...>) -> decltype(auto)
+    {
         static_assert(sizeof...(Owned) > 0, "Exclusion-only groups are not supported");
         static_assert(sizeof...(Owned) + sizeof...(ExcludeFilter) > 1, "Single component groups are not allowed");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Owned>, Owned> && ...), "Component type cannot be const/ptr/ref");
@@ -244,7 +273,8 @@ namespace Helena::Systems
     }
 
     template <typename... Owned, typename... ExcludeFilter>
-    [[nodiscard]] auto EntityComponent::GroupComponent(ExcludeType<ExcludeFilter...>) const -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::GroupComponent(ExcludeType<ExcludeFilter...>) const -> decltype(auto)
+    {
         static_assert(sizeof...(Owned) > 0, "Exclusion-only groups are not supported");
         static_assert(sizeof...(Owned) + sizeof...(ExcludeFilter) > 1, "Single component groups are not allowed");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Owned>, Owned> && ...), "Component type cannot be const/ptr/ref");
@@ -254,7 +284,8 @@ namespace Helena::Systems
     }
 
     template <typename... Owned, typename... GetFilter, typename... ExcludeFilter>
-    [[nodiscard]] auto EntityComponent::GroupComponent(GetType<GetFilter...>, ExcludeType<ExcludeFilter...>) -> decltype(auto) {
+    [[nodiscard]] auto EntityComponent::GroupComponent(GetType<GetFilter...>, ExcludeType<ExcludeFilter...>) -> decltype(auto)
+    {
         static_assert(sizeof...(Owned) > 0, "Exclusion-only groups are not supported");
         static_assert(sizeof...(Owned) + sizeof...(GetFilter) + sizeof...(ExcludeFilter) > 1, "Single component groups are not allowed");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Owned>, Owned> && ...), "Component type cannot be const/ptr/ref");
@@ -276,19 +307,24 @@ namespace Helena::Systems
     }
 
     template <typename... Components>
-    auto EntityComponent::RemoveComponent(const Entity id) -> void {
+    auto EntityComponent::RemoveComponent(const Entity id) -> void
+    {
         static_assert(sizeof...(Components) > 0, "Components pack is empty");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
 
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
+        HF_ASSERT(HasEntity(id), "Entity {} is not valid", id);
 
-        ([this, id](const auto identity) {
-            using Component = typename decltype(identity)::type;
-            if(HasComponent<Component>(id)) {
-                Core::TriggerEvent<Events::Systems::EntityComponent::RemoveComponent<Component>>(id);
-                m_Registry.remove<Component>(id);
+        if constexpr (sizeof...(Components) == 1) {
+            using Event = Events::Systems::EntityComponent::RemoveComponent<Components...>;
+
+            HF_ASSERT(HasComponent<Components...>(id), "Entity {}, component {} is not exist", id, Internal::type_name_t<Components...>);
+            if(HasComponent<Components...>(id)) {
+                Core::TriggerEvent<Event>(id);
+                m_Registry.remove<Components...>(id);
             }
-        }(entt::type_identity<Components>{}), ...);
+        } else {
+            (RemoveComponent<Components>(id), ...);
+        }
     }
 
     template <typename... Components, typename It>
@@ -301,26 +337,27 @@ namespace Helena::Systems
         }
     }
 
-    inline auto EntityComponent::RemoveComponents(const Entity id) -> void {
-        HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-        Core::TriggerEvent<Events::Systems::EntityComponent::RemoveComponents>(id);
+    inline auto EntityComponent::RemoveComponents(const Entity id) -> void
+    {
+        using Event = Events::Systems::EntityComponent::RemoveComponents;
+
+        HF_ASSERT(HasEntity(id), "Entity {} is not valid", id);
+        Core::TriggerEvent<Event>(id);
         m_Registry.remove_all(id);
     }
 
     template <typename... Components>
     auto EntityComponent::ClearComponent() -> void {
         static_assert(sizeof...(Components) > 0, "Components pack is empty");
-        static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...), "Component type cannot be const/ptr/ref");
+        static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Components>, Components> && ...),
+                "Component type cannot be const/ptr/ref");
 
-        ([this](const auto identity) {
-            using Component = typename Internal::remove_cvrefptr_t<decltype(identity)>::type;
-            const auto view = m_Registry.view<Component>();
-
-            for(const auto id : view) {
-                Core::TriggerEvent<Events::Systems::EntityComponent::RemoveComponent<Component>>(id);
-                m_Registry.remove<Component>(id);
-            }
-        }(entt::type_identity<Components>{}), ...);
+        if constexpr (sizeof...(Components) == 1) {
+            const auto view = m_Registry.view<Components...>();
+            RemoveComponent<Components...>(view.begin(), view.end());
+        } else {
+            (ClearComponent<Components>, ...);
+        }
     }
 
     inline auto EntityComponent::Clear() -> void
@@ -328,14 +365,6 @@ namespace Helena::Systems
         m_Registry.each([this](const auto id) {
             RemoveEntity(id);
         });
-    }
-
-    template <typename Component>
-    auto EntityComponent::SizeComponent() -> std::size_t {
-        static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Component>, Component>,
-            "Component type cannot be const/ptr/ref");
-
-        return m_Registry.size<Component>();
     }
 
     template <typename Component>

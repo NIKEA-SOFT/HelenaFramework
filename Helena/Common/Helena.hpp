@@ -50,8 +50,6 @@
 #include <Common/Spinlock.hpp>
 #include <Common/Core.hpp>
 
-// Systems
-#include <Common/Systems/EntityComponent.hpp>
-#include <Common/Systems/ConfigManager.hpp>
+
 
 #endif // COMMON_HELENA_HPP

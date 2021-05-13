@@ -1,5 +1,9 @@
 ﻿#include <Common/Helena.hpp>
 
+// Systems
+#include <Common/Systems/EntityComponent.hpp>
+#include <Common/Systems/ConfigManager.hpp>
+
 using namespace Helena;
 using namespace Helena::Hash::Literals;
 
@@ -35,7 +39,7 @@ struct TestSystem
     // Current method called when system initialized (it's system event)
     void OnSystemCreate() {
         HF_MSG_DEBUG("OnSystemCreate");
-        
+
         // Test Core events
         Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
         Core::RegisterEvent<Events::Finalize,       &TestSystem::OnCoreFinalize>(this);
@@ -61,7 +65,6 @@ struct TestSystem
 
         //test ecs system
         auto& ecs = Core::GetSystem<Systems::EntityComponent>();
-
         std::vector<Entity> entities; entities.resize(5);       // Create vector with elements
         ecs.CreateEntity(entities.begin(), entities.end());    // Fill vector with entities
 
@@ -98,13 +101,17 @@ struct TestSystem
         configManager.CreateResource<Components::Position>(1.f, 2.f, 3.f);
         if(configManager.HasResource<Components::Velocity, Components::Position>()) {
             const auto& [vel, pos] = configManager.GetResource<Components::Velocity, Components::Position>();
-            HF_MSG_WARN("Resource exist, velocity: {:.2f}, pos x: {:.2f} y: {:.2f} z:{:.2f}", vel.m_Speed, pos.x, pos.y, pos.z);
             configManager.RemoveResource<Components::Velocity, Components::Position>();
+        }
+
+        if(configManager.AnyResource<Components::Velocity, Components::Position, Components::PlayerState>()) {
+            HF_MSG_WARN("AnyResource success");
         }
 
         using gameResourceKey = Resource<"Game"_hs>;
         using gamePropertyCapKey = Key<"Cap"_hs>;
         configManager.AddProperty<gameResourceKey, gamePropertyCapKey, std::uint32_t>(100);
+
     }
 
     void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {

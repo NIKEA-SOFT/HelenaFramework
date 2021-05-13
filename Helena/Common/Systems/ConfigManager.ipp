@@ -75,7 +75,7 @@ namespace Helena::Systems
 //	}
 
     template <typename... Resources>
-    [[nodiscard]] auto ConfigManager::GetResource() -> decltype(auto)
+    [[nodiscard]] auto ConfigManager::GetResource() noexcept -> decltype(auto)
     {
         static_assert(sizeof...(Resources) > 0, "Resource pack is empty!");
         static_assert((std::is_same_v<Internal::remove_cvrefptr_t<Resources>, Resources> && ...),

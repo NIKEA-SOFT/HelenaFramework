@@ -67,30 +67,30 @@
 
 #ifdef HF_STANDARD_CPP17
 namespace Helena::Internal {
-	template<class InputIt, class ForwardIt>
-	[[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
-		for(; first != last; ++first) {
-			for(ForwardIt it = s_first; it != s_last; ++it) {
-				if(*first == *it) {
-					return first;
-				}
-			}
-		}
-		return last;
-	}
+    template<class InputIt, class ForwardIt>
+    [[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {
+        for(; first != last; ++first) {
+            for(ForwardIt it = s_first; it != s_last; ++it) {
+                if(*first == *it) {
+                    return first;
+                }
+            }
+        }
+        return last;
+    }
 }
 #endif
 
 namespace Helena::Internal {
-	[[nodiscard]] constexpr const char* GetPrettyFile(const std::string_view file) {
-		constexpr char symbols[]{'\\', '/'};
-	#ifdef HF_STANDARD_CPP17
-		const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+    [[nodiscard]] constexpr const char* GetPrettyFile(const std::string_view file) {
+        constexpr char symbols[]{'\\', '/'};
+    #ifdef HF_STANDARD_CPP17
+        const auto it = Internal::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
     #elif defined(HF_STANDARD_CPP20)
-		const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
-	#endif
-		return it == file.rend() ? file.data() : &(*std::prev(it));
-	}
+        const auto it = std::find_first_of(file.rbegin(), file.rend(), std::begin(symbols), std::end(symbols));
+    #endif
+        return it == file.rend() ? file.data() : &(*std::prev(it));
+    }
 }
 
 #define HF_FILE_LINE                    Helena::Internal::GetPrettyFile(__FILE__), __LINE__
@@ -174,10 +174,15 @@ namespace Helena::Internal {
     
     #ifdef HF_DEBUG
         #define HF_DEBUG_BREAK()    _CrtDbgBreak()
-        #define HF_ASSERT(cond, msg, ...)                               \
+        #define HF_ASSERT(cond, ...)                                    \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
+                    constexpr auto size = std::tuple_size<decltype      \
+                        (std::make_tuple(__VA_ARGS__))>::value;         \
+                    HF_MSG_FATAL("Assert: " #cond);                     \
+                    if(size) {                                          \
+                        HF_MSG_FATAL("LOG: " __VA_ARGS__);              \
+                    }                                                   \
                     ::MessageBeep(MB_ICONERROR);                        \
                     std::terminate();                                   \
                 }                                                       \
@@ -211,10 +216,15 @@ namespace Helena::Internal {
     // todo: check assert
     #ifdef HF_DEBUG
         #define HF_DEBUG_BREAK()    raise(SIGTRAP)
-        #define HF_ASSERT(cond, msg, ...)                               \
+        #define HF_ASSERT(cond, ...)                                    \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    HF_MSG_FATAL("Assert: " msg, ##__VA_ARGS__);        \
+                    constexpr auto size = std::tuple_size<decltype      \
+                        (std::make_tuple(__VA_ARGS__))>::value;         \
+                    HF_MSG_FATAL("Assert: " #cond);                     \
+                    if(size) {                                          \
+                        HF_MSG_FATAL("LOG: " __VA_ARGS__);              \
+                    }                                                   \
                     HF_DEBUG_BREAK();                                   \
                     std::terminate();                                   \
                 }                                                       \

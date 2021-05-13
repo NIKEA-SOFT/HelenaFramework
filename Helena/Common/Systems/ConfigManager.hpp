@@ -76,7 +76,7 @@ namespace Helena::Systems
         [[nodiscard]] auto HasProperty() noexcept -> bool;
 
         template <typename Resource, typename Key, typename Type>
-        [[nodiscard]] auto GetProperty() -> Type&;
+        [[nodiscard]] auto GetProperty() noexcept -> Type&;
 
         template <typename Resource, typename Key>
         auto RemoveProperty() noexcept -> void;

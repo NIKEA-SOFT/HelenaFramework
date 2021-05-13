@@ -33,19 +33,19 @@ namespace Helena::Systems
         EntityComponent& operator=(const EntityComponent&) = delete;
         EntityComponent& operator=(EntityComponent&&) noexcept = delete;
 
-        auto CreateEntity() -> Entity;
+        [[nodiscard]] auto CreateEntity() -> Entity;
 
         template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
-        auto CreateEntity(const Type id) -> Entity;
+        [[nodiscard]] auto CreateEntity(const Type id) -> Entity;
 
         template <typename It>
         auto CreateEntity(It first, It last) -> void;
 
-        auto HasEntity(const Entity id) const -> bool;
+        [[nodiscard]] auto HasEntity(const Entity id) const -> bool;
 
-        auto SizeEntity() const -> std::size_t;
+        [[nodiscard]] auto SizeEntity() const noexcept -> std::size_t;
 
-        auto AliveEntity() const -> std::size_t;
+        [[nodiscard]] auto AliveEntity() const noexcept -> std::size_t;
 
         auto ReserveEntity(const std::size_t size) -> void;
 
@@ -54,10 +54,10 @@ namespace Helena::Systems
         template <typename It>
         auto RemoveEntity(It first, It last) -> void;
 
-        static auto CastFromEntity(const Entity id);
+        template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
+        [[nodiscard]] static auto Cast(const Type id) noexcept;
 
-        template <typename Type>
-        static auto CastToEntity(const Type id) -> Entity;
+        [[nodiscard]] static auto Cast(const Entity id) noexcept;
 
         template <typename Func>
         auto Each(Func&& callback) const -> void;
@@ -96,9 +96,9 @@ namespace Helena::Systems
         [[nodiscard]] auto GetComponentPtr(const Entity id) const;
 
         template <typename... Components>
-        [[nodiscard]] auto HasComponent(const Entity id) -> bool;
+        [[nodiscard]] auto HasComponent(const Entity id) const -> bool;
 
-        [[nodiscard]] auto HasComponents(const Entity id) -> bool;
+        [[nodiscard]] auto HasComponent(const Entity id) const -> bool;
 
         template <typename... Components>
         [[nodiscard]] auto AnyComponent(const Entity id) const -> bool;
@@ -133,9 +133,6 @@ namespace Helena::Systems
         auto ClearComponent() -> void;
 
         auto Clear() -> void;
-
-        template <typename Component>
-        [[nodiscard]] auto SizeComponent() -> std::size_t;
 
         template <typename Component>
         [[nodiscard]] auto SizeComponent() const -> std::size_t;
