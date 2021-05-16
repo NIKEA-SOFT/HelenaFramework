@@ -59,12 +59,7 @@ set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 set(HELENA_PROJECT_DIR ${PROJECT_SOURCE_DIR})
 set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
-message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
-
-include_directories(
-    ${HELENA_PROJECT_DIR}/Helena
-    ${HELENA_PROJECT_DIR}/Dependencies
-)
+#message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
 set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
@@ -85,7 +80,8 @@ message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${C
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-
+include_directories(${HELENA_PROJECT_DIR})
+include_directories(${HELENA_PROJECT_DIR}/Dependencies)
 
 #|--------------------------------
 #| Helena Framework Build
@@ -117,7 +113,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 
 #add_subdirectory(${HELENA_PROJECT_DIR}/Dependencies)
-add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
+#add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Common)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
 link_directories(${HELENA_PROJECT_OUTDIR})
@@ -125,8 +121,8 @@ link_directories(${HELENA_PROJECT_OUTDIR})
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
-option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        OFF)
+option(HELENA_FLAG_TEST         "Build and run test"    ON)
+option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
 option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
 
 #|--------------------------------
@@ -134,8 +130,8 @@ option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
 #|--------------------------------
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
-    enable_testing()
-    include(CTest)
+    #enable_testing()
+    #include(CTest)
     add_subdirectory(Test)
 endif()
 

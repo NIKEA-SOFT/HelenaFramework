@@ -1,7 +1,8 @@
-#ifndef COMMON_SYSTEMS_ENTITYCOMPONENT_IPP
-#define COMMON_SYSTEMS_ENTITYCOMPONENT_IPP
+#ifndef HELENA_SYSTEMS_ENTITYCOMPONENT_IPP
+#define HELENA_SYSTEMS_ENTITYCOMPONENT_IPP
 
-#include <Common/Helena.hpp>
+#include <Helena/Systems/EntityComponent.hpp>
+#include <Helena/Core.hpp>
 
 namespace Helena::Systems
 {
@@ -90,13 +91,13 @@ namespace Helena::Systems
 
     template <typename Func>
     auto EntityComponent::Each(Func&& callback) const -> void {
-        static_assert(std::is_function_v<Func>, "Func is not a callable type");
+        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         m_Registry.each(std::forward<Func>(callback));
     }
 
     template <typename Func>
     auto EntityComponent::EachOrphans(Func&& callback) const -> void {
-        static_assert(std::is_function_v<Func>, "Func is not a callable type");
+        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         m_Registry.orphans(std::forward<Func>(callback));
     }
 
@@ -108,7 +109,7 @@ namespace Helena::Systems
         using Event = Events::Systems::EntityComponent::AddComponent<Component>;
 
         HF_ASSERT(HasEntity(id), "Entity {} is not valid", id);
-        HF_ASSERT(!HasComponent<Component>(id), "Entity {}, component {} is already exist", id, Internal::type_name_t<Component>);
+        HF_ASSERT(!HasComponent<Component>(id), "Entity {}, component {} is already exist", id, Internal::NameOf<Component>);
 
         m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
         Core::TriggerEvent<Event>(id);
@@ -119,7 +120,7 @@ namespace Helena::Systems
     //	static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Component>, Component>, "Component type cannot be const/ptr/ref");
 
     //	HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
-    //	HF_ASSERT(!HasComponent<Component>(id), "EntityID: {}, component: {} already exist", id, Internal::type_name_t<Component>);
+    //	HF_ASSERT(!HasComponent<Component>(id), "EntityID: {}, component: {} already exist", id, Internal::NameOf<Component>);
 
     //	m_Registry.emplace<Component>(id);
     //	//Core::TriggerEvent<Events::Systems::EntityComponent::AddComponent<Component>>(id, m_Registry.get<Component>(id));
@@ -228,7 +229,7 @@ namespace Helena::Systems
     template <typename Func>
     auto EntityComponent::VisitComponent(const Entity id, Func&& callback) const -> void
     {
-        static_assert(std::is_function_v<Func>, "Func is not a callable type");
+        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
 
         HF_ASSERT(HasEntity(id), "Entity id: {} not valid", id);
         m_Registry.visit(id, std::forward<Func>(callback));
@@ -236,7 +237,7 @@ namespace Helena::Systems
 
     template <typename Func>
     auto EntityComponent::VisitComponent(Func&& callback) const -> void {
-        static_assert(std::is_function_v<Func>, "Func is not a callable type");
+        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         m_Registry.visit(std::forward<Func>(callback));
     }
 
@@ -317,7 +318,7 @@ namespace Helena::Systems
         if constexpr (sizeof...(Components) == 1) {
             using Event = Events::Systems::EntityComponent::RemoveComponent<Components...>;
 
-            HF_ASSERT(HasComponent<Components...>(id), "Entity {}, component {} is not exist", id, Internal::type_name_t<Components...>);
+            HF_ASSERT(HasComponent<Components...>(id), "Entity {}, component {} is not exist", id, Internal::NameOf<Components...>);
             if(HasComponent<Components...>(id)) {
                 Core::TriggerEvent<Event>(id);
                 m_Registry.remove<Components...>(id);
@@ -389,4 +390,4 @@ namespace Helena::Systems
     }
 }
 
-#endif // COMMON_SYSTEMS_ENTITYCOMPONENT_IPP
+#endif // HELENA_SYSTEMS_ENTITYCOMPONENT_IPP

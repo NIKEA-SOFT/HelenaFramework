@@ -1,5 +1,9 @@
-#ifndef COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
-#define COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
+#ifndef HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
+#define HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
+
+#include <entt/entity/registry.hpp>
+
+#include <Helena/Internal.hpp>
 
 namespace Helena::Systems
 {
@@ -176,6 +180,6 @@ namespace Helena::Events::Systems::EntityComponent
     };
 }
 
-#include <Common/Systems/EntityComponent.ipp>
+#include <Helena/Systems/EntityComponent.ipp>
 
-#endif // COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
+#endif // HELENA_SYSTEMS_ENTITYCOMPONENT_HPP

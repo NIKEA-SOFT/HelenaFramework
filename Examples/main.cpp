@@ -1,8 +1,8 @@
-﻿#include <Common/Helena.hpp>
+﻿#include <Helena/Helena.hpp>
 
 // Systems
-#include <Common/Systems/EntityComponent.hpp>
-#include <Common/Systems/ConfigManager.hpp>
+#include <Helena/Systems/EntityComponent.hpp>
+#include <Helena/Systems/ConfigManager.hpp>
 
 using namespace Helena;
 using namespace Helena::Hash::Literals;
@@ -192,22 +192,6 @@ struct TestSystem
 
 int main(int argc, char** argv)
 {
-    // Lua example
-    sol::state lua;
-    lua.open_libraries(sol::lib::base, sol::lib::package);
-    lua.script("print('hello lua world!')");
-    
-    if(auto script = lua.load_file(std::filesystem::path{argv[0]}.parent_path().string() + HF_SEPARATOR + "test.lua"); script.valid()) 
-    {
-        if(const auto fnScript = script(); fnScript.valid()) {
-            HF_MSG_INFO("Lua script exec success!");
-        } else {
-            HF_MSG_ERROR("Lua script exec failed!");
-        }
-    } else {
-        HF_MSG_ERROR("Load script file failed");
-    }
-    
     // Helena example
     return Core::Initialize([&]() -> bool {
         // Push args in Core

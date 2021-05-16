@@ -1,7 +1,11 @@
 #ifndef COMMON_CORE_IPP
 #define COMMON_CORE_IPP
 
-#include <Common/Helena.hpp>
+#include <Helena/Core.hpp>
+#include <Helena/Assert.hpp>
+#include <Helena/Hash.hpp>
+#include <Helena/Util.hpp>
+#include <Helena/Internal.hpp>
 
 namespace Helena
 {
@@ -19,7 +23,7 @@ namespace Helena
             Core::Shutdown();
         }
 
-        while(m_Context->m_Shutdown) {
+        while(m_Context) {
             Util::Sleep(10);
         }
 
@@ -96,13 +100,15 @@ namespace Helena
         return m_Context->m_TimeDelta;
     }
 
-    [[nodiscard]] inline auto Core::Initialize(const std::function<bool ()>& callback, const std::shared_ptr<Context>& ctx) -> bool
+    template <typename Func>
+    [[nodiscard]] inline auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) -> bool
     {
+        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         HF_ASSERT(!m_Context, "Core is already initialized!");
 
         try
         {
-            if(!CreateOrSetContext(ctx) || !callback || !callback()) {
+            if(!CreateOrSetContext(ctx) || !callback()) {
                 return false;
             }
 
@@ -110,8 +116,9 @@ namespace Helena
                 Heartbeat();
             }
 
-            HF_MSG_DEBUG("Finalize framework");
             m_Context->m_Shutdown = false;
+            m_Context.reset();
+            HF_MSG_DEBUG("Finalize framework");
 
         } catch(const std::exception& error) {
             HF_MSG_FATAL("Exception code: {}", error.what());
@@ -164,6 +171,10 @@ namespace Helena
         m_Context->m_Dispatcher.template trigger<Helena::Events::Finalize>();
     }
 
+    /**
+     * @brief Core::EventSystems
+     * @param type Type of event for call
+     */
     inline auto Core::EventSystems(const SystemEvent type) -> void
     {
         auto& container = m_Context->m_EventScheduler[type];
@@ -190,10 +201,6 @@ namespace Helena
         }
 	}
 
-    /**
-    * @brief Shutdown framework
-    * @details Hello world
-    */
     inline auto Core::Shutdown() noexcept -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Shutdown = true;
@@ -256,7 +263,7 @@ namespace Helena
             systems.resize(index + 1);
         }
 
-        HF_ASSERT(!systems[index], "Instance of system {} is already registered", Internal::type_name_t<Type>);
+        HF_ASSERT(!systems[index], "Instance of system {} is already registered", Internal::NameOf<Type>);
 
         if(auto& instance = systems[index]; !instance)
         {
@@ -288,11 +295,6 @@ namespace Helena
         }
     }
 
-    /**
-     * @brief Check instance of system on exist
-     * @tparam Type Type of system
-     * @return Return true if instance of system has, otherwise false
-     */
     template <typename Type>
     [[nodiscard]] auto Core::HasSystem() noexcept -> bool {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
@@ -303,11 +305,6 @@ namespace Helena
         return index < m_Context->m_Systems.size() && m_Context->m_Systems[index];
     }
 
-    /**
-     * @brief Get system instance from container
-     * @tparam Type Type of system
-     * @return Reference on system Type
-     */
     template <typename Type>
     [[nodiscard]] auto Core::GetSystem() noexcept -> Type& {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
@@ -317,14 +314,10 @@ namespace Helena
         auto& systems = m_Context->m_Systems;
         const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 
-        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist", Internal::type_name_t<Type>);
+        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist", Internal::NameOf<Type>);
         return entt::any_cast<Type&>(systems[index]);
     }
 
-    /**
-    * @brief Remove system instance from container
-    * @tparam Type Type of system
-    */
     template <typename Type>
     auto Core::RemoveSystem() noexcept -> void
     {
@@ -336,7 +329,7 @@ namespace Helena
         auto& events = m_Context->m_SystemsEvent;
         const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 
-        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist for remove", Internal::type_name_t<Type>);
+        HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist for remove", Internal::NameOf<Type>);
         if(index < systems.size())
         {
             if(auto& instance = systems[index]; instance)

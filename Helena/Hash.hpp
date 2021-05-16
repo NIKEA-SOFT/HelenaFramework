@@ -1,7 +1,8 @@
-#pragma once
+#ifndef HELENA_HASH_HPP
+#define HELENA_HASH_HPP
 
-#ifndef COMMON_HASH_HPP
-#define COMMON_HASH_HPP
+#include "entt/core/type_info.hpp"
+#include "entt/core/hashed_string.hpp"
 
 namespace Helena
 {
@@ -19,4 +20,4 @@ namespace Helena
     }
 }
 
-#endif // COMMON_HASH_HPP
+#endif // HELENA_HASH_HPP

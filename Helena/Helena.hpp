@@ -7,36 +7,36 @@
 #define HELENA_VERSION_MINOR 0
 #define HELENA_VERSION_PATCH 0
 
+// Helena Platform
+#include <Helena/Platform.hpp>
+
+// STL
 #include <iostream>
 #include <cstdint>
 #include <algorithm>
 #include <ctime>
 #include <clocale>
+#include <optional>
+#include <variant>
+#include <functional>
+#include <string>
+#include <any>
 #include <filesystem>
 #include <vector>
+#include <queue>
 #include <array>
 #include <unordered_map>
 #include <map>
-#include <string>
 #include <memory>
 #include <mutex>
-#include <queue>
-#include <optional>
 #include <shared_mutex>
-#include <functional>
 #include <chrono>
-#include <any>
-#include <variant>
 #include <ctime>
 #include <type_traits>
 
-#define SOL_ALL_SAFETIES_ON 1
-#include <sol/sol.hpp>
-
-#define FMT_HEADER_ONLY
-#include <fmt/format.h>
-#include <fmt/chrono.h>
-#include <fmt/color.h>
+// Dependencies
+//#define SOL_ALL_SAFETIES_ON 1
+//#include <sol/sol.hpp>
 
 #include <safe_ptr/safe_ptr.h>
 #define ENTT_ID_TYPE std::size_t
@@ -44,12 +44,15 @@
 #include <pugixml/pugixml.hpp>
 #include <robin_hood/robin_hood.h>
 
-#include <Common/Platform.hpp>
-#include <Common/Hash.hpp>
-#include <Common/Util.hpp>
-#include <Common/Spinlock.hpp>
-#include <Common/Core.hpp>
-
+// Helena
+#include <Helena/Format.hpp>
+#include <Helena/Internal.hpp>
+#include <Helena/Log.hpp>
+#include <Helena/Assert.hpp>
+#include <Helena/Hash.hpp>
+#include <Helena/Util.hpp>
+#include <Helena/Concurrency.hpp>
+#include <Helena/Core.hpp>
 
 
 #endif // COMMON_HELENA_HPP

@@ -1,5 +1,13 @@
-#ifndef COMMON_SYSTEMS_CONFIGMANAGER_HPP
-#define COMMON_SYSTEMS_CONFIGMANAGER_HPP
+#ifndef HELENA_SYSTEMS_CONFIGMANAGER_HPP
+#define HELENA_SYSTEMS_CONFIGMANAGER_HPP
+
+#include <Helena/Internal.hpp>
+
+#include <robin_hood/robin_hood.h>
+#include <entt/core/type_traits.hpp>
+#include <entt/core/any.hpp>
+
+#include <vector>
 
 namespace Helena::Systems
 {
@@ -78,7 +86,7 @@ namespace Helena::Systems
         template <typename Resource, typename Key, typename Type>
         [[nodiscard]] auto GetProperty() noexcept -> Type&;
 
-        template <typename Resource, typename Key>
+        template <typename Resource, typename Key, typename Type>
         auto RemoveProperty() noexcept -> void;
 
         // Runtime properties
@@ -101,6 +109,35 @@ namespace Helena::Systems
     };
 }
 
-#include <Common/Systems/ConfigManager.ipp>
+namespace Helena::Events::Systems::ConfigManager
+{
+    using System = Helena::Systems::ConfigManager;
 
-#endif // COMMON_SYSTEMS_CONFIGMANAGER_HPP
+    template <typename TResource>
+    struct CreateResource {
+        using Resource = Internal::remove_cvrefptr_t<TResource>;
+    };
+
+    template <typename TResource>
+    struct RemoveResource {
+        using Resource = Internal::remove_cvrefptr_t<TResource>;
+    };
+
+    template <typename TResource, typename TKey, typename Type>
+    struct AddProperty {
+        using Resource = Internal::remove_cvrefptr_t<TResource>;
+        using Key = Internal::remove_cvrefptr_t<TKey>;
+        using Value = Internal::remove_cvrefptr_t<Type>;
+    };
+
+    template <typename TResource, typename TKey, typename Type>
+    struct RemoveProperty {
+        using Resource = Internal::remove_cvrefptr_t<TResource>;
+        using Key = Internal::remove_cvrefptr_t<TKey>;
+        using Value = Internal::remove_cvrefptr_t<Type>;
+    };
+}
+
+#include <Helena/Systems/ConfigManager.ipp>
+
+#endif // HELENA_SYSTEMS_CONFIGMANAGER_HPP
