@@ -1,5 +1,5 @@
-#ifndef COMMON_CORE_IPP
-#define COMMON_CORE_IPP
+#ifndef HELENA_CORE_IPP
+#define HELENA_CORE_IPP
 
 #include <Helena/Core.hpp>
 #include <Helena/Assert.hpp>
@@ -53,7 +53,7 @@ namespace Helena
 
     template <typename Type>
     [[nodiscard]] auto Core::SystemIndex<Type>::GetIndex(map_indexes_t& container) -> std::size_t {
-        static const auto value = Util::AddOrGetTypeIndex(container, Hash::Type<Type>);
+        static const auto value = Internal::AddOrGetTypeIndex(container, Hash::Type<Type>);
         return value;
     }
 
@@ -101,7 +101,7 @@ namespace Helena
     }
 
     template <typename Func>
-    [[nodiscard]] inline auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) -> bool
+    [[nodiscard]] auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) -> bool
     {
         static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         HF_ASSERT(!m_Context, "Core is already initialized!");
@@ -118,8 +118,8 @@ namespace Helena
 
             m_Context->m_Shutdown = false;
             m_Context.reset();
-            HF_MSG_DEBUG("Finalize framework");
 
+            HF_MSG_DEBUG("Finalize framework");
         } catch(const std::exception& error) {
             HF_MSG_FATAL("Exception code: {}", error.what());
         } catch(...) {
@@ -141,7 +141,7 @@ namespace Helena
         {
             // Get time and delta
             timeElapsed	+= HeartbeatTimeCalc();
-			//++fps;
+
             EventSystems(SystemEvent::Create);
             EventSystems(SystemEvent::Execute);
             EventSystems(SystemEvent::Tick);
@@ -199,7 +199,7 @@ namespace Helena
                 default: break;
             }
         }
-	}
+    }
 
     inline auto Core::Shutdown() noexcept -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -348,93 +348,47 @@ namespace Helena
         }
     }
 
-    /**
-     * @brief Register event
-     * @tparam Event Type of event
-     * @tparam Method Callback
-     * @note Register your callback for listen Event type
-     */
     template <typename Event, auto Method>
     auto Core::RegisterEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
     }
 
-    /**
-     * @brief Register event
-     * @tparam Event Type of event
-     * @tparam Method Callback
-     * @tparam Type Type of class
-     * @note Register your class callback for listen Event type
-     */
     template <typename Event, auto Method, typename Type>
     auto Core::RegisterEvent(Type&& instance) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template connect<Method>(instance);
     }
 
-    /**
-     * @brief Call event for listeners
-     * @tparam Event Type of event
-     * @tparam Args Type of args for initialize Event type
-     * @note Call callbacks now for all listeners of Event type
-     */
     template <typename Event, typename... Args>
     auto Core::TriggerEvent([[maybe_unused]] Args&&... args) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
     }
 
-    /**
-     * @brief Add an event to the queue
-     * @tparam Event Type of event
-     * @tparam Args Type of args for initialize Event type
-     * @note Use method UpdateEvent for call callbacks for listeners from queue of Event
-     */
     template <typename Event, typename... Args>
     auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
     }
 
-    /**
-     * @brief Call events from the queue
-     * @tparam Event Type of event
-     * @note Call event for listeners of Event type sequentially
-     */
     template <typename Event>
     auto Core::UpdateEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template update<Event>();
     }
 
-    /**
-     * @brief Call all events from queue
-     * @note Call events of all types for listeners
-     */
     inline auto Core::UpdateEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.update();
     }
 
-    /**
-     * @brief Unregister event callback
-     * @tparam Event Type of event
-     * @tparam Method Callback
-     * @note Remove registerd callback from container
-     */
     template <typename Event, auto Method>
     auto Core::RemoveEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
     }
 
-    /**
-     * @brief Unregister event callback
-     * @tparam Event Type of event
-     * @tparam Method Callback
-     * @note Remove registerd callback from container
-     */
     template <typename Event, auto Method, typename Type>
     auto Core::RemoveEvent(Type&& instance) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -446,12 +400,11 @@ namespace entt {
     template <typename Type>
     struct ENTT_API type_seq<Type> {
         [[nodiscard]] static id_type value() ENTT_NOEXCEPT {
-            static const auto value = static_cast<id_type>(Helena::Util::AddOrGetTypeIndex(
-                    Helena::Core::m_Context->m_SequenceIndexes,
-                    Helena::Hash::Type<Type>));
+            static const auto value = static_cast<id_type>(Helena::Internal::AddOrGetTypeIndex(
+                Helena::Core::m_Context->m_SequenceIndexes, Helena::Hash::Type<Type>));
             return value;
         }
     };
 }
 
-#endif // COMMON_CORE_IPP
+#endif // HELENA_CORE_IPP

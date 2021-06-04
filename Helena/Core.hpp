@@ -1,5 +1,11 @@
-#ifndef COMMON_CORE_HPP
-#define COMMON_CORE_HPP
+#ifndef HELENA_CORE_HPP
+#define HELENA_CORE_HPP
+
+#include <Helena/Platform.hpp>
+#include <Helena/HashComparator.hpp>
+
+#include <entt/entt.hpp>
+#include <robin_hood/robin_hood.h>
 
 #include <cstdint>
 #include <atomic>
@@ -9,11 +15,6 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
-
-#include <robin_hood/robin_hood.h>
-#include <entt/entt.hpp>
-
-#include <Helena/Platform.hpp>
 
 namespace Helena
 {
@@ -26,7 +27,7 @@ namespace Helena
     /**
      * @brief Framework core
      */
-    class Core
+    class Core final
     {
         template <typename, typename>
         friend struct ENTT_API entt::type_seq;
@@ -44,7 +45,7 @@ namespace Helena
         //using mem_ptr = void(Type::* const)(Args...);
 
         template <typename Type, typename... Args>
-        using fn_create_t	= decltype(std::declval<Type>().XSystemCreate(std::declval<Args>()...));
+        using fn_create_t	= decltype(std::declval<Type>().OnSystemCreate(std::declval<Args>()...));
         template <typename Type, typename... Args>
         using fn_execute_t	= decltype(std::declval<Type>().OnSystemExecute(std::declval<Args>()...));
         template <typename Type, typename... Args>
@@ -54,7 +55,7 @@ namespace Helena
         template <typename Type, typename... Args>
         using fn_destroy_t	= decltype(std::declval<Type>().OnSystemDestroy(std::declval<Args>()...));
 
-        using map_indexes_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t>;
+        using map_indexes_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t, Hash::Hasher<entt::id_type>, Hash::Comparator<entt::id_type>>;
 
         template <typename Type>
         struct SystemIndex {
@@ -89,6 +90,8 @@ namespace Helena
 
             std::atomic_bool m_Shutdown {};
         };
+
+
 
     private:
         static inline std::shared_ptr<Context> m_Context {};
@@ -240,7 +243,6 @@ namespace Helena
         template <typename Event, auto Method>
         static auto RegisterEvent() -> void;
 
-
         /**
          * @brief Subscribe to an event.
          * @tparam Event Type of event.
@@ -312,4 +314,4 @@ namespace Helena
 
 #include <Helena/Core.ipp>
 
-#endif // COMMON_CORE_HPP
+#endif // HELENA_CORE_HPP
