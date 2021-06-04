@@ -1,5 +1,5 @@
-#ifndef COMMON_FORMAT_HPP
-#define COMMON_FORMAT_HPP
+#ifndef HELENA_FORMAT_HPP
+#define HELENA_FORMAT_HPP
 
 #define FMT_HEADER_ONLY
 
@@ -9,4 +9,4 @@
 
 #define HF_FORMAT(...)      fmt::format(__VA_ARGS__)
 
-#endif // COMMON_FORMAT_HPP
+#endif // HELENA_FORMAT_HPP

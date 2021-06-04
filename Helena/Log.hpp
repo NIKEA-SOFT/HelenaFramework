@@ -1,6 +1,7 @@
 #ifndef HELENA_LOG_HPP
 #define HELENA_LOG_HPP
 
+#include <Helena/Util.hpp>
 #include <Helena/Internal.hpp>
 #include <Helena/Format.hpp>
 

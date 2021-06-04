@@ -1,12 +1,12 @@
-#ifndef COMMON_INTERNAL_HPP
-#define COMMON_INTERNAL_HPP
+#ifndef HELENA_INTERNAL_HPP
+#define HELENA_INTERNAL_HPP
 
-#include <type_traits>
-#include <string_view>
+#include <Helena/Platform.hpp>
 
 #include <entt/core/type_info.hpp>
 
-#include <Helena/Platform.hpp>
+#include <type_traits>
+#include <string_view>
 
 namespace Helena::Internal
 {
@@ -55,6 +55,15 @@ namespace Helena::Internal
 
     template <typename Default, template<typename...> typename Op, typename... Args>
     using detected_or = detector<Default, void, Op, Args...>;
+
+    template <typename T, template <typename...> class Primary>
+    struct is_specialization_of : std::false_type {};
+
+    template <template <typename...> class Primary, typename... Args>
+    struct is_specialization_of<Primary<Args...>, Primary> : std::true_type {};
+
+    template <typename T, template <typename...> class Primary>
+    constexpr bool is_specialization_of_v = is_specialization_of<T, Primary>::value;
 
     template <typename T, typename = void>
     struct is_pair : std::false_type {};
@@ -105,6 +114,15 @@ namespace Helena::Internal
         return last;
     }
 #endif
+
+    template <typename Container,
+             typename Key = typename Container::key_type,
+             typename Ret = typename Container::mapped_type,
+             typename = std::enable_if_t<Internal::is_mapping_v<Internal::remove_cvref_t<Container>>, void>>
+    auto AddOrGetTypeIndex(Container& container, const Key typeIndex) -> decltype(auto) {
+        const auto [it, result] = container.emplace(typeIndex, container.size());
+        return static_cast<Ret>(it->second);
+    }
 }
 
-#endif // COMMON_INTERNAL_HPP
+#endif // HELENA_INTERNAL_HPP

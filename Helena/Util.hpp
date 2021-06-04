@@ -3,19 +3,10 @@
 
 #include <cstdint>
 #include <chrono>
-
-#include <Helena/Internal.hpp>
+#include <string_view>
 
 namespace Helena::Util
 {
-    #define HF_FILE_LINE    Helena::Util::GetPrettyFile(__FILE__), __LINE__
-
-    template <typename Container,
-        typename Key = typename Container::key_type,
-        typename Ret = typename Container::mapped_type,
-        typename = std::enable_if_t<Internal::is_mapping_v<Internal::remove_cvref_t<Container>>, void>>
-    auto AddOrGetTypeIndex(Container& container, const Key typeIndex) -> decltype(auto);
-
     [[nodiscard]] inline constexpr const char* GetPrettyFile(const std::string_view file) noexcept;
 
     inline void Sleep(const uint64_t milliseconds);
@@ -24,6 +15,8 @@ namespace Helena::Util
     void Sleep(const std::chrono::duration<Rep, Period>& time);
 
 }
+
+#define HF_FILE_LINE    Helena::Util::GetPrettyFile(__FILE__), __LINE__
 
 #include <Helena/Util.ipp>
 

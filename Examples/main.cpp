@@ -2,40 +2,14 @@
 
 // Systems
 #include <Helena/Systems/EntityComponent.hpp>
-#include <Helena/Systems/ConfigManager.hpp>
+#include <Helena/Systems/ResourceManager.hpp>
+#include <Helena/Systems/PropertyManager.hpp>
 
 using namespace Helena;
-using namespace Helena::Hash::Literals;
-
-namespace Helena::Components 
-{
-    struct Velocity {
-        float m_Speed;
-    };
-
-    struct Position {
-        float x;
-        float y;
-        float z;
-    };
-
-    // Tag components
-    struct PlayerState {
-        using Die = Systems::EntityComponent::Tag<"PlayerState_Die"_hs>;
-    };
-}
+using namespace Helena::Literals;
 
 struct TestSystem 
 {
-
-    using Entity = Systems::EntityComponent::Entity;
-
-    template <Systems::ConfigManager::ID Value>
-    using Resource = Systems::ConfigManager::Resource<Value>;
-
-    template <Systems::ConfigManager::ID Value>
-    using Key = Systems::ConfigManager::Key<Value>;
-
     // Current method called when system initialized (it's system event)
     void OnSystemCreate() {
         HF_MSG_DEBUG("OnSystemCreate");
@@ -43,119 +17,20 @@ struct TestSystem
         // Test Core events
         Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
         Core::RegisterEvent<Events::Finalize,       &TestSystem::OnCoreFinalize>(this);
-
-        // Test Events for EntityComponent
-        Core::RegisterEvent<Events::Systems::EntityComponent::CreateEntity, &TestSystem::OnCreateEntity>(this);
-        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveEntity, &TestSystem::OnRemoveEntity>(this);
-
-        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::Position>,       &TestSystem::OnComponentAddPosition>(this);
-        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Position>,    &TestSystem::OnComponentRemovePosition>(this);
-
-        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::Velocity>,       &TestSystem::OnComponentAddVelocity>(this);
-        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>,    &TestSystem::OnComponentRemoveVelocity>(this);
-
-        Core::RegisterEvent<Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>,       &TestSystem::OnComponentAddPlayerStateDie>(this);
-        Core::RegisterEvent<Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>,    &TestSystem::OnComponentRemovePlayerStateDie>(this);
     }
 
-    enum class Item {};
     // Current method called after OnSystemCreate (it's system event)
     void OnSystemExecute() {
         HF_MSG_DEBUG("OnSystemExecute");
 
-        //test ecs system
-        auto& ecs = Core::GetSystem<Systems::EntityComponent>();
-        std::vector<Entity> entities; entities.resize(5);       // Create vector with elements
-        ecs.CreateEntity(entities.begin(), entities.end());    // Fill vector with entities
-
-        // iterate each entity
-        for(const auto id : entities) {
-            ecs.AddComponent<Components::Position>(id, 1.f, 1.f, 1.f); // Set component to entity
-            ecs.AddComponent<Components::PlayerState::Die>(id); // Set tag component to entity
-        }
-
-        // View/Group
-        const auto view = ecs.ViewComponent<Components::PlayerState::Die>();   // Search all entities with component
-        for([[maybe_unused]] const auto id : view) {
-            // Player: <id> is die...
-        }
-
-        const auto group = ecs.GroupComponent<Components::Position>(Systems::EntityComponent::Get<Components::PlayerState::Die>);
-        for(const auto id : group) {
-            auto& pos = group.get<Components::Position>(id);
-                
-            pos.x = 5.f;
-            pos.y = 5.f;
-            pos.z = 5.f;
-
-            // Let's remove components from each entity
-            ecs.RemoveComponent<Components::Position, Components::PlayerState::Die>(id);
-        }
-
-        // Destroy all entities and remove components
-        ecs.Clear();
-
-        // Test ConfigManager
-        auto& configManager = Core::GetSystem<Systems::ConfigManager>();
-        configManager.CreateResource<Components::Velocity>(1.f);
-        configManager.CreateResource<Components::Position>(1.f, 2.f, 3.f);
-        if(configManager.HasResource<Components::Velocity, Components::Position>()) {
-            const auto& [vel, pos] = configManager.GetResource<Components::Velocity, Components::Position>();
-            configManager.RemoveResource<Components::Velocity, Components::Position>();
-        }
-
-        if(configManager.AnyResource<Components::Velocity, Components::Position, Components::PlayerState>()) {
-            HF_MSG_WARN("AnyResource success");
-        }
-
-        using gameResourceKey = Resource<"Game"_hs>;
-        using gamePropertyCapKey = Key<"Cap"_hs>;
-        configManager.AddProperty<gameResourceKey, gamePropertyCapKey, std::uint32_t>(100);
-
-    }
-
-    void OnComponentAddPosition(const Events::Systems::EntityComponent::AddComponent<Components::Position>& event) {
-        using Position = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component Position add!", event.m_Entity);
-    }
-
-    void OnComponentRemovePosition(const Events::Systems::EntityComponent::RemoveComponent<Components::Position>& event) {
-        using Position = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component Position removed!", event.m_Entity);
-    }
-
-    void OnComponentAddVelocity(const Events::Systems::EntityComponent::AddComponent<Components::Velocity>& event) {
-        using Velocity = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component Velocity add!", event.m_Entity);
-    }
-
-    void OnComponentRemoveVelocity(const Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>& event) {
-        using Velocity = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component Velocity removed!", event.m_Entity);
-    }
-
-    void OnComponentAddPlayerStateDie(const Events::Systems::EntityComponent::AddComponent<Components::PlayerState::Die>& event) {
-        using PlayerStateDie = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component PlayerState::Die add!", event.m_Entity);
-    }
-
-    void OnComponentRemovePlayerStateDie(const Events::Systems::EntityComponent::RemoveComponent<Components::PlayerState::Die>& event) {
-        using Velocity = Internal::remove_cvref_t<decltype(event)>;
-        HF_MSG_DEBUG("Entity: {} component PlayerState::Die removed!", event.m_Entity);
-    }
-
-    void OnCreateEntity(const Events::Systems::EntityComponent::CreateEntity& event) {
-        HF_MSG_DEBUG("OnCreateEntity: {} event called", event.m_Entity);
-    }
-
-    void OnRemoveEntity(const Events::Systems::EntityComponent::RemoveEntity& event) {
-        HF_MSG_DEBUG("OnRemoveEntity: {} event called", event.m_Entity);
+        TestConfigManager();
     }
 
     // Called when Core initialized
     void OnCoreInitialize(const Events::Initialize& event) {
         HF_MSG_DEBUG("OnCoreInitialize");
     }
+
     // Called when Core finish
     void OnCoreFinalize(const Events::Finalize& event) {
         HF_MSG_DEBUG("OnCoreFinalize");
@@ -174,18 +49,88 @@ struct TestSystem
     // Called when System destroyed (it's system event)
     void OnSystemDestroy() {
         HF_MSG_DEBUG("OnSystemDestroy");
+    }
 
-        Core::RemoveEvent<Events::Initialize,   &TestSystem::OnCoreInitialize>(this);
-        Core::RemoveEvent<Events::Finalize,     &TestSystem::OnCoreFinalize>(this);
+    void TestConfigManager() {
+        // Get ConfigManager system
+        auto& resources = Core::GetSystem<Systems::ResourceManager>();
 
-        Core::RemoveEvent<Events::Systems::EntityComponent::CreateEntity, &TestSystem::OnCreateEntity>(this);
-        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveEntity, &TestSystem::OnRemoveEntity>(this);
+        // Test Resources
 
-        Core::RemoveEvent<Events::Systems::EntityComponent::AddComponent<Components::Position>,       &TestSystem::OnComponentAddPosition>(this);
-        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Position>,    &TestSystem::OnComponentRemovePosition>(this);
+        // test structure
+        struct Info {
+            std::string name;
+            std::string url;
+            float version;
+        };
 
-        Core::RemoveEvent<Events::Systems::EntityComponent::AddComponent<Components::Velocity>,       &TestSystem::OnComponentAddVelocity>(this);
-        Core::RemoveEvent<Events::Systems::EntityComponent::RemoveComponent<Components::Velocity>,    &TestSystem::OnComponentRemoveVelocity>(this);
+        // test structure
+        struct Book {
+            std::string name;
+            std::string author;
+        };
+
+        HF_MSG_DEBUG("Info size: {}, book size: {}", sizeof(Info), sizeof(Book));
+
+        // Initialize and store the property inside config manager container
+        resources.Create<Info>("Helena Framework", "github.com/nikea-soft", 0.1f);
+        resources.Create<Book>("Effective Modern C++", "Scott Meyers");
+
+        // Check on exist
+        if(resources.Has<Info, Book>()) {
+            HF_MSG_DEBUG("Resource Data exist!");
+        }
+
+        // Check the availability of one of the Resources
+        if(resources.Any<Info, Book>()) {
+            HF_MSG_DEBUG("Any of the Resource exist");
+        }
+
+        // deduction guide support
+        [[maybe_unused]] const auto& [info, book] = resources.Get<Info, Book>();
+
+        // or get one of Resource
+        [[maybe_unused]] const auto& info_ = resources.Get<Info>();
+
+        //HF_MSG_DEBUG("Test Resource, info name: {}, url: {}, version: {.2f}", info.name, info.url, info.version);
+        //HF_MSG_DEBUG("Test Resource, book name: {}, author: {}", book.name, book.author);
+
+        resources.Remove<Info, Book>();
+
+        // Test Properties
+        auto& properties = Core::GetSystem<Systems::PropertyManager>();
+
+        // Using of properties
+        using Version = Systems::PropertyManager::Property<"Version"_hs, std::string>;
+        using Speed = Systems::PropertyManager::Property<"Speed"_hs, float>;
+        using Velocity = Systems::PropertyManager::Property<"Velocity"_hs, float>;
+
+        // Initialize and store the property inside config manager container
+        properties.Create<Version>("Alpha 0.1");
+        properties.Create<Speed>(100.f);
+        properties.Create<Velocity>(200.f);
+
+        // Check on exist
+        if(properties.Has<Version, Speed, Velocity>()) {
+            HF_MSG_DEBUG("Properties exist!");
+        }
+
+        // Check the availability of one of the properties
+        if(properties.Any<Version, Speed, Velocity>()) {
+            HF_MSG_DEBUG("Any of the property exist");
+        }
+
+        // deduction guide support
+        [[maybe_unused]] const auto& [version, speed, velocity] = properties.Get<Version, Speed, Velocity>();
+
+        // or get one of property
+        [[maybe_unused]] const auto& version_ = properties.Get<Version>();
+
+        //HF_MSG_DEBUG("Test Property, version: {}, speed: {:.2f}, velocity: {:.2f}", version, speed, velocity);
+
+        // remove property
+        properties.Remove<Version>();           // Remove one property
+        properties.Remove<Speed, Velocity>();   // Remove multiple property
     }
 };
 
@@ -210,8 +155,9 @@ int main(int argc, char** argv)
         }
         
         // test create
-        Core::RegisterSystem<Systems::ConfigManager>();
-        Core::RegisterSystem<Systems::EntityComponent>();
+        Core::RegisterSystem<Systems::ResourceManager>();   // Хранит объекты любых классов и поддерживает сигналы
+        Core::RegisterSystem<Systems::PropertyManager>();   // Хранит любые свойства и поддерживает сигнала
+        Core::RegisterSystem<Systems::EntityComponent>();   // Хранит entity, компоненты и поддерживает сигналы
         Core::RegisterSystem<TestSystem>();
 
         return true;

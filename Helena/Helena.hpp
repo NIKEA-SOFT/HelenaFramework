@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef COMMON_HELENA_HPP
-#define COMMON_HELENA_HPP
+#ifndef HELENA_HPP
+#define HELENA_HPP
 
 #define HELENA_VERSION_MAJOR 1
 #define HELENA_VERSION_MINOR 0
@@ -50,9 +50,10 @@
 #include <Helena/Log.hpp>
 #include <Helena/Assert.hpp>
 #include <Helena/Hash.hpp>
+#include <Helena/HashComparator.hpp>
 #include <Helena/Util.hpp>
 #include <Helena/Concurrency.hpp>
 #include <Helena/Core.hpp>
 
 
-#endif // COMMON_HELENA_HPP
+#endif // HELENA_HPP

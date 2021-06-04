@@ -2,28 +2,13 @@
 #define HELENA_UTIL_IPP
 
 #include <Helena/Util.hpp>
-#include <Helena/Log.hpp>
+#include <Helena/Internal.hpp>
 
-#include <chrono>
 #include <thread>
+#include <algorithm>
 
 namespace Helena::Util
 {
-    template <typename Container, typename Key, typename Ret, typename>
-    auto AddOrGetTypeIndex(Container& container, const Key typeIndex) -> decltype(auto)
-    {
-        if(const auto it = container.find(typeIndex); it != container.cend()) {
-            return static_cast<Ret>(it->second);
-        }
-
-        if(const auto [it, result] = container.emplace(typeIndex, container.size()); !result) {
-            HF_MSG_FATAL("Type index emplace failed!");
-            std::terminate();
-        }
-
-        return static_cast<Ret>(container.size()) - 1u;
-    }
-
     [[nodiscard]] inline constexpr const char* GetPrettyFile(const std::string_view file) noexcept {
         constexpr char symbols[]{'\\', '/'};
     #ifdef HF_STANDARD_CPP17
