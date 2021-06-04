@@ -1,16 +1,16 @@
-#ifndef COMMON_SPINLOCK_HPP
-#define COMMON_SPINLOCK_HPP
+#ifndef HELENA_CONCURRENCY_HPP
+#define HELENA_CONCURRENCY_HPP
 
-#include <thread>
+#include <atomic>
 
-namespace Helena::Util
+namespace Helena::Concurrency
 {
     class Spinlock final
     {
     public:
-        void lock() noexcept 
+        void lock() noexcept
         {
-            for (;;) 
+            for (;;)
             {
                 if (!m_Lock.exchange(true, std::memory_order_acquire)) {
                     return;
@@ -33,4 +33,4 @@ namespace Helena::Util
     };
 }
 
-#endif // COMMON_SPINLOCK_HPP
+#endif // HELENA_CONCURRENCY_HPP
