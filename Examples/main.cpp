@@ -83,7 +83,7 @@ struct TestSystem
 
         // Check the availability of one of the Resources
         if(resources.Any<Info, Book>()) {
-            HF_MSG_DEBUG("Any of the Resource exist");
+            HF_MSG_DEBUG("Any of the Resource exist ");
         }
 
         // deduction guide support
