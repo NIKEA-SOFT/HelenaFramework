@@ -131,11 +131,12 @@ namespace Helena
 
     inline auto Core::Heartbeat() -> void
     {
-        m_Context->m_Dispatcher.template trigger<Helena::Events::Initialize>();
-
         double timeElapsed {};
         double timeFPS {};
         std::uint32_t fps {};
+
+        EventSystems(SystemEvent::Create);
+        m_Context->m_Dispatcher.template trigger<Events::Initialize>();
 
         while(!m_Context->m_Shutdown)
         {
@@ -168,7 +169,7 @@ namespace Helena
 		}
 
         EventSystems(SystemEvent::Destroy);
-        m_Context->m_Dispatcher.template trigger<Helena::Events::Finalize>();
+        m_Context->m_Dispatcher.template trigger<Events::Finalize>();
     }
 
     /**

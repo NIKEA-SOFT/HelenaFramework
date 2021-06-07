@@ -67,7 +67,7 @@ namespace Helena
         /**
          * @brief Core context class
          */
-        class Context {
+        class Context final {
             friend class Core;
 
             template <typename, typename>
@@ -81,9 +81,9 @@ namespace Helena
             std::vector<std::string_view> m_Args {};
             entt::dispatcher m_Dispatcher {};
 
-            std::chrono::steady_clock::time_point m_TimeStart{};
-            std::chrono::steady_clock::time_point m_TimeNow{};
-            std::chrono::steady_clock::time_point m_TimePrev{};
+            std::chrono::steady_clock::time_point m_TimeStart {};
+            std::chrono::steady_clock::time_point m_TimeNow {};
+            std::chrono::steady_clock::time_point m_TimePrev {};
 
             double m_TimeDelta{};
             double m_TickRate{};

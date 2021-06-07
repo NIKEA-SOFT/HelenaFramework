@@ -83,7 +83,7 @@ struct TestSystem
 
         // Check the availability of one of the Resources
         if(resources.Any<Info, Book>()) {
-            HF_MSG_DEBUG("Any of the Resource exist ");
+            HF_MSG_DEBUG("Any of the Resource exist");
         }
 
         // deduction guide support
@@ -92,8 +92,8 @@ struct TestSystem
         // or get one of Resource
         [[maybe_unused]] const auto& info_ = resources.Get<Info>();
 
-        //HF_MSG_DEBUG("Test Resource, info name: {}, url: {}, version: {.2f}", info.name, info.url, info.version);
-        //HF_MSG_DEBUG("Test Resource, book name: {}, author: {}", book.name, book.author);
+        //HF_MSG_INFO("Test Resource, info name: {}, url: {}, version: {:.2f}", info.name, info.url, info.version);
+        //HF_MSG_INFO("Test Resource, book name: {}, author: {}", book.name, book.author);
 
         resources.Remove<Info, Book>();
 
@@ -126,7 +126,7 @@ struct TestSystem
         // or get one of property
         [[maybe_unused]] const auto& version_ = properties.Get<Version>();
 
-        //HF_MSG_DEBUG("Test Property, version: {}, speed: {:.2f}, velocity: {:.2f}", version, speed, velocity);
+        HF_MSG_INFO("Test Property, version: {}, speed: {:.2f}, velocity: {:.2f}", version, speed, velocity);
 
         // remove property
         properties.Remove<Version>();           // Remove one property
@@ -138,7 +138,8 @@ struct TestSystem
 int main(int argc, char** argv)
 {
     // Helena example
-    return Core::Initialize([&]() -> bool {
+    return Core::Initialize(
+        [argc, argv]() -> bool {
         // Push args in Core
         Core::SetArgs(argc, argv);
 
