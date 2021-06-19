@@ -52,7 +52,6 @@
 #include <Helena/Hash.hpp>
 #include <Helena/HashComparator.hpp>
 #include <Helena/Util.hpp>
-#include <Helena/Concurrency.hpp>
 #include <Helena/Core.hpp>
 
 

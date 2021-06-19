@@ -28,4 +28,6 @@ source_group("Lua" FILES ${LIB_LUA_HEADERS})
 
 if(WIN32)
     set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
+elseif(UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif()
