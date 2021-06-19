@@ -1,4 +1,5 @@
 ﻿#include <Helena/Helena.hpp>
+#include <Helena/Concurrency/SPSCQueue.hpp>
 
 // Systems
 #include <Helena/Systems/EntityComponent.hpp>
@@ -22,6 +23,52 @@ struct TestSystem
     // Current method called after OnSystemCreate (it's system event)
     void OnSystemExecute() {
         HF_MSG_DEBUG("OnSystemExecute");
+
+        struct User {
+            std::string m_TextA;
+            std::string m_TextB;
+            std::string m_TextC;
+        };
+
+
+        constexpr auto size = 1'000'000;
+        Concurrency::SPSCQueue<int, size> m_Queue;
+
+        std::uint32_t counter1 {size};
+        std::uint32_t counter2 {size};
+        HF_MSG_INFO("Thread 1 start push elements!");
+        std::thread th1([&m_Queue, &counter1](){
+            while(counter1) {
+                if(m_Queue.try_enqueue(counter1)) {
+                    HF_MSG_INFO("PUSH {}", counter1);
+                    --counter1;
+                }
+            }
+
+            HF_MSG_INFO("Thread 1 finish push elements!");
+        });
+
+        HF_MSG_INFO("Thread 2 start pop elements!");
+        std::thread th2([&m_Queue, &counter2](){
+            while(counter2) {
+                if(auto optional = m_Queue.try_dequeue(); optional.has_value()) {
+                    HF_MSG_INFO("POP {}", optional.value());
+                    --counter2;
+                }
+            }
+
+            HF_MSG_INFO("Thread 2 finish pop elements!");
+        });
+
+        if(th1.joinable()) {
+            th1.join();
+        }
+
+        if(th2.joinable()) {
+            th2.join();
+        }
+
+        HF_MSG_WARN("Size of queue: {}", m_Queue.size());
 
         TestConfigManager();
     }
