@@ -85,8 +85,8 @@ namespace Helena
             std::chrono::steady_clock::time_point m_TimeNow {};
             std::chrono::steady_clock::time_point m_TimePrev {};
 
-            double m_TimeDelta{};
-            double m_TickRate{};
+            double m_TimeDelta {};
+            double m_TickRate {};
 
             std::atomic_bool m_Shutdown {};
         };

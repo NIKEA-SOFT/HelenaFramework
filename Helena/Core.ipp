@@ -168,8 +168,8 @@ namespace Helena
             }
 		}
 
-        EventSystems(SystemEvent::Destroy);
         m_Context->m_Dispatcher.template trigger<Events::Finalize>();
+        EventSystems(SystemEvent::Destroy);
     }
 
     /**
