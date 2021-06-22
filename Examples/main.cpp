@@ -1,5 +1,6 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Helena/Concurrency/SPSCQueue.hpp>
+#include <Dependencies/moodycamel/readerwriterqueue.h>
 
 // Systems
 #include <Helena/Systems/EntityComponent.hpp>
@@ -32,43 +33,90 @@ struct TestSystem
 
 
         constexpr auto size = 1'000'000;
-        Concurrency::SPSCQueue<int, size> m_Queue;
 
-        std::uint32_t counter1 {size};
-        std::uint32_t counter2 {size};
-        HF_MSG_INFO("Thread 1 start push elements!");
-        std::thread th1([&m_Queue, &counter1](){
-            while(counter1) {
-                if(m_Queue.try_enqueue(counter1)) {
-                    HF_MSG_INFO("PUSH {}", counter1);
-                    --counter1;
+
+        HF_MSG_WARN("Benchmark size: {}, type: struct User: str,str,str", size);
+        HF_MSG_WARN("Moodycamel test");
+
+        {
+            moodycamel::ReaderWriterQueue<User> m_QueueMoody(size);
+            std::uint32_t counter1 {size};
+            std::uint32_t counter2 {size};
+
+            HF_MSG_INFO("Thread 1 start push elements");
+
+            std::thread th1([&m_QueueMoody, &counter1](){
+                auto start = Core::GetTimeElapsed();
+                while(counter1) {
+                    if(m_QueueMoody.try_enqueue(User{"hello world", "hello world", "hello world"})) {
+                        --counter1;
+                    }
                 }
+
+                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  Core::GetTimeElapsed() - start);
+            });
+
+            if(th1.joinable()) {
+                th1.join();
             }
 
-            HF_MSG_INFO("Thread 1 finish push elements!");
-        });
-
-        HF_MSG_INFO("Thread 2 start pop elements!");
-        std::thread th2([&m_Queue, &counter2](){
-            while(counter2) {
-                if(auto optional = m_Queue.try_dequeue(); optional.has_value()) {
-                    HF_MSG_INFO("POP {}", optional.value());
-                    --counter2;
+            HF_MSG_INFO("Thread 2 start pop elements!");
+            std::thread th2([&m_QueueMoody, &counter2](){
+                auto start = Core::GetTimeElapsed();
+                User wtf {};
+                while(counter2) {
+                    if(m_QueueMoody.try_dequeue(wtf)) {
+                        --counter2;
+                    }
                 }
+
+                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  Core::GetTimeElapsed() - start);
+            });
+
+            if(th2.joinable()) {
+                th2.join();
+            }
+        }
+
+        HF_MSG_WARN("Helena SPSCQueue test");
+        {
+            Concurrency::SPSCQueue<User, size> m_Queue;
+            std::uint32_t counter1 {size};
+            std::uint32_t counter2 {size};
+
+            HF_MSG_INFO("Thread 1 start push elements");
+
+            std::thread th1([&m_Queue, &counter1](){
+                auto start = Core::GetTimeElapsed();
+                while(counter1) {
+                    if(m_Queue.try_enqueue("hello world", "hello world", "hello world")) {
+                        --counter1;
+                    }
+                }
+
+                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  Core::GetTimeElapsed() - start);
+            });
+
+            if(th1.joinable()) {
+                th1.join();
             }
 
-            HF_MSG_INFO("Thread 2 finish pop elements!");
-        });
+            HF_MSG_INFO("Thread 2 start pop elements!");
+            std::thread th2([&m_Queue, &counter2](){
+                auto start = Core::GetTimeElapsed();
+                while(counter2) {
+                    if(auto optional = m_Queue.try_dequeue(); optional.has_value()) {
+                        --counter2;
+                    }
+                }
 
-        if(th1.joinable()) {
-            th1.join();
+                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  Core::GetTimeElapsed() - start);
+            });
+
+            if(th2.joinable()) {
+                th2.join();
+            }
         }
-
-        if(th2.joinable()) {
-            th2.join();
-        }
-
-        HF_MSG_WARN("Size of queue: {}", m_Queue.size());
 
         TestConfigManager();
     }
