@@ -32,9 +32,80 @@ struct TestSystem
         };
 
 
-        constexpr auto size = 1'000'000;
+        constexpr auto size = 20'000'000;
+        {
+            std::uint32_t counter1 {size};
+            std::uint32_t counter2 {size};
 
+            Concurrency::SPSCQueue<User> m_Queue(size);
 
+            HF_MSG_WARN("Helena queue start");
+            auto start = Core::GetTimeElapsed();
+            std::thread th1([&m_Queue, &counter1](){
+                while(counter1) {
+                    if(m_Queue.try_enqueue("hello world", "hello world", "hello world")) {
+                        --counter1;
+                    }
+                }
+            });
+
+            std::thread th2([&m_Queue, &counter2](){
+                User wtf{};
+                while(counter2) {
+                    if(m_Queue.try_dequeue(wtf)) {
+                        --counter2;
+                    }
+                }
+            });
+
+            if(th1.joinable()) {
+                th1.join();
+            }
+
+            if(th2.joinable()) {
+                th2.join();
+            }
+
+            HF_MSG_WARN("Helena queue finish, timeleft: {}", Core::GetTimeElapsed() - start);
+        }
+
+        {
+            std::uint32_t counter1 {size};
+            std::uint32_t counter2 {size};
+
+            moodycamel::ReaderWriterQueue<User> m_Queue(size);
+
+            HF_MSG_WARN("Moodycamel queue start");
+            auto start = Core::GetTimeElapsed();
+            std::thread th1([&m_Queue, &counter1](){
+                while(counter1) {
+                    if(m_Queue.try_enqueue(User{"hello world", "hello world", "hello world"})) {
+                        --counter1;
+                    }
+                }
+            });
+
+            std::thread th2([&m_Queue, &counter2](){
+                User wtf {};
+                while(counter2) {
+                    if(m_Queue.try_dequeue(wtf)) {
+                        --counter2;
+                    }
+                }
+            });
+
+            if(th1.joinable()) {
+                th1.join();
+            }
+
+            if(th2.joinable()) {
+                th2.join();
+            }
+
+            HF_MSG_WARN("Moodycamel queue finish, timeleft: {}", Core::GetTimeElapsed() - start);
+        }
+
+        /*
         HF_MSG_WARN("Benchmark size: {}, type: struct User: str,str,str", size);
         HF_MSG_WARN("Moodycamel test");
 
@@ -116,7 +187,7 @@ struct TestSystem
             if(th2.joinable()) {
                 th2.join();
             }
-        }
+        }*/
 
         TestConfigManager();
     }

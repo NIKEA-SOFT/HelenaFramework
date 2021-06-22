@@ -6,15 +6,13 @@
 
 #include <atomic>
 #include <memory>
-#include <optional>
 #include <cstdint>
-#include <algorithm>
 
 namespace Helena::Concurrency {
 
-    template <typename T, std::uint32_t Size>
+    template <typename T>
     class SPSCQueue final {
-        using storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+        using storage = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
 
     public:
         using value_type        = T;
@@ -25,34 +23,12 @@ namespace Helena::Concurrency {
         using size_type         = std::uint32_t;
 
     private:
-        constexpr static size_type _capacity = Internal::round_up_to_power_of_2(Size);
-//        constexpr static size_type shuffle_bits = []() {
-//            constexpr auto elementsPerCacheLine = Internal::cache_line / sizeof(T);
-//            constexpr auto bitsIndex = Internal::log2(elementsPerCacheLine);
-//            constexpr auto minSize = 1u << (bitsIndex * 2);
-//            return elements_size < minSize ? 0u : bitsIndex;
-//        }();
-
-//        constexpr static size_type GetMixedIndex(const size_type index) {
-//            if constexpr (shuffle_bits) {
-//                const size_type mix = (index ^ (index >> shuffle_bits)) & ((1u << shuffle_bits) - 1);
-//                return index ^ mix ^ (mix << shuffle_bits);
-//            } else {
-//                return index;
-//            }
-//        }
-
-        struct alignas(Internal::cache_line) Node {
-            storage m_Data {};
-        };
-
-    private:
         template <typename... Args>
         void emplace(size_type index, Args&&... args);
-        auto extract(size_type index) -> std::optional<T>;
+        auto extract(size_type index) -> value_type&&;
 
     public:
-        SPSCQueue();
+        SPSCQueue(const size_type size = 1024);
         ~SPSCQueue();
         SPSCQueue(const SPSCQueue&) = delete;
         SPSCQueue& operator=(const SPSCQueue&) = delete;
@@ -65,9 +41,9 @@ namespace Helena::Concurrency {
         template <typename... Args>
         [[nodiscard]] bool try_enqueue(Args&&... args);
 
-        [[nodiscard]] auto dequeue() -> std::optional<T>;
+        [[nodiscard]] auto dequeue(reference value) -> bool;
 
-        [[nodiscard]] auto try_dequeue() -> std::optional<T>;
+        [[nodiscard]] auto try_dequeue(reference value) -> bool;
 
         [[nodiscard]] bool empty() const noexcept;
 
@@ -76,9 +52,10 @@ namespace Helena::Concurrency {
         [[nodiscard]] auto capacity() const noexcept -> size_type;
 
     private:
-        std::unique_ptr<Node[]> m_Elements;
+        std::unique_ptr<storage[]> m_Elements;
         std::atomic<size_type> m_Head;
         std::atomic<size_type> m_Tail;
+        const size_type m_Capacity;
         std::atomic<bool> m_Shutdown;
     };
 }
