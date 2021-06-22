@@ -8,11 +8,12 @@
 #include <memory>
 #include <optional>
 #include <cstdint>
+#include <algorithm>
 
 namespace Helena::Concurrency {
 
     template <typename T, std::uint32_t Size>
-    class SPSCQueue HF_FINAL {
+    class SPSCQueue final {
         using storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 
     public:
@@ -24,7 +25,7 @@ namespace Helena::Concurrency {
         using size_type         = std::uint32_t;
 
     private:
-        constexpr static size_type elements_size = Internal::round_up_to_power_of_2(Size);
+        constexpr static size_type _capacity = Internal::round_up_to_power_of_2(Size);
 //        constexpr static size_type shuffle_bits = []() {
 //            constexpr auto elementsPerCacheLine = Internal::cache_line / sizeof(T);
 //            constexpr auto bitsIndex = Internal::log2(elementsPerCacheLine);
@@ -42,36 +43,37 @@ namespace Helena::Concurrency {
 //        }
 
         struct alignas(Internal::cache_line) Node {
-            storage m_Data;
+            storage m_Data {};
         };
 
     private:
         template <typename... Args>
-        void emplace(size_type index, Args&&... args) HF_NOEXCEPT;
+        void emplace(size_type index, Args&&... args);
+        auto extract(size_type index) -> std::optional<T>;
 
     public:
         SPSCQueue();
         ~SPSCQueue();
         SPSCQueue(const SPSCQueue&) = delete;
         SPSCQueue& operator=(const SPSCQueue&) = delete;
-        SPSCQueue(SPSCQueue&&) HF_NOEXCEPT = delete;
-        SPSCQueue& operator=(SPSCQueue&&) HF_NOEXCEPT = delete;
+        SPSCQueue(SPSCQueue&&) noexcept = delete;
+        SPSCQueue& operator=(SPSCQueue&&) noexcept = delete;
 
         template <typename... Args>
-        HF_NODISCARD bool enqueue(Args&&... args) HF_NOEXCEPT(std::is_nothrow_constructible_v<T, Args...>);
+        [[nodiscard]] bool enqueue(Args&&... args);
 
         template <typename... Args>
-        HF_NODISCARD bool try_enqueue(Args&&... args) HF_NOEXCEPT(std::is_nothrow_constructible_v<T, Args...>);
+        [[nodiscard]] bool try_enqueue(Args&&... args);
 
-        HF_NODISCARD auto dequeue() HF_NOEXCEPT(std::is_nothrow_destructible_v<T>) -> std::optional<T>;
+        [[nodiscard]] auto dequeue() -> std::optional<T>;
 
-        HF_NODISCARD auto try_dequeue() HF_NOEXCEPT(std::is_nothrow_destructible_v<T>) -> std::optional<T>;
+        [[nodiscard]] auto try_dequeue() -> std::optional<T>;
 
-        HF_NODISCARD bool empty() const HF_NOEXCEPT;
+        [[nodiscard]] bool empty() const noexcept;
 
-        HF_NODISCARD auto size() const HF_NOEXCEPT -> size_type;
+        [[nodiscard]] auto size() const noexcept -> size_type;
 
-        HF_NODISCARD auto capacity() const HF_NOEXCEPT -> size_type;
+        [[nodiscard]] auto capacity() const noexcept -> size_type;
 
     private:
         std::unique_ptr<Node[]> m_Elements;

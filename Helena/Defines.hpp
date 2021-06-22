@@ -83,25 +83,25 @@
     #define HF_NO_UNIQUE_ADDRESS
 #endif
 
-#if defined(HF_STANDARD_CPP11_OR_GREATER)
-    #define HF_NOEXCEPT             noexcept
-    #define HF_CONSTEXPR            constexpr
-    #define HF_FINAL                final
-#else
-    #define HF_NOEXCEPT             throw()
-    #define HF_CONSTEXPR 
-    #define HF_FINAL 
-#endif
+//#if defined(HF_STANDARD_CPP11_OR_GREATER)
+//    #define HF_NOEXCEPT             noexcept
+//    #define HF_CONSTEXPR            constexpr
+//    #define HF_FINAL                final
+//#else
+//    #define HF_NOEXCEPT             throw()
+//    #define HF_CONSTEXPR
+//    #define HF_FINAL
+//#endif
 
-#if defined(HF_STANDARD_CPP17_OR_GREATER)
-    #define HF_NODISCARD            [[nodiscard]]
-#else
-    #define HF_NODISCARD
-#endif
+//#if defined(HF_STANDARD_CPP17_OR_GREATER)
+//    #define HF_NODISCARD            [[nodiscard]]
+//#else
+//    #define HF_NODISCARD
+//#endif
 
-#if defined(HF_STANDARD_CPP20)
-    #define HF_NODISCARD_MSG(msg)       [[nodiscard(msg)]]
-#endif
+//#if defined(HF_STANDARD_CPP20)
+//    #define HF_NODISCARD_MSG(msg)   [[nodiscard(msg)]]
+//#endif
 
 
 #define HF_NEW                      new (std::nothrow)

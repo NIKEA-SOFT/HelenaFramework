@@ -14,7 +14,7 @@ namespace Helena::Concurrency {
 
     // TODO
     template <typename T, std::uint32_t Size>
-    class MPMCQueue HF_FINAL {
+    class MPMCQueue final {
 
         using storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 

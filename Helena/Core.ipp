@@ -52,7 +52,7 @@ namespace Helena
 #endif
 
     template <typename Type>
-    [[nodiscard]] auto Core::SystemIndex<Type>::GetIndex(map_indexes_t& container) -> std::size_t {
+    [[nodiscard]] inline auto Core::SystemIndex<Type>::GetIndex(map_indexes_t& container) -> std::size_t {
         static const auto value = Internal::AddOrGetTypeIndex(container, Hash::Type<Type>);
         return value;
     }
@@ -101,7 +101,7 @@ namespace Helena
     }
 
     template <typename Func>
-    [[nodiscard]] auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) -> bool
+    [[nodiscard]] inline auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) noexcept -> bool
     {
         static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         HF_ASSERT(!m_Context, "Core is already initialized!");
@@ -127,6 +127,11 @@ namespace Helena
         }
 
         return true;
+    }
+
+    inline auto Core::Shutdown() noexcept -> void {
+        HF_ASSERT(m_Context, "Core is not initialized");
+        m_Context->m_Shutdown = true;
     }
 
     inline auto Core::Heartbeat() -> void
@@ -202,11 +207,6 @@ namespace Helena
         }
     }
 
-    inline auto Core::Shutdown() noexcept -> void {
-        HF_ASSERT(m_Context, "Core is not initialized");
-        m_Context->m_Shutdown = true;
-    }
-
     inline auto Core::SetArgs(const std::size_t argc, const char* const* argv) -> void
     {
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -219,9 +219,9 @@ namespace Helena
         }
     }
 
-    inline auto Core::SetTickrate(double tickrate) -> void {
+    inline auto Core::SetTickrate(double tickrate) noexcept -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
-        m_Context->m_TickRate = 1.0 / tickrate;
+        m_Context->m_TickRate = 1.0 / std::max(1.0, tickrate);
     }
 
     [[nodiscard]] inline auto Core::GetArgs() noexcept -> decltype(auto) {
@@ -250,7 +250,7 @@ namespace Helena
     }
 
     template <typename Type, typename... Args>
-    auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> void {
+    inline auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> void {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -258,8 +258,8 @@ namespace Helena
         auto& systems = m_Context->m_Systems;
         auto& events = m_Context->m_SystemsEvent;
         auto& scheduler = m_Context->m_EventScheduler;
-        const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 
+        const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
         if(index >= systems.size()) {
             systems.resize(index + 1);
         }
@@ -297,7 +297,7 @@ namespace Helena
     }
 
     template <typename Type>
-    [[nodiscard]] auto Core::HasSystem() noexcept -> bool {
+    [[nodiscard]] inline auto Core::HasSystem() noexcept -> bool {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -307,7 +307,7 @@ namespace Helena
     }
 
     template <typename Type>
-    [[nodiscard]] auto Core::GetSystem() noexcept -> Type& {
+    [[nodiscard]] inline auto Core::GetSystem() noexcept -> Type& {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -320,7 +320,7 @@ namespace Helena
     }
 
     template <typename Type>
-    auto Core::RemoveSystem() noexcept -> void
+    inline auto Core::RemoveSystem() noexcept -> void
     {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
@@ -350,31 +350,31 @@ namespace Helena
     }
 
     template <typename Event, auto Method>
-    auto Core::RegisterEvent() -> void {
+    inline auto Core::RegisterEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
     }
 
     template <typename Event, auto Method, typename Type>
-    auto Core::RegisterEvent(Type&& instance) -> void {
+    inline auto Core::RegisterEvent(Type&& instance) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template connect<Method>(instance);
     }
 
     template <typename Event, typename... Args>
-    auto Core::TriggerEvent([[maybe_unused]] Args&&... args) -> void {
+    inline auto Core::TriggerEvent([[maybe_unused]] Args&&... args) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
     }
 
     template <typename Event, typename... Args>
-    auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
+    inline auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
     }
 
     template <typename Event>
-    auto Core::UpdateEvent() -> void {
+    inline auto Core::UpdateEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template update<Event>();
     }
@@ -385,13 +385,13 @@ namespace Helena
     }
 
     template <typename Event, auto Method>
-    auto Core::RemoveEvent() -> void {
+    inline auto Core::RemoveEvent() -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
     }
 
     template <typename Event, auto Method, typename Type>
-    auto Core::RemoveEvent(Type&& instance) -> void {
+    inline auto Core::RemoveEvent(Type&& instance) -> void {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
     }

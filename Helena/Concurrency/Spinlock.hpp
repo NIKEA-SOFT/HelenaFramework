@@ -1,6 +1,8 @@
 #ifndef HELENA_CONCURRENCY_SPINLOCK_HPP
 #define HELENA_CONCURRENCY_SPINLOCK_HPP
 
+#include <Helena/Defines.hpp>
+
 #include <atomic>
 
 namespace Helena::Concurrency
@@ -8,37 +10,22 @@ namespace Helena::Concurrency
     class Spinlock final
     {
     public:
-        Spinlock() : m_Lock{} {}
+        Spinlock();
         ~Spinlock() = default;
         Spinlock(const Spinlock&) = delete;
         Spinlock(Spinlock&&) noexcept = delete;
         Spinlock& operator=(const Spinlock&) = delete;
         Spinlock& operator=(Spinlock&&) noexcept = delete;
 
-        void lock() noexcept
-        {
-            for (;;)
-            {
-                if (!m_Lock.exchange(true, std::memory_order_acquire)) {
-                    return;
-                }
-
-                // todo: add sleep if long time spined
-                while (m_Lock.load(std::memory_order_relaxed)) {}
-            }
-        }
-
-        bool try_lock() noexcept {
-            return !m_Lock.load(std::memory_order_relaxed) && !m_Lock.exchange(true, std::memory_order_acquire);
-        }
-
-        void unlock() noexcept {
-            m_Lock.store(false, std::memory_order_release);
-        }
+        void lock() noexcept;
+        [[nodiscard]] bool try_lock() noexcept;
+        void unlock() noexcept;
 
     private:
         std::atomic<bool> m_Lock {};
     };
 }
+
+#include <Helena/Concurrency/Spinlock.hpp>
 
 #endif // HELENA_CONCURRENCY_SPINLOCK_HPP

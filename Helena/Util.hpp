@@ -12,7 +12,7 @@ namespace Helena::Util
     inline void Sleep(const uint64_t milliseconds);
 
     template <typename Rep, typename Period>
-    void Sleep(const std::chrono::duration<Rep, Period>& time);
+    inline void Sleep(const std::chrono::duration<Rep, Period>& time);
 
 }
 

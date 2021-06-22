@@ -24,7 +24,7 @@ namespace Helena::Util
     }
 
     template <typename Rep, typename Period>
-    void Sleep(const std::chrono::duration<Rep, Period>& time) {
+    inline void Sleep(const std::chrono::duration<Rep, Period>& time) {
         std::this_thread::sleep_for(time);
     }
 }

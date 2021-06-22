@@ -2,105 +2,105 @@
 #define HELENA_CONCURRENCY_SPSCQUEUE_IPP
 
 #include <Helena/Concurrency/SPSCQueue.hpp>
+#include <Helena/Log.hpp>
 
 namespace Helena::Concurrency {
 
     template <typename T, std::uint32_t Size>
-    SPSCQueue<T, Size>::SPSCQueue()
-    : m_Elements {std::make_unique<Node[]>(elements_size)},
+    inline SPSCQueue<T, Size>::SPSCQueue()
+    : m_Elements {std::make_unique<Node[]>(_capacity)},
       m_Head {},
       m_Tail {},
       m_Shutdown {false} {}
 
     template <typename T, std::uint32_t Size>
-    SPSCQueue<T, Size>::~SPSCQueue() {
+    inline SPSCQueue<T, Size>::~SPSCQueue() {
         m_Shutdown.store(true);
         while(try_dequeue().has_value()) {};
     }
 
     template <typename T, std::uint32_t Size>
     template <typename... Args>
-    void SPSCQueue<T, Size>::emplace(size_type index, Args&&... args) HF_NOEXCEPT {
-        static_assert(sizeof...(Args) > 0, "Args... pack is empty");
-        static_assert(std::is_constructible<T, Args...>::value, "T must be constructible with Args&&...");
-
-        auto& node = m_Elements[index % elements_size];
+    inline void SPSCQueue<T, Size>::emplace(size_type index, Args&&... args) {
         if constexpr(std::is_aggregate_v<T>) {
-            new (&node.m_Data) T{std::forward<Args>(args)...};
+            new (&m_Elements[index].m_Data) T{std::forward<Args>(args)...};
         } else {
-            new (&node.m_Data) T(std::forward<Args>(args)...);
+            new (&m_Elements[index].m_Data) T(std::forward<Args>(args)...);
         }
     }
 
     template <typename T, std::uint32_t Size>
+    inline auto SPSCQueue<T, Size>::extract(size_type index) -> std::optional<T> {
+        return std::make_optional<T>(std::move(*std::launder(reinterpret_cast<const T*>(&m_Elements[index].m_Data))));
+    }
+
+    template <typename T, std::uint32_t Size>
     template <typename... Args>
-    HF_NODISCARD bool SPSCQueue<T, Size>::enqueue(Args&&... args) HF_NOEXCEPT(std::is_nothrow_constructible_v<T, Args...>) {
+    [[nodiscard]] inline bool SPSCQueue<T, Size>::enqueue(Args&&... args) {
         const auto head = m_Head.load(std::memory_order_relaxed);
-        while(head - m_Tail.load(std::memory_order_acquire) >= elements_size) {
+        while(head - m_Tail.load(std::memory_order_acquire) >= _capacity) {
             if(m_Shutdown.load(std::memory_order_acquire)) {
                 return false;
             }
         }
 
-        emplace(head % elements_size, std::forward<Args>(args)...);
+        emplace(head % _capacity, std::forward<Args>(args)...);
         m_Head.store(head + 1, std::memory_order_release);
         return true;
     }
 
     template <typename T, std::uint32_t Size>
     template <typename... Args>
-    HF_NODISCARD bool SPSCQueue<T, Size>::try_enqueue(Args&&... args) HF_NOEXCEPT(std::is_nothrow_constructible_v<T, Args...>) {
+    [[nodiscard]] inline bool SPSCQueue<T, Size>::try_enqueue(Args&&... args) {
         const auto head = m_Head.load(std::memory_order_relaxed);
-        if(head - m_Tail.load(std::memory_order_acquire) >= elements_size) {
+        if(head - m_Tail.load(std::memory_order_acquire) >= _capacity) {
             return false;
         }
 
-        emplace(head % elements_size, std::forward<Args>(args)...);
+        emplace(head % _capacity, std::forward<Args>(args)...);
         m_Head.store(head + 1, std::memory_order_release);
         return true;
     }
 
     template <typename T, std::uint32_t Size>
-    HF_NODISCARD auto SPSCQueue<T, Size>::dequeue() HF_NOEXCEPT(std::is_nothrow_destructible_v<T>) -> std::optional<T> {
+    [[nodiscard]] inline auto SPSCQueue<T, Size>::dequeue() -> std::optional<T> {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
-        while(m_Head.load(std::memory_order_acquire) - tail >= elements_size) {
+        while(m_Head.load(std::memory_order_acquire) - tail >= _capacity) {
             if(m_Shutdown.load(std::memory_order_acquire)) {
                 return std::nullopt;
             }
         }
 
-        auto& node = m_Elements[tail % elements_size];
-        auto object = std::move(*std::launder(reinterpret_cast<pointer>(&(node.m_Data))));
-        m_Tail.store(tail + 1, std::memory_order_release);
-        return object;
-    }
-
-    template <typename T, std::uint32_t Size>
-    HF_NODISCARD auto SPSCQueue<T, Size>::try_dequeue() HF_NOEXCEPT(std::is_nothrow_destructible_v<T>) -> std::optional<T> {
-        const auto tail = m_Tail.load(std::memory_order_relaxed);
-        if(m_Head.load(std::memory_order_acquire) - tail == 0u) {
-            return std::nullopt;
-        }
-
-        auto& node = m_Elements[tail % elements_size];
-        auto optional = std::make_optional<T>(std::move(*std::launder(reinterpret_cast<pointer>(&(node.m_Data)))));
+        auto optional = extract(tail % _capacity);
         m_Tail.store(tail + 1, std::memory_order_release);
         return optional;
     }
 
     template <typename T, std::uint32_t Size>
-    HF_NODISCARD bool SPSCQueue<T, Size>::empty() const HF_NOEXCEPT {
+    [[nodiscard]] inline auto SPSCQueue<T, Size>::try_dequeue() -> std::optional<T> {
+        const auto tail = m_Tail.load(std::memory_order_relaxed);
+        if(m_Head.load(std::memory_order_acquire) - tail == 0u) {
+            return std::nullopt;
+        }
+
+        auto optional = extract(tail % _capacity);
+        m_Tail.store(tail + 1, std::memory_order_release);
+        return optional;
+    }
+
+    template <typename T, std::uint32_t Size>
+    [[nodiscard]] inline bool SPSCQueue<T, Size>::empty() const noexcept {
         return !size();
     }
 
     template <typename T, std::uint32_t Size>
-    HF_NODISCARD auto SPSCQueue<T, Size>::size() const HF_NOEXCEPT -> typename SPSCQueue<T, Size>::size_type {
+    [[nodiscard]] inline auto SPSCQueue<T, Size>::size() const noexcept -> typename SPSCQueue<T, Size>::size_type {
         return m_Head.load(std::memory_order_acquire) - m_Tail.load(std::memory_order_acquire);
     }
 
     template <typename T, std::uint32_t Size>
-    HF_NODISCARD auto SPSCQueue<T, Size>::capacity() const HF_NOEXCEPT -> typename SPSCQueue<T, Size>::size_type {
-        return elements_size;
+    [[nodiscard]] inline auto SPSCQueue<T, Size>::capacity() const noexcept -> typename SPSCQueue<T, Size>::size_type {
+        return _capacity;
     }
 }
 

@@ -144,7 +144,7 @@ namespace Helena
          * @return True if success otherwise false.
          */
         template <typename Func>
-        [[nodiscard]] static auto Initialize(Func&& callback, const std::shared_ptr<Context>& ctx = {}) -> bool;
+        [[nodiscard]] static auto Initialize(Func&& callback, const std::shared_ptr<Context>& ctx = {}) noexcept -> bool;
 
         /**
         * @brief Shutdown framework.
@@ -163,7 +163,7 @@ namespace Helena
          * @note Default value of tickrate 30.0 fps.
          * @param tickrate Value of tickrate for fixed step of tick event.
          */
-        static auto SetTickrate(const double tickrate) -> void;
+        static auto SetTickrate(const double tickrate) noexcept -> void;
 
         /**
          * @brief Returns a vector of args.
@@ -215,7 +215,7 @@ namespace Helena
          * @return True if exist otherwise false.
          */
         template <typename Type>
-        [[nodiscard]] static auto HasSystem() noexcept -> bool;
+        [[nodiscard]] static auto HasSystem() noexcept  -> bool;
 
         /**
          * @brief Returns a reference to the given system.
@@ -226,14 +226,14 @@ namespace Helena
          * @return Reference to the system.
          */
         template <typename Type>
-        [[nodiscard]] static auto GetSystem() noexcept -> Type&;
+        [[nodiscard]] static auto GetSystem() noexcept  -> Type&;
 
         /**
          * @brief Remove the given system instance..
          * @tparam Type Type of sytem.
          */
         template <typename Type>
-        static auto RemoveSystem() noexcept -> void;
+        static auto RemoveSystem() noexcept  -> void;
 
         /**
          * @brief Subscribe to an event.
