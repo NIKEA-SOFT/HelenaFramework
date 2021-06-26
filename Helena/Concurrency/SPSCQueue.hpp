@@ -25,8 +25,8 @@ namespace Helena::Concurrency {
 
     private:
         template <typename... Args>
-        void emplace(size_type index, Args&&... args);
-        auto extract(size_type index) -> decltype(auto);
+        void emplace(const size_type index, [[maybe_unused]] Args&&... args);
+        auto extract(const size_type index) -> decltype(auto);
 
     public:
         SPSCQueue(const size_type size = 1024);
@@ -37,7 +37,7 @@ namespace Helena::Concurrency {
         SPSCQueue& operator=(SPSCQueue&&) noexcept = delete;
 
         template <typename... Args>
-        [[nodiscard]] bool push(Args&&... args);
+        [[nodiscard]] bool push([[maybe_unused]] Args&&... args);
 
         [[nodiscard]] auto front() const -> decltype(auto);
 

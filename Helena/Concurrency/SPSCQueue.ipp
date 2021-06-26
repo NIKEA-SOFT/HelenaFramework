@@ -23,7 +23,7 @@ namespace Helena::Concurrency {
 
     template <typename T>
     template <typename... Args>
-    inline void SPSCQueue<T>::emplace(size_type index, Args&&... args) {
+    inline void SPSCQueue<T>::emplace(const size_type index, [[maybe_unused]] Args&&... args) {
         if constexpr (std::is_integral_v<T>) {
             m_Elements[index] = T(std::forward<Args>(args)...);
         } else {
@@ -36,7 +36,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::extract(size_type index) -> decltype(auto) {
+    [[nodiscard]] inline auto SPSCQueue<T>::extract(const size_type index) -> decltype(auto) {
         if constexpr (std::is_integral_v<T>) {
             return m_Elements[index];
         } else {
@@ -46,7 +46,7 @@ namespace Helena::Concurrency {
 
     template <typename T>
     template <typename... Args>
-    [[nodiscard]] inline bool SPSCQueue<T>::push(Args&&... args) {
+    [[nodiscard]] inline bool SPSCQueue<T>::push([[maybe_unused]] Args&&... args) {
         const auto head = m_Head.load(std::memory_order_relaxed);
         if(head - m_Tail.load(std::memory_order_acquire) >= m_Capacity) {
             return false;
