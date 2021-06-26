@@ -26,168 +26,112 @@ struct TestSystem
         HF_MSG_DEBUG("OnSystemExecute");
 
         struct User {
+            User(std::string textA, std::string textB, std::string textC) : m_TextA{std::move(textA)}, m_TextB{std::move(textB)}, m_TextC{std::move(textC)} {
+                //HF_MSG_WARN("ctor");
+            }
+            ~User() {
+                //HF_MSG_WARN("dtor");
+            }
+
+            User(const User& user) {
+                //HF_MSG_WARN("ctor copy");
+                m_TextA = user.m_TextA;
+                m_TextB = user.m_TextB;
+                m_TextC = user.m_TextC;
+            }
+
+            User(User&& user) noexcept {
+                //HF_MSG_WARN("ctor move");
+                std::swap(m_TextA, user.m_TextA);
+                std::swap(m_TextB, user.m_TextB);
+                std::swap(m_TextC, user.m_TextC);
+            }
+
+            User& operator=(const User& user) {
+                //HF_MSG_WARN("operator copy");
+                m_TextA = user.m_TextA;
+                m_TextB = user.m_TextB;
+                m_TextC = user.m_TextC;
+                return *this;
+            }
+
+            User& operator=(User&& user) {
+                //HF_MSG_WARN("operator move");
+                std::swap(m_TextA, user.m_TextA);
+                std::swap(m_TextB, user.m_TextB);
+                std::swap(m_TextC, user.m_TextC);
+                return *this;
+            }
+
             std::string m_TextA;
             std::string m_TextB;
             std::string m_TextC;
         };
 
 
-        constexpr auto size = 20'000'000;
+
+        {
+//            Concurrency::SPSCQueue<User> m_Queue(1);
+//            if(m_Queue.push("hello", "hello", "hello")) {
+//                HF_MSG_WARN("Push success");
+//            } else {
+//                HF_MSG_WARN("Push fail");
+//            }
+
+//            if(m_Queue.size()) {
+//                auto& user = m_Queue.front();
+//                HF_MSG_WARN("{}, {}, {}", user.m_TextA, user.m_TextB, user.m_TextC);
+//                m_Queue.pop();
+//            }
+        }
+
+//        while(true) {
+//            Util::Sleep(100);
+//        }
+
+
+        constexpr auto size = 50'000'000;
         {
             std::uint32_t counter1 {size};
             std::uint32_t counter2 {size};
 
             Concurrency::SPSCQueue<User> m_Queue(size);
 
+            for(auto i = size; i != 0; --i) {}
+
             HF_MSG_WARN("Helena queue start");
-            auto start = Core::GetTimeElapsed();
             std::thread th1([&m_Queue, &counter1](){
+                double timeleft {};
                 while(counter1) {
-                    if(m_Queue.try_enqueue("hello world", "hello world", "hello world")) {
+                    if(auto start = Core::GetTimeElapsed(); m_Queue.push("hello world", "hello world", "hello world")) {
                         --counter1;
+                        timeleft += Core::GetTimeElapsed() - start;
                     }
                 }
+                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  timeleft / size);
             });
+
+            if(th1.joinable()) {
+                th1.join();
+            }
 
             std::thread th2([&m_Queue, &counter2](){
-                User wtf{};
+                double timeleft {};
                 while(counter2) {
-                    if(m_Queue.try_dequeue(wtf)) {
+                    if(auto start = Core::GetTimeElapsed(); m_Queue.size()) {
+                        auto& wtf = m_Queue.front();
+                        m_Queue.pop();
                         --counter2;
+                        timeleft += Core::GetTimeElapsed() - start;
                     }
                 }
-            });
-
-            if(th1.joinable()) {
-                th1.join();
-            }
-
-            if(th2.joinable()) {
-                th2.join();
-            }
-
-            HF_MSG_WARN("Helena queue finish, timeleft: {}", Core::GetTimeElapsed() - start);
-        }
-
-        {
-            std::uint32_t counter1 {size};
-            std::uint32_t counter2 {size};
-
-            moodycamel::ReaderWriterQueue<User> m_Queue(size);
-
-            HF_MSG_WARN("Moodycamel queue start");
-            auto start = Core::GetTimeElapsed();
-            std::thread th1([&m_Queue, &counter1](){
-                while(counter1) {
-                    if(m_Queue.try_enqueue(User{"hello world", "hello world", "hello world"})) {
-                        --counter1;
-                    }
-                }
-            });
-
-            std::thread th2([&m_Queue, &counter2](){
-                User wtf {};
-                while(counter2) {
-                    if(m_Queue.try_dequeue(wtf)) {
-                        --counter2;
-                    }
-                }
-            });
-
-            if(th1.joinable()) {
-                th1.join();
-            }
-
-            if(th2.joinable()) {
-                th2.join();
-            }
-
-            HF_MSG_WARN("Moodycamel queue finish, timeleft: {}", Core::GetTimeElapsed() - start);
-        }
-
-        /*
-        HF_MSG_WARN("Benchmark size: {}, type: struct User: str,str,str", size);
-        HF_MSG_WARN("Moodycamel test");
-
-        {
-            moodycamel::ReaderWriterQueue<User> m_QueueMoody(size);
-            std::uint32_t counter1 {size};
-            std::uint32_t counter2 {size};
-
-            HF_MSG_INFO("Thread 1 start push elements");
-
-            std::thread th1([&m_QueueMoody, &counter1](){
-                auto start = Core::GetTimeElapsed();
-                while(counter1) {
-                    if(m_QueueMoody.try_enqueue(User{"hello world", "hello world", "hello world"})) {
-                        --counter1;
-                    }
-                }
-
-                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  Core::GetTimeElapsed() - start);
-            });
-
-            if(th1.joinable()) {
-                th1.join();
-            }
-
-            HF_MSG_INFO("Thread 2 start pop elements!");
-            std::thread th2([&m_QueueMoody, &counter2](){
-                auto start = Core::GetTimeElapsed();
-                User wtf {};
-                while(counter2) {
-                    if(m_QueueMoody.try_dequeue(wtf)) {
-                        --counter2;
-                    }
-                }
-
-                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  Core::GetTimeElapsed() - start);
+                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  timeleft / size);
             });
 
             if(th2.joinable()) {
                 th2.join();
             }
         }
-
-        HF_MSG_WARN("Helena SPSCQueue test");
-        {
-            Concurrency::SPSCQueue<User, size> m_Queue;
-            std::uint32_t counter1 {size};
-            std::uint32_t counter2 {size};
-
-            HF_MSG_INFO("Thread 1 start push elements");
-
-            std::thread th1([&m_Queue, &counter1](){
-                auto start = Core::GetTimeElapsed();
-                while(counter1) {
-                    if(m_Queue.try_enqueue("hello world", "hello world", "hello world")) {
-                        --counter1;
-                    }
-                }
-
-                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  Core::GetTimeElapsed() - start);
-            });
-
-            if(th1.joinable()) {
-                th1.join();
-            }
-
-            HF_MSG_INFO("Thread 2 start pop elements!");
-            std::thread th2([&m_Queue, &counter2](){
-                auto start = Core::GetTimeElapsed();
-                while(counter2) {
-                    if(auto optional = m_Queue.try_dequeue(); optional.has_value()) {
-                        --counter2;
-                    }
-                }
-
-                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  Core::GetTimeElapsed() - start);
-            });
-
-            if(th2.joinable()) {
-                th2.join();
-            }
-        }*/
 
         TestConfigManager();
     }

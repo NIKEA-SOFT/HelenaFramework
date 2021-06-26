@@ -8,6 +8,7 @@
 #include <memory>
 #include <cstdint>
 
+
 namespace Helena::Concurrency {
 
     template <typename T>
@@ -25,7 +26,7 @@ namespace Helena::Concurrency {
     private:
         template <typename... Args>
         void emplace(size_type index, Args&&... args);
-        auto extract(size_type index) -> value_type&&;
+        auto extract(size_type index) -> decltype(auto);
 
     public:
         SPSCQueue(const size_type size = 1024);
@@ -36,14 +37,11 @@ namespace Helena::Concurrency {
         SPSCQueue& operator=(SPSCQueue&&) noexcept = delete;
 
         template <typename... Args>
-        [[nodiscard]] bool enqueue(Args&&... args);
+        [[nodiscard]] bool push(Args&&... args);
 
-        template <typename... Args>
-        [[nodiscard]] bool try_enqueue(Args&&... args);
+        [[nodiscard]] auto front() const -> decltype(auto);
 
-        [[nodiscard]] auto dequeue(reference value) -> bool;
-
-        [[nodiscard]] auto try_dequeue(reference value) -> bool;
+        void pop();
 
         [[nodiscard]] bool empty() const noexcept;
 

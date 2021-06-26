@@ -4,6 +4,7 @@
 #include <Helena/Concurrency/SPSCQueue.hpp>
 #include <Helena/Log.hpp>
 
+
 namespace Helena::Concurrency {
 
     template <typename T>
@@ -11,17 +12,13 @@ namespace Helena::Concurrency {
     : m_Elements {std::make_unique<storage[]>(size)},
       m_Head {},
       m_Tail {},
-      m_Capacity {size},
-      m_Shutdown {false} {}
+      m_Capacity {size} {}
 
     template <typename T>
     inline SPSCQueue<T>::~SPSCQueue() {
-        m_Shutdown.store(true);
-
-        T value {};
         while(!empty()) {
-            (void)try_dequeue(value);
-        };
+            pop();
+        }
     }
 
     template <typename T>
@@ -39,66 +36,54 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    inline auto SPSCQueue<T>::extract(size_type index) -> value_type&& {
+    [[nodiscard]] inline auto SPSCQueue<T>::extract(size_type index) -> decltype(auto) {
         if constexpr (std::is_integral_v<T>) {
-            return std::move(m_Elements[index]);
+            return m_Elements[index];
         } else {
-            return std::move(*std::launder(reinterpret_cast<T*>(&m_Elements[index])));
+            return *std::launder(reinterpret_cast<T*>(&m_Elements[index]));
         }
     }
 
     template <typename T>
     template <typename... Args>
-    [[nodiscard]] inline bool SPSCQueue<T>::enqueue(Args&&... args) {
-        const auto head = m_Head.load(std::memory_order_relaxed);
-        while(head - m_Tail.load(std::memory_order_acquire) >= m_Capacity) {
-            if(m_Shutdown.load(std::memory_order_acquire)) {
-                return false;
-            }
-        }
-
-        emplace(head % m_Capacity, std::forward<Args>(args)...);
-        m_Head.store(head + 1, std::memory_order_release);
-        return true;
-    }
-
-    template <typename T>
-    template <typename... Args>
-    [[nodiscard]] inline bool SPSCQueue<T>::try_enqueue(Args&&... args) {
+    [[nodiscard]] inline bool SPSCQueue<T>::push(Args&&... args) {
         const auto head = m_Head.load(std::memory_order_relaxed);
         if(head - m_Tail.load(std::memory_order_acquire) >= m_Capacity) {
             return false;
         }
 
-        emplace(head % m_Capacity, std::forward<Args>(args)...);
+        if constexpr (std::is_integral_v<T>) {
+            m_Elements[head % m_Capacity] = T(std::forward<Args>(args)...);
+        } else {
+            if constexpr(std::is_aggregate_v<T>) {
+                new (&m_Elements[head % m_Capacity]) T{std::forward<Args>(args)...};
+            } else {
+                new (&m_Elements[head % m_Capacity]) T(std::forward<Args>(args)...);
+            }
+        }
+
         m_Head.store(head + 1, std::memory_order_release);
         return true;
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::dequeue(reference value) -> bool {
+    [[nodiscard]] inline auto SPSCQueue<T>::front() const -> decltype(auto) {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
-        while(m_Head.load(std::memory_order_acquire) == tail) {
-            if(m_Shutdown.load(std::memory_order_acquire)) {
-                return false;
-            }
-        }
-
-        value = std::move(extract(tail % m_Capacity));
-        m_Tail.store(tail + 1, std::memory_order_release);
-        return true;
+        return *std::launder(reinterpret_cast<value_type*>(&m_Elements[tail % m_Capacity]));
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::try_dequeue(reference value) -> bool {
+    inline void SPSCQueue<T>::pop() {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
         if(m_Head.load(std::memory_order_acquire) == tail) {
-            return false;
+            return;
         }
 
-        value = std::move(extract(tail % m_Capacity));
+        if constexpr (!std::is_integral_v<value_type>) {
+            std::launder(reinterpret_cast<value_type*>(&m_Elements[tail % m_Capacity]))->~value_type();
+        }
+
         m_Tail.store(tail + 1, std::memory_order_release);
-        return true;
     }
 
     template <typename T>
@@ -108,7 +93,7 @@ namespace Helena::Concurrency {
 
     template <typename T>
     [[nodiscard]] inline auto SPSCQueue<T>::size() const noexcept -> size_type {
-        return m_Head - m_Tail;
+        return m_Head.load() - m_Tail.load();
     }
 
     template <typename T>
