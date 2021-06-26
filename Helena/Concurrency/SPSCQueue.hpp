@@ -39,9 +39,9 @@ namespace Helena::Concurrency {
         template <typename... Args>
         [[nodiscard]] bool push([[maybe_unused]] Args&&... args);
 
-        [[nodiscard]] auto front() const -> decltype(auto);
+        [[nodiscard]] auto front() const noexcept -> decltype(auto);
 
-        void pop();
+        void pop() noexcept;
 
         [[nodiscard]] bool empty() const noexcept;
 
