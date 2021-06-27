@@ -26,6 +26,7 @@ struct TestSystem
         HF_MSG_DEBUG("OnSystemExecute");
 
         struct User {
+            User() = default;
             User(std::string textA, std::string textB, std::string textC) : m_TextA{std::move(textA)}, m_TextB{std::move(textB)}, m_TextC{std::move(textC)} {
                 //HF_MSG_WARN("ctor");
             }
@@ -66,31 +67,10 @@ struct TestSystem
             std::string m_TextA;
             std::string m_TextB;
             std::string m_TextC;
+            //std::array<std::size_t, 291> m_Array {};
         };
 
-
-
-        {
-//            Concurrency::SPSCQueue<User> m_Queue(1);
-//            if(m_Queue.push("hello", "hello", "hello")) {
-//                HF_MSG_WARN("Push success");
-//            } else {
-//                HF_MSG_WARN("Push fail");
-//            }
-
-//            if(m_Queue.size()) {
-//                auto& user = m_Queue.front();
-//                HF_MSG_WARN("{}, {}, {}", user.m_TextA, user.m_TextB, user.m_TextC);
-//                m_Queue.pop();
-//            }
-        }
-
-//        while(true) {
-//            Util::Sleep(100);
-//        }
-
-
-        constexpr auto size = 50'000'000;
+        constexpr auto size = 1'000'000;
         {
             std::uint32_t counter1 {size};
             std::uint32_t counter2 {size};
@@ -108,25 +88,65 @@ struct TestSystem
                         timeleft += Core::GetTimeElapsed() - start;
                     }
                 }
-                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  timeleft / size);
+                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  timeleft);
+            });
+
+            std::thread th2([&m_Queue, &counter2](){
+                double timeleft {};
+                while(counter2) {
+                    if(auto start = Core::GetTimeElapsed(); m_Queue.size()) {
+                        auto& instance = m_Queue.front(); m_Queue.pop();
+                        --counter2;
+                        timeleft += Core::GetTimeElapsed() - start;
+                    }
+                }
+                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  timeleft);
             });
 
             if(th1.joinable()) {
                 th1.join();
             }
 
+            if(th2.joinable()) {
+                th2.join();
+            }
+        }
+
+        {
+            std::uint32_t counter1 {size};
+            std::uint32_t counter2 {size};
+
+            moodycamel::ReaderWriterQueue<User> m_Queue(size);
+
+            for(auto i = size; i != 0; --i) {}
+
+            HF_MSG_WARN("Moodycamel queue start");
+            std::thread th1([&m_Queue, &counter1](){
+                double timeleft {};
+                while(counter1) {
+                    if(auto start = Core::GetTimeElapsed(); m_Queue.try_enqueue(User{"hello world", "hello world", "hello world"})) {
+                        --counter1;
+                        timeleft += Core::GetTimeElapsed() - start;
+                    }
+                }
+                HF_MSG_INFO("Thread 1 finish push elements, timeleft: {}",  timeleft);
+            });
+
             std::thread th2([&m_Queue, &counter2](){
                 double timeleft {};
+                User wtf{"", "", ""};
                 while(counter2) {
-                    if(auto start = Core::GetTimeElapsed(); m_Queue.size()) {
-                        auto& wtf = m_Queue.front();
-                        m_Queue.pop();
+                    if(auto start = Core::GetTimeElapsed(); m_Queue.try_dequeue(wtf)) {
                         --counter2;
                         timeleft += Core::GetTimeElapsed() - start;
                     }
                 }
-                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  timeleft / size);
+                HF_MSG_INFO("Thread 2 finish pop elements, timeleft: {}",  timeleft);
             });
+
+            if(th1.joinable()) {
+                th1.join();
+            }
 
             if(th2.joinable()) {
                 th2.join();

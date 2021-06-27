@@ -13,7 +13,7 @@ namespace Helena::Concurrency {
 
     template <typename T>
     class SPSCQueue final {
-        using storage = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
+        using data_type = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
 
     public:
         using value_type        = T;
@@ -22,11 +22,6 @@ namespace Helena::Concurrency {
         using reference         = T&;
         using const_reference   = const T&;
         using size_type         = std::uint32_t;
-
-    private:
-        template <typename... Args>
-        void emplace(const size_type index, [[maybe_unused]] Args&&... args);
-        auto extract(const size_type index) -> decltype(auto);
 
     public:
         SPSCQueue(const size_type size = 1024);
@@ -43,6 +38,9 @@ namespace Helena::Concurrency {
 
         void pop() noexcept;
 
+        template <typename Func>
+        bool view_and_pop(Func&& callback) noexcept;
+
         [[nodiscard]] bool empty() const noexcept;
 
         [[nodiscard]] auto size() const noexcept -> size_type;
@@ -50,11 +48,10 @@ namespace Helena::Concurrency {
         [[nodiscard]] auto capacity() const noexcept -> size_type;
 
     private:
-        std::unique_ptr<storage[]> m_Elements;
+        std::unique_ptr<data_type[]> m_Elements;
         std::atomic<size_type> m_Head;
         std::atomic<size_type> m_Tail;
         const size_type m_Capacity;
-        std::atomic<bool> m_Shutdown;
     };
 }
 
