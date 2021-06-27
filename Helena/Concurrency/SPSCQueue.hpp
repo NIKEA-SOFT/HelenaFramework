@@ -1,9 +1,6 @@
 #ifndef HELENA_CONCURRENCY_SPSCQUEUE_HPP
 #define HELENA_CONCURRENCY_SPSCQUEUE_HPP
 
-#include <Helena/Defines.hpp>
-#include <Helena/Concurrency/Internal.hpp>
-
 #include <atomic>
 #include <memory>
 #include <cstdint>

@@ -2,7 +2,7 @@
 #define HELENA_CONCURRENCY_SPSCQUEUE_IPP
 
 #include <Helena/Concurrency/SPSCQueue.hpp>
-#include <Helena/Log.hpp>
+#include <Helena/Concurrency/Internal.hpp>
 
 
 namespace Helena::Concurrency {
