@@ -1,5 +1,9 @@
-#ifndef COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
-#define COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
+#ifndef HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
+#define HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
+
+#include <entt/entity/registry.hpp>
+
+#include <Helena/Internal.hpp>
 
 namespace Helena::Systems
 {
@@ -149,33 +153,29 @@ namespace Helena::Systems
 
 namespace Helena::Events::Systems::EntityComponent
 {
-    using System = Helena::Systems::EntityComponent;
-
     struct CreateEntity {
-        System::Entity m_Entity {System::Null};
+        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     struct RemoveEntity {
-        System::Entity m_Entity {System::Null};
+        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct AddComponent {
-        using Type = Internal::remove_cvrefptr_t<Component>;
-        System::Entity m_Entity {System::Null};
+        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct RemoveComponent {
-        using Type = Internal::remove_cvrefptr_t<Component>;
-        System::Entity m_Entity {System::Null};
+        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     struct RemoveComponents {
-        System::Entity m_Entity {System::Null};
+        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 }
 
-#include <Common/Systems/EntityComponent.ipp>
+#include <Helena/Systems/EntityComponent.ipp>
 
-#endif // COMMON_SYSTEMS_ENTITYCOMPONENT_HPP
+#endif // HELENA_SYSTEMS_ENTITYCOMPONENT_HPP

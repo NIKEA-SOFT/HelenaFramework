@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.9)
 project(HelenaFramework VERSION 0.0.1 LANGUAGES CXX)
 
 #|--------------------------------
+#| Helena Framework Options
+#|--------------------------------
+option(HELENA_FLAG_TEST         "Build and run test"    OFF)
+option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
+option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
+
+#|--------------------------------
 #| Set default build type
 #|--------------------------------
 if(UNIX)
@@ -59,12 +66,7 @@ set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 set(HELENA_PROJECT_DIR ${PROJECT_SOURCE_DIR})
 set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
-message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
-
-include_directories(
-    ${HELENA_PROJECT_DIR}/Helena
-    ${HELENA_PROJECT_DIR}/Dependencies
-)
+#message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
 set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
@@ -85,7 +87,8 @@ message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${C
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-
+include_directories(${HELENA_PROJECT_DIR})
+include_directories(${HELENA_PROJECT_DIR}/Dependencies)
 
 #|--------------------------------
 #| Helena Framework Build
@@ -93,14 +96,14 @@ message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${C
 if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
 elseif(UNIX)
-    SET(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
-    SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
+    set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
 
     add_definitions(-Wno-unused-parameter -Wno-unused-variable -Wno-unused-function)
     if(HELENA_FLAG_COVERAGE)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-        SET(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
-        SET(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
+        set(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
+        set(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
         message(STATUS "Build coverage")
         add_compile_options(--coverage -O0) 
     endif()
@@ -117,25 +120,18 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
 
 #add_subdirectory(${HELENA_PROJECT_DIR}/Dependencies)
-add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
+#add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Application)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Common)
 #add_subdirectory(${HELENA_PROJECT_FRAMEWORK_DIR}/Module)
 link_directories(${HELENA_PROJECT_OUTDIR})
-
-#|--------------------------------
-#| Helena Framework Options
-#|--------------------------------
-option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        OFF)
-option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
 
 #|--------------------------------
 #| Build with test
 #|--------------------------------
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
-    enable_testing()
-    include(CTest)
+    #enable_testing()
+    #include(CTest)
     add_subdirectory(Test)
 endif()
 
