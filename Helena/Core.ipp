@@ -11,20 +11,18 @@ namespace Helena
 {
 #if HF_PLATFORM == HF_PLATFORM_WIN
     inline void Core::Terminate() {
-        HF_MSG_WARN("Terminating");
+
     }
 
     inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType)
     {
-        static std::mutex mutex;
-        std::lock_guard lock{mutex};
-
-        if(m_Context && !m_Context->m_Shutdown) {
-            Core::Shutdown();
-        }
-
-        while(m_Context) {
-            Util::Sleep(10);
+        if(m_Context)
+        {
+            std::unique_lock lock(m_Context->m_ShutdownMutex);
+            if(m_Context->m_State != ECoreState::Shutdown) {
+                Core::Shutdown();
+            }
+            m_ShutdownCondition.wait(lock);
         }
 
         return TRUE;
@@ -44,43 +42,18 @@ namespace Helena
 #elif HF_PLATFORM == HF_PLATFORM_LINUX
     inline auto Core::SigHandler([[maybe_unused]] int signal) -> void
     {
-        HF_MSG_WARN("Signal: {} received", signal);
-        if(m_Context && !m_Context->m_Shutdown) {
+        if(m_Context && m_Context->m_State != ECoreState::Shutdown) {
             Core::Shutdown();
         }
     }
 #endif
 
-    template <typename Type>
-    [[nodiscard]] inline auto Core::SystemIndex<Type>::GetIndex(map_indexes_t& container) -> std::size_t {
-        static const auto value = Internal::AddOrGetTypeIndex(container, Hash::Type<Type>);
-        return value;
-    }
-
-    [[nodiscard]] inline auto Core::CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool
+    inline void Core::HookSignals()
     {
-        if(!ctx) {
-            m_Context				= std::make_shared<Context>();
-            m_Context->m_TimeStart	= std::chrono::steady_clock::now();	// Start time (used for calculate elapsed time)
-            m_Context->m_TimeNow	= m_Context->m_TimeStart;
-            m_Context->m_TimePrev	= m_Context->m_TimeNow;
-            m_Context->m_TickRate	= 1.0 / 30.0;
-
-            HookSignals();
-            HeartbeatTimeCalc();
-        } else {
-            m_Context = ctx;
-        }
-
-        return true;
-    }
-
-	inline auto Core::HookSignals() -> void 
-	{
-		#if HF_PLATFORM == HF_PLATFORM_WIN
-			set_terminate(Terminate);
-			SetConsoleCtrlHandler(CtrlHandler, TRUE);
-		#elif HF_PLATFORM == HF_PLATFORM_LINUX
+        #if HF_PLATFORM == HF_PLATFORM_WIN
+            set_terminate(Terminate);
+            SetConsoleCtrlHandler(CtrlHandler, TRUE);
+        #elif HF_PLATFORM == HF_PLATFORM_LINUX
             signal(SIGTERM, SigHandler);
             signal(SIGSTOP, SigHandler);
             signal(SIGINT,  SigHandler);
@@ -88,8 +61,8 @@ namespace Helena
             signal(SIGHUP,  SigHandler);
         #else
             #error Unknown platform
-		#endif
-	}
+        #endif
+    }
 
     inline auto Core::HeartbeatTimeCalc() -> double
     {
@@ -100,50 +73,68 @@ namespace Helena
         return m_Context->m_TimeDelta;
     }
 
+    template <typename Type>
+    [[nodiscard]] inline auto Core::SystemIndex<Type>::GetIndex(map_indexes_t& container) -> std::size_t {
+        static const auto value = Internal::AddOrGetTypeIndex(container, Hash::Type<Type>);
+        return value;
+    }
+
     template <typename Func>
-    [[nodiscard]] inline auto Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) noexcept -> bool
+    inline void Core::Initialize(Func&& callback, const std::shared_ptr<Context>& ctx) noexcept
     {
-        static_assert(std::is_invocable_v<Func>, "Callback is not a callable type");
         HF_ASSERT(!m_Context, "Core is already initialized!");
 
         try
         {
-            if(!CreateOrSetContext(ctx) || !callback()) {
-                return false;
+            CreateContext(ctx);
+            callback();
+
+            if(!ctx)
+            {
+                if(m_Context->m_State == ECoreState::Init) {
+                    Heartbeat();
+                }
+
+                if(!m_Context->m_ShutdownReason.empty()) {
+                    HF_MSG_FATAL("Shutdown reason: {}", m_Context->m_ShutdownReason);
+                }
+
+                #if HF_PLATFORM == HF_PLATFORM_WIN
+                    m_ShutdownCondition.notify_all();
+                #endif
             }
-
-            if(!ctx) {
-                Heartbeat();
-            }
-
-            m_Context->m_Shutdown = false;
-            m_Context.reset();
-
-            HF_MSG_DEBUG("Finalize framework");
         } catch(const std::exception& error) {
             HF_MSG_FATAL("Exception code: {}", error.what());
         } catch(...) {
             HF_MSG_FATAL("Unknown exception!");
         }
-
-        return true;
     }
 
-    inline auto Core::Shutdown() noexcept -> void {
-        HF_ASSERT(m_Context, "Core is not initialized");
-        m_Context->m_Shutdown = true;
+    inline void Core::CreateContext(const std::shared_ptr<Context>& ctx)
+    {
+        if(!ctx) {
+            m_Context				= std::make_shared<Context>();
+            m_Context->m_State      = ECoreState::Init;
+            m_Context->m_TimeStart	= std::chrono::steady_clock::now();	// Start time (used for calculate elapsed time)
+            m_Context->m_TimeNow	= m_Context->m_TimeStart;
+            m_Context->m_TimePrev	= m_Context->m_TimeNow;
+            m_Context->m_TickRate	= 1.0 / 30.0;
+
+            HeartbeatTimeCalc();
+            HookSignals();
+        } else {
+            m_Context = ctx;
+        }
     }
 
-    inline auto Core::Heartbeat() -> void
+    inline void Core::Heartbeat()
     {
         double timeElapsed {};
         double timeFPS {};
         std::uint32_t fps {};
 
-        EventSystems(SystemEvent::Create);
         m_Context->m_Dispatcher.template trigger<Events::Initialize>();
-
-        while(!m_Context->m_Shutdown)
+        while(m_Context->m_State != ECoreState::Shutdown)
         {
             // Get time and delta
             timeElapsed	+= HeartbeatTimeCalc();
@@ -171,23 +162,22 @@ namespace Helena
                 //const auto sleepTime = static_cast<std::uint32_t>((m_Context->m_TickRate - m_Context->m_TimeElapsed) * 1000.0);
                 Util::Sleep(std::chrono::milliseconds{1});
             }
-		}
+        }
 
-        m_Context->m_Dispatcher.template trigger<Events::Finalize>();
         EventSystems(SystemEvent::Destroy);
+        m_Context->m_Dispatcher.template trigger<Events::Finalize>();
+
     }
 
-    /**
-     * @brief Core::EventSystems
-     * @param type Type of event for call
-     */
-    inline auto Core::EventSystems(const SystemEvent type) -> void
+    inline void Core::EventSystems(const SystemEvent type)
     {
         auto& container = m_Context->m_EventScheduler[type];
-        for(std::size_t size = container.size(); size; --size)
+        auto& events    = m_Context->m_SystemsEvents;
+
+        for(auto size = container.size(); size; --size)
         {
             const auto index = container.front();
-            const auto& event = m_Context->m_SystemsEvent[type];
+            const auto& event = events[type];
 
             if(event) {
                 event();
@@ -202,12 +192,34 @@ namespace Helena
                 case SystemEvent::Update: {
                     container.emplace(index);
                 } break;
+
                 default: break;
             }
         }
     }
 
-    inline auto Core::SetArgs(const std::size_t argc, const char* const* argv) -> void
+    [[nodiscard]] inline auto Core::GetContext() noexcept -> std::shared_ptr<Context> {
+        HF_ASSERT(m_Context, "Core is not initialized");
+        return m_Context;
+    }
+
+    [[nodiscard]] inline auto Core::GetCoreState() noexcept -> ECoreState {
+        HF_ASSERT(m_Context, "Core is not initialized");
+        return m_Context->m_State;
+    }
+
+    inline void Core::Shutdown() noexcept {
+        HF_ASSERT(m_Context, "Core is not initialized");
+        m_Context->m_State = ECoreState::Shutdown;
+    }
+
+    inline void Core::Shutdown(const std::string& msg) noexcept {
+        HF_ASSERT(m_Context, "Core is not initialized");
+        m_Context->m_ShutdownReason = msg;
+        m_Context->m_State = ECoreState::Shutdown;
+    }
+
+    inline void Core::SetArgs(const std::size_t argc, const char* const* argv)
     {
         HF_ASSERT(m_Context, "Core is not initialized");
 
@@ -219,7 +231,7 @@ namespace Helena
         }
     }
 
-    inline auto Core::SetTickrate(double tickrate) noexcept -> void {
+    inline void Core::SetTickrate(double tickrate) noexcept {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_TickRate = 1.0 / std::max(1.0, tickrate);
     }
@@ -227,11 +239,6 @@ namespace Helena
     [[nodiscard]] inline auto Core::GetArgs() noexcept -> decltype(auto) {
         HF_ASSERT(m_Context, "Core is not initialized");
         return m_Context->m_Args;
-    }
-
-    [[nodiscard]] inline auto Core::GetContext() noexcept -> const std::shared_ptr<Context>& {
-        HF_ASSERT(m_Context, "Core is not initialized");
-        return m_Context;
     }
 
     [[nodiscard]] inline auto Core::GetTickrate() noexcept -> double {
@@ -250,13 +257,14 @@ namespace Helena
     }
 
     template <typename Type, typename... Args>
-    inline auto Core::RegisterSystem([[maybe_unused]] Args&&... args) -> void {
+    inline void Core::RegisterSystem([[maybe_unused]] Args&&... args)
+    {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
 
         auto& systems = m_Context->m_Systems;
-        auto& events = m_Context->m_SystemsEvent;
+        auto& events = m_Context->m_SystemsEvents;
         auto& scheduler = m_Context->m_EventScheduler;
 
         const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
@@ -297,7 +305,7 @@ namespace Helena
     }
 
     template <typename Type>
-    [[nodiscard]] inline auto Core::HasSystem() noexcept -> bool {
+    [[nodiscard]] inline bool Core::HasSystem() noexcept {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
@@ -320,14 +328,14 @@ namespace Helena
     }
 
     template <typename Type>
-    inline auto Core::RemoveSystem() noexcept -> void
+    inline void Core::RemoveSystem() noexcept
     {
         static_assert(std::is_same_v<Internal::remove_cvrefptr_t<Type>, Type>, "Resource type cannot be const/ptr/ref");
 
         HF_ASSERT(m_Context, "Core is not initialized");
 
         auto& systems = m_Context->m_Systems;
-        auto& events = m_Context->m_SystemsEvent;
+        auto& events = m_Context->m_SystemsEvents;
         const auto index = SystemIndex<Type>::GetIndex(m_Context->m_TypeIndexes);
 
         HF_ASSERT(index < systems.size() && systems[index], "Instance of system {} does not exist for remove", Internal::NameOf<Type>);
@@ -350,7 +358,7 @@ namespace Helena
     }
 
     template <typename Event, auto Method>
-    inline auto Core::RegisterEvent() -> void {
+    inline void Core::RegisterEvent() {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template connect<Method>();
     }
@@ -362,36 +370,36 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    inline auto Core::TriggerEvent([[maybe_unused]] Args&&... args) -> void {
+    inline void Core::TriggerEvent([[maybe_unused]] Args&&... args) {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template trigger<Event>(std::forward<Args>(args)...);
     }
 
     template <typename Event, typename... Args>
-    inline auto Core::EnqueueEvent([[maybe_unused]] Args&&... args) -> void {
+    inline void Core::EnqueueEvent([[maybe_unused]] Args&&... args) {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template enqueue<Event>(std::forward<Args>(args)...);
     }
 
     template <typename Event>
-    inline auto Core::UpdateEvent() -> void {
+    inline void Core::UpdateEvent() {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.template update<Event>();
     }
 
-    inline auto Core::UpdateEvent() -> void {
+    inline void Core::UpdateEvent() {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.update();
     }
 
     template <typename Event, auto Method>
-    inline auto Core::RemoveEvent() -> void {
+    inline void Core::RemoveEvent() {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>();
     }
 
     template <typename Event, auto Method, typename Type>
-    inline auto Core::RemoveEvent(Type&& instance) -> void {
+    inline void Core::RemoveEvent(Type&& instance) {
         HF_ASSERT(m_Context, "Core is not initialized");
         m_Context->m_Dispatcher.sink<Event>().template disconnect<Method>(instance);
     }

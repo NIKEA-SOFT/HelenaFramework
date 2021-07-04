@@ -15,6 +15,7 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
+#include <condition_variable>
 
 namespace Helena
 {
@@ -42,9 +43,6 @@ namespace Helena
             Size
         };
 
-        //template<typename Type, typename... Args>
-        //using mem_ptr = void(Type::* const)(Args...);
-
         template <typename Type, typename... Args>
         using fn_create_t	= decltype(std::declval<Type>().OnSystemCreate(std::declval<Args>()...));
         template <typename Type, typename... Args>
@@ -65,6 +63,12 @@ namespace Helena
 
     public:
 
+        enum class ECoreState : std::uint8_t {
+            Init,
+            Running,
+            Shutdown
+        };
+
         /**
          * @brief Core context class
          */
@@ -75,11 +79,14 @@ namespace Helena
             friend struct ENTT_API entt::type_seq;
 
             std::array<std::queue<std::size_t>, SystemEvent::Size> m_EventScheduler {};
+            std::array<entt::delegate<void ()>, SystemEvent::Size> m_SystemsEvents {};
+
             map_indexes_t m_TypeIndexes {};
             map_indexes_t m_SequenceIndexes {};
+
             std::vector<entt::any> m_Systems {};
-            std::array<entt::delegate<void ()>, SystemEvent::Size> m_SystemsEvent {};
             std::vector<std::string_view> m_Args {};
+
             entt::dispatcher m_Dispatcher {};
 
             std::chrono::steady_clock::time_point m_TimeStart {};
@@ -89,7 +96,13 @@ namespace Helena
             double m_TimeDelta {};
             double m_TickRate {};
 
-            std::atomic_bool m_Shutdown {};
+            ECoreState m_State {};
+
+            std::string m_ShutdownReason;
+        #if HF_PLATFORM == HF_PLATFORM_WIN
+            std::mutex m_ShutdownMutex {};
+            std::condition_variable m_ShutdownCondition {};
+        #endif
         };
 
 
@@ -106,11 +119,11 @@ namespace Helena
         static auto SigHandler(int signal) -> void;
     #endif
 
-        [[nodiscard]] static auto CreateOrSetContext(const std::shared_ptr<Context>& ctx) -> bool;
         static auto HeartbeatTimeCalc() -> double;
-        static auto HookSignals() -> void;
-        static auto Heartbeat() -> void;
-        static auto EventSystems(const SystemEvent type) -> void;
+        static void HookSignals();
+        static void CreateContext(const std::shared_ptr<Context>& ctx);
+        static void Heartbeat();
+        static void EventSystems(const SystemEvent type);
 
     public:
         Core() = delete;
@@ -145,26 +158,49 @@ namespace Helena
          * @return True if success otherwise false.
          */
         template <typename Func>
-        [[nodiscard]] static auto Initialize(Func&& callback, const std::shared_ptr<Context>& ctx = {}) noexcept -> bool;
+        static void Initialize(Func&& callback, const std::shared_ptr<Context>& ctx = {}) noexcept;
+
+        /**
+         * @brief Returns a context of Core.
+         *
+         * @note
+         * Use GetContext to get const reference on the context of Core.
+         * Context is designed to support "across boundary" for share memory between plugins (dll/so).
+         *
+         * @return A const reference on the Core context.
+         */
+        [[nodiscard]] static auto GetContext() noexcept -> std::shared_ptr<Context>;
+
+        /**
+         * @brief Return Core state
+         * @return ECoreState
+         */
+        [[nodiscard]] static auto GetCoreState() noexcept -> ECoreState;
 
         /**
         * @brief Shutdown framework.
         */
-        static auto Shutdown() noexcept -> void;
+        static void Shutdown() noexcept;
+
+        /**
+        * @brief Shutdown framework.
+        *
+        */
+        static void Shutdown(const std::string& reason) noexcept;
 
         /**
          * @brief Register args in the Core.
          * @param argc Count of arguments.
          * @param argv Pointer to arguments.
          */
-        static auto SetArgs(const std::size_t size, const char* const* argv) -> void;
+        static void SetArgs(const std::size_t size, const char* const* argv);
 
         /**
          * @brief Sets the tickrate of the hearbeat.
          * @note Default value of tickrate 30.0 fps.
          * @param tickrate Value of tickrate for fixed step of tick event.
          */
-        static auto SetTickrate(const double tickrate) noexcept -> void;
+        static void SetTickrate(const double tickrate) noexcept;
 
         /**
          * @brief Returns a vector of args.
@@ -190,16 +226,6 @@ namespace Helena
          */
         [[nodiscard]] static auto GetTimeDelta() noexcept -> double;
 
-        /**
-         * @brief Returns a context of Core.
-         *
-         * @note
-         * Use GetContext to get const reference on the context of Core.
-         * Context is designed to support "across boundary" for share memory between plugins (dll/so).
-         *
-         * @return A const reference on the Core context.
-         */
-        [[nodiscard]] static auto GetContext() noexcept -> const std::shared_ptr<Context>&;
 
         /**
          * @brief Register the given system.
@@ -208,7 +234,7 @@ namespace Helena
          * @param args Arguments to use to initialize the system.
          */
         template <typename Type, typename... Args>
-        static auto RegisterSystem([[maybe_unused]] Args&&... args) -> void;
+        static void RegisterSystem([[maybe_unused]] Args&&... args);
 
         /**
          * @brief Checks if a given system exists.
@@ -216,7 +242,7 @@ namespace Helena
          * @return True if exist otherwise false.
          */
         template <typename Type>
-        [[nodiscard]] static auto HasSystem() noexcept  -> bool;
+        [[nodiscard]] static bool HasSystem() noexcept;
 
         /**
          * @brief Returns a reference to the given system.
@@ -227,14 +253,14 @@ namespace Helena
          * @return Reference to the system.
          */
         template <typename Type>
-        [[nodiscard]] static auto GetSystem() noexcept  -> Type&;
+        [[nodiscard]] static auto GetSystem() noexcept -> Type&;
 
         /**
          * @brief Remove the given system instance..
          * @tparam Type Type of sytem.
          */
         template <typename Type>
-        static auto RemoveSystem() noexcept  -> void;
+        static void RemoveSystem() noexcept;
 
         /**
          * @brief Subscribe to an event.
@@ -242,7 +268,7 @@ namespace Helena
          * @tparam Method A valid function object.
          */
         template <typename Event, auto Method>
-        static auto RegisterEvent() -> void;
+        static void RegisterEvent();
 
         /**
          * @brief Subscribe to an event.
@@ -252,7 +278,7 @@ namespace Helena
          * @param instance A valid object.
          */
         template <typename Event, auto Method, typename Type>
-        static auto RegisterEvent(Type&& instance) -> void;
+        static void RegisterEvent(Type&& instance);
 
         /**
          * @brief Emit an event.
@@ -262,7 +288,7 @@ namespace Helena
          * @param args Arguments to use to initialize the system.
          */
         template <typename Event, typename... Args>
-        static auto TriggerEvent([[maybe_unused]] Args&&... args) -> void;
+        static void TriggerEvent([[maybe_unused]] Args&&... args);
 
         /**
          * @brief Add an event to the queue.
@@ -275,7 +301,7 @@ namespace Helena
          * @param args Arguments to use to initialize the system.
          */
         template <typename Event, typename... Args>
-        static auto EnqueueEvent([[maybe_unused]] Args&&... args) -> void;
+        static void EnqueueEvent([[maybe_unused]] Args&&... args);
 
         /**
          * @brief Emit all events of the type at once.
@@ -285,13 +311,13 @@ namespace Helena
          * @tparam Event Type of event.
          */
         template <typename Event>
-        static auto UpdateEvent() -> void;
+        static void UpdateEvent();
 
         /**
          * @brief Emit all events at once.
          * @note All queued events will be triggered
          */
-        static auto UpdateEvent() -> void;
+        static void UpdateEvent();
 
         /**
          * @brief Unsubscribe to an event.
@@ -299,7 +325,7 @@ namespace Helena
          * @tparam Method A valid function object.
          */
         template <typename Event, auto Method>
-        static auto RemoveEvent() -> void;
+        static void RemoveEvent();
 
         /**
          * @brief Unsubscribe to an event.
@@ -309,7 +335,7 @@ namespace Helena
          * @param instance A valid object.
          */
         template <typename Event, auto Method, typename Type>
-        static auto RemoveEvent(Type&& instance) -> void;
+        static void RemoveEvent(Type&& instance);
     };
 }
 

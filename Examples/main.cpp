@@ -145,8 +145,7 @@ struct TestSystem
 int main(int argc, char** argv)
 {
     // Helena example
-    return Core::Initialize(
-        [argc, argv]() -> bool {
+    Core::Initialize([argc, argv]() {
         // Push args in Core
         Core::SetArgs(argc, argv);
 
@@ -162,12 +161,12 @@ int main(int argc, char** argv)
             HF_MSG_INFO("Arg: {}", arg);
         }
         
-        // test create
+        // test register system
         Core::RegisterSystem<Systems::ResourceManager>();   // Хранит объекты любых классов и поддерживает сигналы
         Core::RegisterSystem<Systems::PropertyManager>();   // Хранит любые свойства и поддерживает сигнала
         Core::RegisterSystem<Systems::EntityComponent>();   // Хранит entity, компоненты и поддерживает сигналы
         Core::RegisterSystem<TestSystem>();
-
-        return true;
     });
+
+    return 0;
 }

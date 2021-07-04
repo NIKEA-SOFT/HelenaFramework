@@ -42,7 +42,6 @@
 //#define SOL_ALL_SAFETIES_ON 1
 //#include <sol/sol.hpp>
 
-#include <safe_ptr/safe_ptr.h>
 #define ENTT_ID_TYPE std::size_t
 #include <entt/entt.hpp>
 #include <pugixml/pugixml.hpp>
