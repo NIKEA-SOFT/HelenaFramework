@@ -38,6 +38,7 @@ namespace Helena
             Tick,
             Update,
             Destroy,
+
             Size
         };
 

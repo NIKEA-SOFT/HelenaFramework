@@ -64,8 +64,20 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
+    [[nodiscard]] inline bool SPSCQueue<T>::pop(T& value) noexcept {
+        const auto tail = m_Tail.load(std::memory_order_relaxed);
+        if(m_Head.load(std::memory_order_acquire) == tail) {
+            return false;
+        }
+
+        value = std::move(*std::launder(reinterpret_cast<pointer>(&m_Elements[tail % m_Capacity])));
+        m_Tail.store(tail + 1, std::memory_order_release);
+        return true;
+    }
+
+    template <typename T>
     template <typename Func>
-    inline bool SPSCQueue<T>::view_and_pop(Func&& callback) noexcept {
+    [[nodiscard]] inline bool SPSCQueue<T>::view_and_pop(Func&& callback) noexcept {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
         if(m_Head.load(std::memory_order_acquire) == tail) {
             return false;

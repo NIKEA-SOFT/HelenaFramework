@@ -1,6 +1,6 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Helena/Concurrency/SPSCQueue.hpp>
-#include <Dependencies/moodycamel/readerwriterqueue.h>
+#include <Helena/Concurrency/ThreadPool.hpp>
 
 // Systems
 #include <Helena/Systems/EntityComponent.hpp>
@@ -26,6 +26,11 @@ struct TestSystem
         HF_MSG_DEBUG("OnSystemExecute");
 
         TestConfigManager();
+
+        const std::size_t COUNT = 10'000'000;
+
+
+        Util::Sleep(10);
     }
 
     // Called when Core initialized

@@ -10,6 +10,10 @@
 // Helena Platform
 #include <Helena/Platform.hpp>
 
+#ifndef HF_STANDARD_CPP17_OR_GREATER
+    #error HelenaFramework does not support cpp standard below 17
+#endif
+
 // STL
 #include <iostream>
 #include <cstdint>

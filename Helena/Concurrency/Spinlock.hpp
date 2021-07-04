@@ -2,13 +2,17 @@
 #define HELENA_CONCURRENCY_SPINLOCK_HPP
 
 #include <Helena/Defines.hpp>
+#include <Helena/Concurrency/Internal.hpp>
 
+#include <cstdint>
 #include <atomic>
+#include <vector>
+#include <thread>
 
 namespace Helena::Concurrency
 {
     class Spinlock final
-    {
+    {        
     public:
         Spinlock();
         ~Spinlock() = default;
@@ -22,10 +26,12 @@ namespace Helena::Concurrency
         void unlock() noexcept;
 
     private:
-        std::atomic<bool> m_Lock {};
+        std::atomic<std::uint32_t> m_CounterLow;
+        char padding[Internal::cache_line - sizeof(m_CounterLow)];
+        std::atomic<std::uint32_t> m_CounterHigh;
     };
 }
 
-#include <Helena/Concurrency/Spinlock.hpp>
+#include <Helena/Concurrency/Spinlock.ipp>
 
 #endif // HELENA_CONCURRENCY_SPINLOCK_HPP

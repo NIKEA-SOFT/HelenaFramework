@@ -34,9 +34,10 @@ namespace Helena::Concurrency {
         [[nodiscard]] auto front() const noexcept -> decltype(auto);
 
         void pop() noexcept;
+        [[nodiscard]] bool pop(T& value) noexcept;
 
         template <typename Func>
-        bool view_and_pop(Func&& callback) noexcept;
+        [[nodiscard]] bool view_and_pop(Func&& callback) noexcept;
 
         [[nodiscard]] bool empty() const noexcept;
 
