@@ -33,7 +33,7 @@ namespace Helena
         template <typename, typename>
         friend struct ENTT_API entt::type_seq;
 
-        enum SystemEvent : std::uint8_t {
+        enum class SystemEvent : std::uint8_t {
             Create,
             Execute,
             Tick,
@@ -78,8 +78,8 @@ namespace Helena
             template <typename, typename>
             friend struct ENTT_API entt::type_seq;
 
-            std::array<std::queue<std::size_t>, SystemEvent::Size> m_EventScheduler {};
-            std::array<entt::delegate<void ()>, SystemEvent::Size> m_SystemsEvents {};
+            std::array<std::queue<std::size_t>, static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Size)> m_EventScheduler {};
+            std::array<entt::delegate<void ()>, static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Size)> m_SystemsEvents {};
 
             map_indexes_t m_TypeIndexes {};
             map_indexes_t m_SequenceIndexes {};
@@ -206,7 +206,7 @@ namespace Helena
          * @brief Returns a vector of args.
          * @return A temporary vector of args.
          */
-        [[nodiscard]] static auto GetArgs() noexcept -> decltype(auto);
+        [[nodiscard]] static auto GetArgs() noexcept -> std::vector<std::string_view>&;
 
         /**
          * @brief Returns a value to the given tickrate in milliseconds.

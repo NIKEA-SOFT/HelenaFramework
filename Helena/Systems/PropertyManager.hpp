@@ -15,7 +15,7 @@ namespace Helena::Systems
     {
         using map_index_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t, Hash::Hasher<entt::id_type>, Hash::Comparator<entt::id_type>>;
 
-        template <typename Property>
+        template <typename T>
         struct PropertyIndex {
             [[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
         };

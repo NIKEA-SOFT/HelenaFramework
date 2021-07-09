@@ -1,6 +1,7 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Helena/Concurrency/SPSCQueue.hpp>
 #include <Helena/Concurrency/ThreadPool.hpp>
+#include <Helena/Concurrency/ParallelPool.hpp>
 
 // Systems
 #include <Helena/Systems/EntityComponent.hpp>
@@ -14,7 +15,7 @@ struct TestSystem
 {
     // Current method called when system initialized (it's system event)
     void OnSystemCreate() {
-        HF_MSG_DEBUG("OnSystemCreate");
+        //HF_MSG_DEBUG("OnSystemCreate");
 
         // Test Core events
         Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
@@ -23,24 +24,23 @@ struct TestSystem
 
     // Current method called after OnSystemCreate (it's system event)
     void OnSystemExecute() {
-        HF_MSG_DEBUG("OnSystemExecute");
+        //HF_MSG_DEBUG("OnSystemExecute");
 
-        TestConfigManager();
+        //TestConfigManager();
 
-        const std::size_t COUNT = 10'000'000;
+        //const std::size_t COUNT = 10'000'000
 
-
-        Util::Sleep(10);
+        //Util::Sleep(10);
     }
 
     // Called when Core initialized
     void OnCoreInitialize(const Events::Initialize& event) {
-        HF_MSG_DEBUG("OnCoreInitialize");
+        //HF_MSG_DEBUG("OnCoreInitialize");
     }
 
     // Called when Core finish
     void OnCoreFinalize(const Events::Finalize& event) {
-        HF_MSG_DEBUG("OnCoreFinalize");
+        //HF_MSG_DEBUG("OnCoreFinalize");
     }
 
     // Called every tick (it's system event)
@@ -55,7 +55,7 @@ struct TestSystem
 
     // Called when System destroyed (it's system event)
     void OnSystemDestroy() {
-        HF_MSG_DEBUG("OnSystemDestroy");
+        //HF_MSG_DEBUG("OnSystemDestroy");
     }
 
     void TestConfigManager() {
@@ -145,28 +145,70 @@ struct TestSystem
 int main(int argc, char** argv)
 {
     // Helena example
-    Core::Initialize([argc, argv]() {
-        // Push args in Core
-        Core::SetArgs(argc, argv);
+    std::cout << "Main start" << std::endl;
+    Core::Initialize([]() {
 
-        //Core::SetArgs(argc, argv);
-        // Set tickrate (30 fps)
-        Core::SetTickrate(60.0);
+        constexpr std::size_t taskCount = 10'000'000;
 
-        // Get args size
-        HF_MSG_INFO("Args: {}", Core::GetArgs().size());
-        
-        // View arguments from vector of std::string_view
-        for(const auto& arg : Core::GetArgs()) {
-            HF_MSG_INFO("Arg: {}", arg);
+        // Thread Pool
+        {
+            Helena::Concurrency::ThreadPool pool(std::thread::hardware_concurrency(), taskCount);
+            
+            auto start = Core::GetTimeElapsed();
+            for(std::size_t i = 0; i < taskCount; ++i)
+            {
+                (void)pool.EnqueueJob([]() {
+                    volatile std::size_t i = 1;
+                    i = 5;
+                });
+            }
+            
+            while(!pool.Empty()) {
+                Util::Sleep(10);
+            }
+
+            auto end = Core::GetTimeElapsed();
+            HF_MSG_WARN("ThreadPool timeleft: {}", end - start);
         }
-        
-        // test register system
-        Core::RegisterSystem<Systems::ResourceManager>();   // Хранит объекты любых классов и поддерживает сигналы
-        Core::RegisterSystem<Systems::PropertyManager>();   // Хранит любые свойства и поддерживает сигнала
-        Core::RegisterSystem<Systems::EntityComponent>();   // Хранит entity, компоненты и поддерживает сигналы
-        Core::RegisterSystem<TestSystem>();
-    });
 
+        // Parallel Pool
+        {
+            const std::size_t threadSize = std::thread::hardware_concurrency();
+
+            Helena::Concurrency::ParallelPool pool;
+            pool.Initialize(threadSize, taskCount / 8);
+
+            auto start = Core::GetTimeElapsed();
+            pool.Each([taskCount, &pool](const std::size_t id) {
+                auto& jobPool = pool.GetPool(id);
+
+                for(std::size_t i = 0; i < taskCount / 8; ++i) {
+                    jobPool.Enqueue([]() {
+                        volatile std::size_t i = 1;
+                        i = 5;
+                    });
+                }
+            });
+
+            bool isFinish = false;
+            while(!isFinish) {
+                pool.Each([&isFinish, threadSize, counter = std::size_t{}](const std::size_t id) mutable {
+                    ++counter;
+
+                    if(counter == threadSize) {
+                        isFinish = true;
+                    }
+                });
+            }
+
+            auto end = Core::GetTimeElapsed();
+            HF_MSG_WARN("ParallelPool timeleft: {}", end - start);
+        }
+
+
+        Util::Sleep(100);
+        Core::Shutdown("Benchmarking");
+    });
+    std::cout << "Main end" << std::endl;
     return 0;
 }

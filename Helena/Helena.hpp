@@ -37,6 +37,7 @@
 #include <chrono>
 #include <ctime>
 #include <type_traits>
+#include <charconv>
 
 // Dependencies
 //#define SOL_ALL_SAFETIES_ON 1

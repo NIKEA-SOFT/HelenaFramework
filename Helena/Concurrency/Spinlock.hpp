@@ -27,8 +27,9 @@ namespace Helena::Concurrency
 
     private:
         std::atomic<std::uint32_t> m_CounterLow;
-        char padding[Internal::cache_line - sizeof(m_CounterLow)];
+        char paddingA[Internal::cache_line - sizeof(m_CounterLow)] {};
         std::atomic<std::uint32_t> m_CounterHigh;
+        char paddingB[Internal::cache_line - sizeof(m_CounterHigh)] {};
     };
 }
 

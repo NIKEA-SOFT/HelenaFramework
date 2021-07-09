@@ -6,9 +6,9 @@
 
 namespace Helena::Systems
 {
-    template <typename Property>
-    [[nodiscard]] auto PropertyManager::PropertyIndex<Property>::GetIndex(map_index_t& container) -> std::size_t {
-        static const std::size_t value = Internal::AddOrGetTypeIndex(container, Hash::Type<Property>);
+    template <typename T>
+    [[nodiscard]] auto PropertyManager::PropertyIndex<T>::GetIndex(map_index_t& container) -> std::size_t {
+        static const std::size_t value = Internal::AddOrGetTypeIndex(container, Hash::Type<T>);
         return value;
     }
 

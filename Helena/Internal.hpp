@@ -101,6 +101,9 @@ namespace Helena::Internal
     template <typename T>
     inline constexpr bool is_integral_constant_v = is_integral_constant<T>::value;
 
+    template <typename T, typename... Args>
+    inline constexpr T is_always_value = T;
+
 #ifdef HF_STANDARD_CPP17
     template<class InputIt, class ForwardIt>
     [[nodiscard]] constexpr InputIt find_first_of(InputIt first, InputIt last, ForwardIt s_first, ForwardIt s_last) noexcept {

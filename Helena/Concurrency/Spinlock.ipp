@@ -9,7 +9,7 @@ namespace Helena::Concurrency {
 
     void Spinlock::lock() noexcept {
         const auto counter = m_CounterLow.fetch_add(1u);
-        while(counter != m_CounterHigh.load());
+        while(counter != m_CounterHigh.load()) {}
     }
 
     [[nodiscard]] bool Spinlock::try_lock() noexcept {
@@ -20,6 +20,7 @@ namespace Helena::Concurrency {
     void Spinlock::unlock() noexcept {
         m_CounterHigh.fetch_add(1u);
     }
+
 }
 
 #endif // HELENA_CONCURRENCY_SPINLOCK_IPP

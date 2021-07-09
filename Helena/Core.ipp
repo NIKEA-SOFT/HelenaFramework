@@ -22,7 +22,7 @@ namespace Helena
             if(m_Context->m_State != ECoreState::Shutdown) {
                 Core::Shutdown();
             }
-            m_ShutdownCondition.wait(lock);
+            m_Context->m_ShutdownCondition.wait(lock);
         }
 
         return TRUE;
@@ -100,7 +100,7 @@ namespace Helena
                 }
 
                 #if HF_PLATFORM == HF_PLATFORM_WIN
-                    m_ShutdownCondition.notify_all();
+                    m_Context->m_ShutdownCondition.notify_all();
                 #endif
             }
         } catch(const std::exception& error) {
@@ -146,8 +146,10 @@ namespace Helena
             if(const auto time = GetTimeElapsed(); time > timeFPS) {
                 timeFPS = time + 1.0;
             #if HF_PLATFORM == HF_PLATFORM_WIN
-                const auto title = HF_FORMAT("Helena | FPS: {}", fps);
-                SetConsoleTitle(title.c_str());
+                constexpr const std::size_t size = 16;
+                char title[size]{"FPS: "};
+                std::to_chars(title + 5, title + size, fps);
+                SetConsoleTitle(title);
             #endif
                 fps = 0;
             }
@@ -171,13 +173,14 @@ namespace Helena
 
     inline void Core::EventSystems(const SystemEvent type)
     {
-        auto& container = m_Context->m_EventScheduler[type];
+        const auto eventid = static_cast<std::underlying_type_t<SystemEvent>>(type);
+        auto& container = m_Context->m_EventScheduler[eventid];
         auto& events    = m_Context->m_SystemsEvents;
 
         for(auto size = container.size(); size; --size)
         {
             const auto index = container.front();
-            const auto& event = events[type];
+            const auto& event = events[eventid];
 
             if(event) {
                 event();
@@ -236,7 +239,7 @@ namespace Helena
         m_Context->m_TickRate = 1.0 / std::max(1.0, tickrate);
     }
 
-    [[nodiscard]] inline auto Core::GetArgs() noexcept -> decltype(auto) {
+    [[nodiscard]] inline auto Core::GetArgs() noexcept -> std::vector<std::string_view>& {
         HF_ASSERT(m_Context, "Core is not initialized");
         return m_Context->m_Args;
     }
@@ -277,29 +280,30 @@ namespace Helena
         if(auto& instance = systems[index]; !instance)
         {
             instance.template emplace<Type>(std::forward<Args>(args)...);
+
             if constexpr(Internal::is_detected_v<fn_create_t, Type>) {
-                events[SystemEvent::Create].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(instance));
-                scheduler[SystemEvent::Create].emplace(index);
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Create)].template connect<&Type::OnSystemCreate>(entt::any_cast<Type&>(instance));
+                scheduler[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Create)].emplace(index);
             }
 
             if constexpr(Internal::is_detected_v<fn_execute_t, Type>) {
-                events[SystemEvent::Execute].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(instance));
-                scheduler[SystemEvent::Execute].emplace(index);
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Execute)].template connect<&Type::OnSystemExecute>(entt::any_cast<Type&>(instance));
+                scheduler[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Execute)].emplace(index);
             }
 
             if constexpr(Internal::is_detected_v<fn_update_t, Type>) {
-                events[SystemEvent::Update].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(instance));
-                scheduler[SystemEvent::Update].emplace(index);
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Update)].template connect<&Type::OnSystemUpdate>(entt::any_cast<Type&>(instance));
+                scheduler[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Update)].emplace(index);
             }
 
             if constexpr(Internal::is_detected_v<fn_tick_t, Type>) {
-                events[SystemEvent::Tick].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(instance));
-                scheduler[SystemEvent::Tick].emplace(index);
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Tick)].template connect<&Type::OnSystemTick>(entt::any_cast<Type&>(instance));
+                scheduler[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Tick)].emplace(index);
             }
 
             if constexpr(Internal::is_detected_v<fn_destroy_t, Type>) {
-                events[SystemEvent::Destroy].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(instance));
-                scheduler[SystemEvent::Destroy].emplace(index);
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Destroy)].template connect<&Type::OnSystemDestroy>(entt::any_cast<Type&>(instance));
+                scheduler[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Destroy)].emplace(index);
             }
         }
     }

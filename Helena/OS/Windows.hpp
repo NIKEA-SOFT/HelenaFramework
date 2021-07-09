@@ -25,6 +25,7 @@
 #include <timeapi.h>
 #include <Dbghelp.h>
 #include <minidumpapiset.h>
+#include <exception>
 
 inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
     // Set UTF-8
@@ -59,7 +60,6 @@ inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
 #define HF_SLEEP(ms)            Sleep(ms)
 
 #define HF_API                  extern "C" __declspec(dllexport)
-#define HF_FORCEINLINE          __forceinline
 
 #define HF_MODULE_HANDLE        HINSTANCE
 #define HF_MODULE_LOAD(a)       LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)

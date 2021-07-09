@@ -38,7 +38,7 @@ namespace Helena::Concurrency
         [[nodiscard]] bool EnqueueJob(Func&& func, Args&&... args) noexcept;
 
         template <typename Func, typename... Args>
-        [[nodiscard]] auto EnqueueTask(Func&& func, Args&&... args) -> std::optional<FutureOf<Func, Args...>>;
+        [[nodiscard]] auto EnqueueTask(Func&& func, Args&&... args)->std::optional<FutureOf<Func, Args...>>;
 
         [[nodiscard]] bool Empty() noexcept;
         [[nodiscard]] auto Size() noexcept;

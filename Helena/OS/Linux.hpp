@@ -9,7 +9,6 @@
 #define HF_SLEEP(ms)            usleep(ms * 1000)
 
 #define HF_API                  extern "C" __attribute__((visibility("default")))
-#define HF_FORCEINLINE          __attribute__((always_inline))
 
 #define HF_MODULE_HANDLE        void*
 #define HF_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
