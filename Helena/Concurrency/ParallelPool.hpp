@@ -12,7 +12,6 @@
 
 namespace Helena::Concurrency
 {
-    // ParallelLoop not use promise or packaged_task
     class ParallelPool final
     {
         using Callback = fu2::unique_function<void()>;
