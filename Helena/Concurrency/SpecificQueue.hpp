@@ -1,16 +1,25 @@
-#ifndef HELENA_CONCURRENCY_SPSCQUEUE_HPP
-#define HELENA_CONCURRENCY_SPSCQUEUE_HPP
+#ifndef HELENA_CONCURRENCY_SPECIFICQUEUE_HPP
+#define HELENA_CONCURRENCY_SPECIFICQUEUE_HPP
 
-#include <atomic>
-#include <memory>
 #include <cstdint>
+#include <memory>
+#include <type_traits>
 
+#include <Helena/Internal.hpp>
+
+#include <Dependencies/entt/core/fwd.hpp>
 
 namespace Helena::Concurrency {
 
-    template <typename T>
-    class SPSCQueue final {
-        using data_type = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
+    template <typename T, std::size_t Capacity>
+    class SpecificQueue final
+    {
+        static_assert(Capacity, "Capacity cannot be null");
+
+        using data_type         = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
+
+        template <typename Type, typename... Args>
+        using fn_dtor           = decltype(std::declval<T>().~T());
 
     public:
         using value_type        = T;
@@ -18,41 +27,35 @@ namespace Helena::Concurrency {
         using const_pointer     = const T*;
         using reference         = T&;
         using const_reference   = const T&;
-        using size_type         = std::uint32_t;
+        using size_type         = decltype(Capacity);
 
     public:
-        SPSCQueue(const size_type size = 1024);
-        ~SPSCQueue();
-        SPSCQueue(const SPSCQueue&) = delete;
-        SPSCQueue& operator=(const SPSCQueue&) = delete;
-        SPSCQueue(SPSCQueue&&) noexcept = delete;
-        SPSCQueue& operator=(SPSCQueue&&) noexcept = delete;
+        SpecificQueue();
+        ~SpecificQueue();
+        SpecificQueue(const SpecificQueue&);
+        SpecificQueue(SpecificQueue&&) noexcept;
+        auto operator=(const SpecificQueue&) -> SpecificQueue&;
+        auto operator=(SpecificQueue&&) noexcept -> SpecificQueue&;
 
         template <typename... Args>
-        [[nodiscard]] bool push([[maybe_unused]] Args&&... args);
-
-        [[nodiscard]] auto front() const noexcept -> decltype(auto);
-
-        void pop() noexcept;
-        [[nodiscard]] bool pop(T& value) noexcept;
+        void emplace([[maybe_unused]] Args&&... args);
 
         template <typename Func>
-        [[nodiscard]] bool view_and_pop(Func&& callback) noexcept;
+        void view_and_pop(Func callback);
 
+        [[nodiscard]] bool full() const noexcept;
         [[nodiscard]] bool empty() const noexcept;
 
         [[nodiscard]] auto size() const noexcept -> size_type;
-
-        [[nodiscard]] auto capacity() const noexcept -> size_type;
+        [[nodiscard]] auto space() const noexcept -> size_type;
+        [[nodiscard]] constexpr auto capacity() const noexcept -> size_type;
 
     private:
-        std::unique_ptr<data_type[]> m_Elements;
-        std::atomic<size_type> m_Head;
-        std::atomic<size_type> m_Tail;
-        const size_type m_Capacity;
+        data_type m_Elements[Capacity];
+        size_type m_Size;
     };
 }
 
-#include <Helena/Concurrency/SPSCQueue.ipp>
+#include <Helena/Concurrency/SpecificQueue.ipp>
 
-#endif // HELENA_CONCURRENCY_SPSCQUEUE_HPP
+#endif // HELENA_CONCURRENCY_SPECIFICQUEUE_HPP

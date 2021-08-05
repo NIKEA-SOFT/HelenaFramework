@@ -10,8 +10,8 @@
 // Helena Platform
 #include <Helena/Platform.hpp>
 
-#ifndef HF_STANDARD_CPP17_OR_GREATER
-    #error HelenaFramework does not support cpp standard below 17
+#ifndef HF_STANDARD_CPP20
+    #error HelenaFramework does not support cpp standard below 20
 #endif
 
 // STL
@@ -43,13 +43,11 @@
 //#define SOL_ALL_SAFETIES_ON 1
 //#include <sol/sol.hpp>
 
-#define ENTT_ID_TYPE std::size_t
-#include <entt/entt.hpp>
-#include <pugixml/pugixml.hpp>
+#include <Helena/Dependencies/Entt.hpp>
+
 #include <robin_hood/robin_hood.h>
 
 // Helena
-#include <Helena/Format.hpp>
 #include <Helena/Internal.hpp>
 #include <Helena/Log.hpp>
 #include <Helena/Assert.hpp>

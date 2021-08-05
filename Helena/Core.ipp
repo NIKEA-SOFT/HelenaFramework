@@ -9,13 +9,14 @@
 
 namespace Helena
 {
-#if HF_PLATFORM == HF_PLATFORM_WIN
+#if defined(HF_PLATFORM_WIN)
     inline void Core::Terminate() {
 
     }
 
     inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType)
     {
+
         if(m_Context)
         {
             std::unique_lock lock(m_Context->m_ShutdownMutex);
@@ -39,7 +40,7 @@ namespace Helena
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
-#elif HF_PLATFORM == HF_PLATFORM_LINUX
+#elif defined(HF_PLATFORM_LINUX)
     inline auto Core::SigHandler([[maybe_unused]] int signal) -> void
     {
         if(m_Context && m_Context->m_State != ECoreState::Shutdown) {
@@ -50,17 +51,15 @@ namespace Helena
 
     inline void Core::HookSignals()
     {
-        #if HF_PLATFORM == HF_PLATFORM_WIN
+        #if defined(HF_PLATFORM_WIN)
             set_terminate(Terminate);
             SetConsoleCtrlHandler(CtrlHandler, TRUE);
-        #elif HF_PLATFORM == HF_PLATFORM_LINUX
+        #elif defined(HF_PLATFORM_LINUX)
             signal(SIGTERM, SigHandler);
             signal(SIGSTOP, SigHandler);
             signal(SIGINT,  SigHandler);
             signal(SIGKILL, SigHandler);
             signal(SIGHUP,  SigHandler);
-        #else
-            #error Unknown platform
         #endif
     }
 
@@ -99,7 +98,7 @@ namespace Helena
                     HF_MSG_FATAL("Shutdown reason: {}", m_Context->m_ShutdownReason);
                 }
 
-                #if HF_PLATFORM == HF_PLATFORM_WIN
+                #if defined(HF_PLATFORM_WIN)
                     m_Context->m_ShutdownCondition.notify_all();
                 #endif
             }
@@ -145,7 +144,7 @@ namespace Helena
 
             if(const auto time = GetTimeElapsed(); time > timeFPS) {
                 timeFPS = time + 1.0;
-            #if HF_PLATFORM == HF_PLATFORM_WIN
+            #if defined(HF_PLATFORM_WIN)
                 constexpr const std::size_t size = 16;
                 char title[size]{"FPS: "};
                 std::to_chars(title + 5, title + size, fps);
@@ -347,16 +346,16 @@ namespace Helena
         {
             if(auto& instance = systems[index]; instance)
             {
-                if(events[SystemEvent::Destroy]) {
-                    events[SystemEvent::Destroy]();
+                if(events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Destroy)]) {
+                    events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Destroy)]();
                 }
 
                 instance.reset();
-                events[SystemEvent::Create].reset();
-                events[SystemEvent::Execute].reset();
-                events[SystemEvent::Tick].reset();
-                events[SystemEvent::Update].reset();
-                events[SystemEvent::Destroy].reset();
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Create)].reset();
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Execute)].reset();
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Tick)].reset();
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Update)].reset();
+                events[static_cast<std::underlying_type_t<SystemEvent>>(SystemEvent::Destroy)].reset();
             }
         }
     }
@@ -412,7 +411,7 @@ namespace Helena
 namespace entt {
     template <typename Type>
     struct ENTT_API type_seq<Type> {
-        [[nodiscard]] static id_type value() ENTT_NOEXCEPT {
+        [[nodiscard]] inline static id_type value() ENTT_NOEXCEPT {
             static const auto value = static_cast<id_type>(Helena::Internal::AddOrGetTypeIndex(
                 Helena::Core::m_Context->m_SequenceIndexes, Helena::Hash::Type<Type>));
             return value;

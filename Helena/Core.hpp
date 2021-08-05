@@ -99,7 +99,7 @@ namespace Helena
             ECoreState m_State {};
 
             std::string m_ShutdownReason;
-        #if HF_PLATFORM == HF_PLATFORM_WIN
+        #if defined(HF_PLATFORM_WIN)
             std::mutex m_ShutdownMutex {};
             std::condition_variable m_ShutdownCondition {};
         #endif
@@ -111,11 +111,11 @@ namespace Helena
         static inline std::shared_ptr<Context> m_Context {};
 
     private:
-    #if HF_PLATFORM == HF_PLATFORM_WIN
+    #if defined(HF_PLATFORM_WIN)
         static void Terminate();
         static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
         static int SEHHandler(unsigned int code, _EXCEPTION_POINTERS* pException);
-    #elif HF_PLATFORM == HF_PLATFORM_LINUX
+    #elif defined(HF_PLATFORM_LINUX)
         static auto SigHandler(int signal) -> void;
     #endif
 

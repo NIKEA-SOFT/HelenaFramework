@@ -26,10 +26,20 @@ namespace Helena::Concurrency
         void unlock() noexcept;
 
     private:
+
+#if defined(HF_COMPILER_GCC)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wattributes"
+#endif
         std::atomic<std::uint32_t> m_CounterLow;
-        char paddingA[Internal::cache_line - sizeof(m_CounterLow)] {};
+        [[maybe_unused]] char paddingA[Internal::cache_line - sizeof(m_CounterLow)];
         std::atomic<std::uint32_t> m_CounterHigh;
-        char paddingB[Internal::cache_line - sizeof(m_CounterHigh)] {};
+        [[maybe_unused]] char paddingB[Internal::cache_line - sizeof(m_CounterHigh)];
+
+#if defined(HF_COMPILER_GCC)
+    #pragma GCC diagnostic pop
+#endif
+
     };
 }
 

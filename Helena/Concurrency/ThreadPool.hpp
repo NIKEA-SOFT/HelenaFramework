@@ -49,7 +49,18 @@ namespace Helena::Concurrency
     private:
         Spinlock m_Lock;
         std::atomic_bool m_Shutdown;
-        char padding[Internal::cache_line - sizeof(m_Shutdown)];
+
+#if defined(HF_COMPILER_GCC)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
+        [[maybe_unused]] char padding[Internal::cache_line - sizeof(m_Shutdown)];
+
+#if defined(HF_COMPILER_GCC)
+    #pragma GCC diagnostic pop
+#endif
+
         SPSCQueue<Callback> m_Jobs;
         std::vector<std::thread> m_Threads;
 

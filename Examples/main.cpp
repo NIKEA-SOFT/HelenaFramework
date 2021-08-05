@@ -1,16 +1,21 @@
-﻿#include <Helena/Helena.hpp>
-#include <Helena/Concurrency/SPSCQueue.hpp>
-#include <Helena/Concurrency/ThreadPool.hpp>
-#include <Helena/Concurrency/ParallelPool.hpp>
+﻿//#include <Helena/Helena.hpp>
+//#include <Helena/Concurrency/SPSCQueue.hpp>
+//#include <Helena/Concurrency/ThreadPool.hpp>
+//#include <Helena/Concurrency/ParallelPool.hpp>
+//#include <Helena/Concurrency/SpecificQueue.hpp>
 
 // Systems
-#include <Helena/Systems/EntityComponent.hpp>
-#include <Helena/Systems/ResourceManager.hpp>
-#include <Helena/Systems/PropertyManager.hpp>
+//#include <Helena/Systems/EntityComponent.hpp>
+//#include <Helena/Systems/ResourceManager.hpp>
+//#include <Helena/Systems/PropertyManager.hpp>
+
+#include <Helena/Log.hpp>
 
 using namespace Helena;
 using namespace Helena::Literals;
 
+#include <Helena/Util.hpp>
+/*
 struct TestSystem 
 {
     // Current method called when system initialized (it's system event)
@@ -139,76 +144,10 @@ struct TestSystem
         properties.Remove<Version>();           // Remove one property
         properties.Remove<Speed, Velocity>();   // Remove multiple property
     }
-};
-
+};*/
 
 int main(int argc, char** argv)
 {
-    // Helena example
-    std::cout << "Main start" << std::endl;
-    Core::Initialize([]() {
 
-        constexpr std::size_t taskCount = 10'000'000;
-
-        // Thread Pool
-        {
-            Helena::Concurrency::ThreadPool pool(std::thread::hardware_concurrency(), taskCount);
-            
-            auto start = Core::GetTimeElapsed();
-            for(std::size_t i = 0; i < taskCount; ++i)
-            {
-                (void)pool.EnqueueJob([]() {
-                    volatile std::size_t i = 1;
-                    i = 5;
-                });
-            }
-            
-            while(!pool.Empty()) {
-                Util::Sleep(10);
-            }
-
-            auto end = Core::GetTimeElapsed();
-            HF_MSG_WARN("ThreadPool timeleft: {}", end - start);
-        }
-
-        // Parallel Pool
-        {
-            const std::size_t threadSize = std::thread::hardware_concurrency();
-
-            Helena::Concurrency::ParallelPool pool;
-            pool.Initialize(threadSize, taskCount / 8);
-
-            auto start = Core::GetTimeElapsed();
-            pool.Each([taskCount, &pool](const std::size_t id) {
-                auto& jobPool = pool.GetPool(id);
-
-                for(std::size_t i = 0; i < taskCount / 8; ++i) {
-                    jobPool.Enqueue([]() {
-                        volatile std::size_t i = 1;
-                        i = 5;
-                    });
-                }
-            });
-
-            bool isFinish = false;
-            while(!isFinish) {
-                pool.Each([&isFinish, threadSize, counter = std::size_t{}](const std::size_t id) mutable {
-                    ++counter;
-
-                    if(counter == threadSize) {
-                        isFinish = true;
-                    }
-                });
-            }
-
-            auto end = Core::GetTimeElapsed();
-            HF_MSG_WARN("ParallelPool timeleft: {}", end - start);
-        }
-
-
-        Util::Sleep(100);
-        Core::Shutdown("Benchmarking");
-    });
-    std::cout << "Main end" << std::endl;
     return 0;
 }

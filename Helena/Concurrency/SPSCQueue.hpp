@@ -1,16 +1,20 @@
 #ifndef HELENA_CONCURRENCY_SPSCQUEUE_HPP
 #define HELENA_CONCURRENCY_SPSCQUEUE_HPP
 
-#include <atomic>
-#include <memory>
 #include <cstdint>
-
+#include <memory>
+#include <type_traits>
+#include <atomic>
 
 namespace Helena::Concurrency {
 
     template <typename T>
-    class SPSCQueue final {
-        using data_type = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
+    class SPSCQueue final
+    {
+        using data_type         = std::conditional_t<std::is_integral_v<T>, T, std::aligned_storage_t<sizeof(T), alignof(T)>>;
+
+        template <typename Type, typename... Args>
+        using fn_dtor           = decltype(std::declval<T>().~T());
 
     public:
         using value_type        = T;
@@ -21,11 +25,11 @@ namespace Helena::Concurrency {
         using size_type         = std::uint32_t;
 
     public:
-        SPSCQueue(const size_type size = 1024);
+        explicit SPSCQueue(const size_type size = 1024);
         ~SPSCQueue();
         SPSCQueue(const SPSCQueue&) = delete;
-        SPSCQueue& operator=(const SPSCQueue&) = delete;
         SPSCQueue(SPSCQueue&&) noexcept = delete;
+        SPSCQueue& operator=(const SPSCQueue&) = delete;
         SPSCQueue& operator=(SPSCQueue&&) noexcept = delete;
 
         template <typename... Args>
@@ -33,11 +37,12 @@ namespace Helena::Concurrency {
 
         [[nodiscard]] auto front() const noexcept -> decltype(auto);
 
-        void pop() noexcept;
-        [[nodiscard]] bool pop(T& value) noexcept;
+        [[nodiscard]] bool pop();
+
+        [[nodiscard]] bool pop(reference value);
 
         template <typename Func>
-        [[nodiscard]] bool view_and_pop(Func&& callback) noexcept;
+        [[nodiscard]] bool view_and_pop(Func callback);
 
         [[nodiscard]] bool empty() const noexcept;
 

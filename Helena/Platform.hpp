@@ -3,10 +3,10 @@
 
 #include <Helena/Defines.hpp>
 
-#if HF_PLATFORM == HF_PLATFORM_WIN
+#if defined(HF_PLATFORM_WIN)
     #include <Helena/OS/Windows.hpp>
 
-#elif HF_PLATFORM == HF_PLATFORM_LINUX
+#elif defined(HF_PLATFORM_LINUX)
     #include <Helena/OS/Linux.hpp>
 #endif
 

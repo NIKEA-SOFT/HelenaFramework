@@ -1,113 +1,185 @@
-#ifndef HELENA_CONCURRENCY_SPSCQUEUE_IPP
-#define HELENA_CONCURRENCY_SPSCQUEUE_IPP
+#ifndef HELENA_CONCURRENCY_SPECIFICQUEUE_IPP
+#define HELENA_CONCURRENCY_SPECIFICQUEUE_IPP
 
-#include <Helena/Concurrency/SPSCQueue.hpp>
-#include <Helena/Concurrency/Internal.hpp>
-
+#include <Helena/Concurrency/SpecificQueue.hpp>
+#include <Helena/Internal.hpp>
+#include <Helena/Assert.hpp>
 
 namespace Helena::Concurrency {
 
-    template <typename T>
-    inline SPSCQueue<T>::SPSCQueue(const size_type size)
-    : m_Elements {std::make_unique<data_type[]>(Internal::round_up_to_power_of_2(size))},
-          m_Head {},
-          m_Tail {},
-          m_Capacity {size} {}
 
-    template <typename T>
-    inline SPSCQueue<T>::~SPSCQueue() {
-        while(!empty()) {
-            pop();
-        }
-    }
+    template <typename T, std::size_t Capacity>
+    inline SpecificQueue<T, Capacity>::SpecificQueue() : m_Elements{}, m_Size{0u} {}
 
-    template <typename T>
-    template <typename... Args>
-    [[nodiscard]] inline bool SPSCQueue<T>::push([[maybe_unused]] Args&&... args) {
-        const auto head = m_Head.load(std::memory_order_relaxed);
-        if(head - m_Tail.load(std::memory_order_acquire) >= m_Capacity) {
-            return false;
-        }
-
-        if constexpr (std::is_integral_v<T>) {
-            m_Elements[head % m_Capacity] = T(std::forward<Args>(args)...);
-        } else {
-            if constexpr(std::is_aggregate_v<T>) {
-                new (&m_Elements[head % m_Capacity]) T{std::forward<Args>(args)...};
-            } else {
-                new (&m_Elements[head % m_Capacity]) T(std::forward<Args>(args)...);
+    template <typename T, std::size_t Capacity>
+    inline SpecificQueue<T, Capacity>::~SpecificQueue()
+    {
+        if constexpr(!std::is_integral_v<value_type> && Internal::is_detected_v<fn_dtor, value_type>)
+        {
+            for(size_type i = 0u; i < m_Size; ++i) {
+                auto& object = *std::launder(reinterpret_cast<pointer>(&m_Elements[i]));
+                object.~value_type();
             }
         }
 
-        m_Head.store(head + 1, std::memory_order_release);
-        return true;
+        m_Size = 0u;
     }
 
-    template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::front() const noexcept -> decltype(auto) {
-        const auto tail = m_Tail.load(std::memory_order_relaxed);
-        return *std::launder(reinterpret_cast<pointer>(&m_Elements[tail % m_Capacity]));
-    }
+    template <typename T, std::size_t Capacity>
+    inline SpecificQueue<T, Capacity>::SpecificQueue(const SpecificQueue& other) : m_Size{0u}
+    {
+        for(size_type i = 0u; i < other.size(); ++i)
+        {
+            if constexpr(std::is_integral_v<value_type>) {
+                m_Elements[i] = other.m_Elements[i];
+            } else {
+                const auto& object = *std::launder(reinterpret_cast<const_pointer>(&other.m_Elements[i]));
 
-    template <typename T>
-    inline void SPSCQueue<T>::pop() noexcept {
-        const auto tail = m_Tail.load(std::memory_order_relaxed);
-        if(m_Head.load(std::memory_order_acquire) == tail) {
-            return;
+                if constexpr(std::is_aggregate_v<value_type>) {
+                    new (&m_Elements[i]) value_type{object};
+                } else {
+                    new (&m_Elements[i]) value_type(object);
+                }
+            }
         }
 
-        if constexpr (!std::is_integral_v<value_type>) {
-            std::launder(reinterpret_cast<pointer>(&m_Elements[tail % m_Capacity]))->~value_type();
-        }
-
-        m_Tail.store(tail + 1, std::memory_order_release);
+        m_Size = other.m_Size;
     }
 
-    template <typename T>
-    [[nodiscard]] inline bool SPSCQueue<T>::pop(T& value) noexcept {
-        const auto tail = m_Tail.load(std::memory_order_relaxed);
-        if(m_Head.load(std::memory_order_acquire) == tail) {
-            return false;
+    template <typename T, std::size_t Capacity>
+    inline SpecificQueue<T, Capacity>::SpecificQueue(SpecificQueue&& other) noexcept : m_Size{0u}
+    {
+        for(size_type i = 0u; i < other.size(); ++i)
+        {
+            if constexpr(std::is_integral_v<value_type>) {
+                m_Elements[i] = std::move(other.m_Elements[i]);
+            } else {
+                auto& rhs = *std::launder(reinterpret_cast<pointer>(&other.m_Elements[i]));
+
+                if constexpr(std::is_aggregate_v<value_type>) {
+                    new (&m_Elements[i]) value_type{std::move(rhs)};
+                } else {
+                    new (&m_Elements[i]) value_type(std::move(rhs));
+                }
+
+                if constexpr(Internal::is_detected_v<fn_dtor, value_type>) {
+                    rhs.~value_type();
+                }
+            }
         }
 
-        value = std::move(*std::launder(reinterpret_cast<pointer>(&m_Elements[tail % m_Capacity])));
-        m_Tail.store(tail + 1, std::memory_order_release);
-        return true;
+        m_Size = other.m_Size;
+        other.m_Size = 0u;
     }
 
-    template <typename T>
+    template <typename T, std::size_t Capacity>
+    inline auto SpecificQueue<T, Capacity>::operator=(const SpecificQueue& other) -> SpecificQueue&
+    {
+        for(size_type i = 0u; i < other.size(); ++i)
+        {
+            if constexpr(std::is_integral_v<value_type>) {
+                m_Elements[i] = other.m_Elements[i];
+            } else {
+                auto& lhs = *std::launder(reinterpret_cast<pointer>(&m_Elements[i]));
+                const auto& rhs = *std::launder(reinterpret_cast<const_pointer>(&other.m_Elements[i]));
+
+                lhs = rhs;
+            }
+        }
+
+        m_Size = other.m_Size;
+
+        return *this;
+    }
+
+    template <typename T, std::size_t Capacity>
+    inline auto SpecificQueue<T, Capacity>::operator=(SpecificQueue&& other) noexcept -> SpecificQueue&
+    {
+        for(size_type i = 0u; i < other.size(); ++i)
+        {
+            if constexpr(std::is_integral_v<value_type>) {
+                m_Elements[i] = other.m_Elements[i];
+            } else {
+                auto& lhs = *std::launder(reinterpret_cast<pointer>(&m_Elements[i]));
+                auto& rhs = *std::launder(reinterpret_cast<const_pointer>(&other.m_Elements[i]));
+
+                lhs = std::move(rhs);
+
+                if constexpr(Internal::is_detected_v<fn_dtor, value_type>) {
+                    rhs.~value_type();
+                }
+            }
+        }
+
+        m_Size = other.m_Size;
+        other.m_Size = 0u;
+
+        return *this;
+    }
+
+    template <typename T, std::size_t Capacity>
+    template <typename... Args>
+    inline void SpecificQueue<T, Capacity>::emplace([[maybe_unused]] Args&&... args)
+    {
+        HF_ASSERT(m_Size < Capacity, "Buffer overflow");
+
+        if constexpr(std::is_integral_v<value_type>) {
+            m_Elements[m_Size++] = value_type(std::forward<Args>(args)...);
+        } else {
+            if constexpr(std::is_aggregate_v<value_type>) {
+                new (&m_Elements[m_Size++]) value_type{std::forward<Args>(args)...};
+            } else {
+                new (&m_Elements[m_Size++]) value_type(std::forward<Args>(args)...);
+            }
+        }
+    }
+
+    template <typename T, std::size_t Capacity>
     template <typename Func>
-    [[nodiscard]] inline bool SPSCQueue<T>::view_and_pop(Func&& callback) noexcept {
-        const auto tail = m_Tail.load(std::memory_order_relaxed);
-        if(m_Head.load(std::memory_order_acquire) == tail) {
-            return false;
+    inline void SpecificQueue<T, Capacity>::view_and_pop(Func callback)
+    {
+        for(size_type i = 0; i < m_Size; ++i)
+        {
+            if constexpr(std::is_integral_v<value_type>) {
+                callback(m_Elements[i]);
+            } else {
+                auto& object = *std::launder(reinterpret_cast<pointer>(&m_Elements[i]));
+
+                callback(object);
+
+                if constexpr(Internal::is_detected_v<fn_dtor, value_type>) {
+                    object.~value_type();
+                }
+            }
         }
 
-        auto& instance = *std::launder(reinterpret_cast<pointer>(&m_Elements[tail % m_Capacity]));
-        callback(instance);
-
-        if constexpr (!std::is_integral_v<value_type>) {
-            instance.~value_type();
-        }
-
-        m_Tail.store(tail + 1, std::memory_order_release);
-        return true;
+        m_Size = 0u;
     }
 
-    template <typename T>
-    [[nodiscard]] inline bool SPSCQueue<T>::empty() const noexcept {
-        return !size();
+    template <typename T, std::size_t Capacity>
+    [[nodiscard]] inline bool SpecificQueue<T, Capacity>::full() const noexcept {
+        return m_Size == Capacity;
     }
 
-    template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::size() const noexcept -> size_type {
-        return m_Head.load(std::memory_order_acquire) - m_Tail.load(std::memory_order_acquire);
+    template <typename T, std::size_t Capacity>
+    [[nodiscard]] inline bool SpecificQueue<T, Capacity>::empty() const noexcept {
+        return !m_Size;
     }
 
-    template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::capacity() const noexcept -> size_type {
-        return m_Capacity;
+    template <typename T, std::size_t Capacity>
+    [[nodiscard]] inline auto SpecificQueue<T, Capacity>::size() const noexcept -> size_type {
+        return m_Size;
+    }
+
+    template <typename T, std::size_t Capacity>
+    [[nodiscard]] inline auto SpecificQueue<T, Capacity>::space() const noexcept -> size_type {
+        return Capacity - m_Size;
+    }
+
+    template <typename T, std::size_t Capacity>
+    [[nodiscard]] inline constexpr auto SpecificQueue<T, Capacity>::capacity() const noexcept -> size_type {
+        return Capacity;
     }
 }
 
-#endif // HELENA_CONCURRENCY_SPSCQUEUE_IPP
+#endif // HELENA_CONCURRENCY_SPECIFICQUEUE_IPP

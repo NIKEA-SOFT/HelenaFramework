@@ -1,7 +1,7 @@
 #ifndef HELENA_OS_WINDOWS_HPP
 #define HELENA_OS_WINDOWS_HPP
 
-#if HF_COMPILER == HF_COMPILER_MSVC
+#if defined(HF_COMPILER_MSVC)
     #pragma warning(disable:4091)
     #pragma warning(disable:4251)
     #pragma warning(disable:4068)
@@ -14,7 +14,7 @@
     #define WIN32_LEAN_AND_MEAN
 #endif
 
-#if HF_COMPILER == HF_COMPILER_MSVC
+#if defined(HF_COMPILER_MSVC)
     #if _MSC_VER >= 1910
         #pragma execution_character_set("utf-8")
     #endif // _MSC_VER >= 1910

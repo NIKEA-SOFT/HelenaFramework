@@ -72,15 +72,6 @@ namespace Helena::Systems
         template <typename Component, typename... Args>
         auto AddComponent(const Entity id, Args&&... args) -> void;
 
-        //template <std::size_t Type, std::integral_constant<typename Type> Component>
-        //auto AddComponentTag(const Entity id) -> void;
-
-        //template <typename Component, typename... Args>
-        //auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
-
-        //template <typename Component, typename... Args>
-        //auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
-
         template <typename Func>
         auto VisitComponent(const Entity id, Func&& callback) const -> void;
 
@@ -131,8 +122,6 @@ namespace Helena::Systems
         template <typename... Components, typename It>
         auto RemoveComponent(It first, It last) -> void;
 
-        auto RemoveComponents(const Entity id) -> void;
-
         template <typename... Components>
         auto ClearComponent() -> void;
 
@@ -143,8 +132,6 @@ namespace Helena::Systems
 
         template <typename... Components>
         auto ReserveComponent(const std::size_t size) -> void;
-
-        auto ReservePool(const std::size_t size) -> void;
 
     private:
         entt::registry m_Registry;
@@ -168,10 +155,6 @@ namespace Helena::Events::Systems::EntityComponent
 
     template <typename Component>
     struct RemoveComponent {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
-    };
-
-    struct RemoveComponents {
         Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 }

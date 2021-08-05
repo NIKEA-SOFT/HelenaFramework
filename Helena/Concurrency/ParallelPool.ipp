@@ -99,16 +99,19 @@ namespace Helena::Concurrency
     }
 
     template <typename Func, typename... Args>
-    [[nodiscard]] void ParallelPool::JobPool::Enqueue(Func&& func, Args&&... args) noexcept {
-        m_Jobs.emplace_back([func = std::forward<Func>(func), args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
-            if constexpr(std::is_same_v<ResultOf<Func, Args...>, void>) {
+    void ParallelPool::JobPool::Enqueue(Func&& func, Args&&... args) noexcept
+    {
+        if constexpr(std::is_same_v<ResultOf<Func, Args...>, void>) {
+            m_Jobs.emplace_back([func = std::forward<Func>(func), args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
                 std::apply(func, std::move(args));
-            } else if constexpr (std::is_same_v<ResultOf<Func, Args...>, std::size_t>) {
+            });
+        } else if constexpr (std::is_same_v<ResultOf<Func, Args...>, std::size_t>) {
+            m_Jobs.emplace_back([this, func = std::forward<Func>(func), args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
                 m_Result.emplace_back(std::apply(func, std::move(args)));
-            } else {
-                static_assert(Helena::Internal::is_always_value<false>, "Func can be only void or std::size_t");
-            }
-        });
+            });
+        } else {
+            static_assert(Helena::Internal::is_always_value<false, Func>, "Func can be only void or std::size_t");
+        }
     }
 
     [[nodiscard]] auto ParallelPool::JobPool::ExtractResult() noexcept -> std::vector<std::size_t>&& {

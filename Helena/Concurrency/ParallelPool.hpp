@@ -1,10 +1,12 @@
 #ifndef HELENA_CONCURRENCY_PARALLELPOOL_HPP
 #define HELENA_CONCURRENCY_PARALLELPOOL_HPP
 
+#include <atomic>
 #include <thread>
 #include <mutex>
 #include <vector>
 #include <memory>
+#include <condition_variable>
 
 #include <Helena/Concurrency/Internal.hpp>
 
@@ -22,7 +24,8 @@ namespace Helena::Concurrency
         struct alignas(Internal::cache_line) JobPool {
 
             template <typename Func, typename... Args>
-            [[nodiscard]] void Enqueue(Func&& func, Args&&... args) noexcept;
+            void Enqueue(Func&& func, Args&&... args) noexcept;
+
             [[nodiscard]] auto ExtractResult() noexcept -> std::vector<std::size_t>&&;
 
         private:
@@ -37,14 +40,22 @@ namespace Helena::Concurrency
             Worker() = default;
             ~Worker() = default;
             Worker(const Worker&) = delete;
-            Worker(Worker&&) noexcept = default;
+            Worker(Worker&&) noexcept = delete;
             Worker& operator=(const Worker&) = delete;
-            Worker& operator=(Worker&&) noexcept = default;
+            Worker& operator=(Worker&&) noexcept = delete;
 
+    #if defined(HF_COMPILER_GCC)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wattributes"
+    #endif
             std::atomic_bool m_Shutdown{};
-            char paddingA[Internal::cache_line - sizeof(m_Shutdown)]{};
+            [[maybe_unused]] char paddingA[Internal::cache_line - sizeof(m_Shutdown)] {};
             std::atomic_bool m_IsBusy{};
-            char paddingB[Internal::cache_line - sizeof(m_IsBusy)]{};
+            [[maybe_unused]] char paddingB[Internal::cache_line - sizeof(m_IsBusy)] {};
+
+    #if defined(HF_COMPILER_GCC)
+        #pragma GCC diagnostic pop
+    #endif
 
             JobPool m_Pool;
 
