@@ -2,18 +2,19 @@
 #define ENTT_ENTITY_FWD_HPP
 
 
+#include <memory>
 #include "../core/fwd.hpp"
 
 
 namespace entt {
 
 
-template<typename>
+template<typename Entity, typename = std::allocator<Entity>>
 class basic_sparse_set;
 
 
-template<typename, typename, typename>
-class basic_storage;
+template<typename, typename Type, typename = std::allocator<Type>>
+struct basic_storage;
 
 
 template<typename>
@@ -21,7 +22,7 @@ class basic_registry;
 
 
 template<typename...>
-class basic_view;
+struct basic_view;
 
 
 template<typename>

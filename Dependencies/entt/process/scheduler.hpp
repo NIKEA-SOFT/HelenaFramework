@@ -57,9 +57,7 @@ class scheduler {
     struct continuation {
         continuation(process_handler *ref)
             : handler{ref}
-        {
-            ENTT_ASSERT(handler);
-        }
+        {}
 
         template<typename Proc, typename... Args>
         continuation then(Args &&... args) {
@@ -86,7 +84,7 @@ class scheduler {
 
         if(process->rejected()) {
             return true;
-        } else if(process->dead()) {
+        } else if(process->finished()) {
             if(handler.next) {
                 handler = std::move(*handler.next);
                 // forces the process to exit the uninitialized state
