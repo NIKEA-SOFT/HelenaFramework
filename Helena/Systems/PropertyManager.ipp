@@ -14,10 +14,8 @@ namespace Helena::Systems
 
     template <typename Property, typename... Args>
     auto PropertyManager::Create([[maybe_unused]] Args&&... args) -> void {
-        static_assert(std::is_same_v<Property, Internal::remove_cvrefptr_t<Property>>,
-                "Property type cannot be const/ptr/ref");
-        static_assert(Internal::is_specialization_of_v<Property, PropertyInfo>,
-                "Property type is not Property::Property type");
+        static_assert(std::is_same_v<Property, Internal::remove_cvrefptr_t<Property>>, "Property type cannot be const/ptr/ref");
+        static_assert(Internal::is_specialization_of_v<Property, PropertyInfo>, "Property type is not Property::Property type");
 
         using Event = Helena::Events::Systems::Property::Create<Property>;
         const auto index = PropertyIndex<Property>::GetIndex(m_PropertyIndexes);
