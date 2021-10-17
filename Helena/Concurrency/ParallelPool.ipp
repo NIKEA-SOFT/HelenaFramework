@@ -40,12 +40,12 @@ namespace Helena::Concurrency
         m_Workers.clear();
     }
 
-    void ParallelPool::Signal(const std::size_t id) noexcept {
+    inline void ParallelPool::Signal(const std::size_t id) noexcept {
         HF_ASSERT(id < m_Workers.size(), "{} >= {}", id, m_Workers.size());
         m_Workers[id]->m_Condition.notify_one();
     }
 
-    [[nodiscard]] bool ParallelPool::IsBusy(const std::size_t id) const noexcept {
+    [[nodiscard]] inline bool ParallelPool::IsBusy(const std::size_t id) const noexcept {
         HF_ASSERT(id < m_Workers.size(), "{} >= {}", id, m_Workers.size());
         return m_Workers[id]->m_IsBusy.load();
     }
@@ -64,7 +64,7 @@ namespace Helena::Concurrency
         }
     }
 
-    [[nodiscard]] auto ParallelPool::GetPool(const std::size_t id) noexcept -> JobPool& {
+    [[nodiscard]] inline auto ParallelPool::GetPool(const std::size_t id) noexcept -> JobPool& {
         HF_ASSERT(id < m_Workers.size(), "{} >= {}", id, m_Workers.size());
         return m_Workers[id]->m_Pool;
     }
