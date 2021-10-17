@@ -1,0 +1,9 @@
+#ifndef HELENA_ENGINE_ENGINE_IPP
+#define HELENA_ENGINE_ENGINE_IPP
+
+namespace Helena
+{
+
+}
+
+#endif // HELENA_ENGINE_ENGINE_IPP
