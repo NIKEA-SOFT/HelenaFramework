@@ -1,34 +1,35 @@
-#ifndef HELENA_CORE_HPP
-#define HELENA_CORE_HPP
+#ifndef HELENA_CORE_CORE_HPP
+#define HELENA_CORE_CORE_HPP
 
-#include <Helena/Platform.hpp>
-#include <Helena/HashComparator.hpp>
+#include <Helena/Core/Context.hpp>
 
-#include <entt/entt.hpp>
-#include <robin_hood/robin_hood.h>
-
-#include <cstdint>
-#include <atomic>
-#include <chrono>
-#include <array>
-#include <queue>
-#include <vector>
-#include <memory>
-#include <type_traits>
-#include <condition_variable>
+#include <Helena/Dependencies/EnTT.hpp>
 
 namespace Helena
 {
-    namespace Events
+    enum class EStateEngine : std::uint8_t 
+    {
+        Init,
+        Executing,
+        Finish,
+        Shutdown
+    };
+
+    class Engine final
+    {
+        using Callback = void (*)(EStateEngine);
+
+        static bool Init(Callback func) noexcept;
+    };
+
+
+    namespace EventsXXX
     {
         enum class Initialize {};
         enum class Finalize {};
     }
-	
-    /**
-     * @brief Framework core
-     */
-    class Core final
+
+    class CoreXXX final
     {
         template <typename, typename>
         friend struct ENTT_API entt::type_seq;
@@ -44,15 +45,23 @@ namespace Helena
         };
 
         template <typename Type, typename... Args>
-        using fn_create_t	= decltype(std::declval<Type>().OnSystemCreate(std::declval<Args>()...));
+        using fn_create_t	= decltype(std::declval<Type>().HFSystemInit(std::declval<Args>()...));
+
         template <typename Type, typename... Args>
-        using fn_execute_t	= decltype(std::declval<Type>().OnSystemExecute(std::declval<Args>()...));
+        using fn_execute_t	= decltype(std::declval<Type>().HFSystemExecute(std::declval<Args>()...));
+
         template <typename Type, typename... Args>
-        using fn_tick_t		= decltype(std::declval<Type>().OnSystemTick(std::declval<Args>()...));
+        using fn_tick_t		= decltype(std::declval<Type>().HFSystemTick(std::declval<Args>()...));
+
         template <typename Type, typename... Args>
-        using fn_update_t	= decltype(std::declval<Type>().OnSystemUpdate(std::declval<Args>()...));
+        using fn_update_t	= decltype(std::declval<Type>().HFSystemUpdate(std::declval<Args>()...));
+
         template <typename Type, typename... Args>
-        using fn_destroy_t	= decltype(std::declval<Type>().OnSystemDestroy(std::declval<Args>()...));
+        using fn_finish_t	= decltype(std::declval<Type>().HFSystemFinish(std::declval<Args>()...));
+
+        template <typename Type, typename... Args>
+        using fn_destroy_t	= decltype(std::declval<Type>().HFSystemDestroy(std::declval<Args>()...));
+
 
         using map_indexes_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t, Hash::Hasher<entt::id_type>, Hash::Comparator<entt::id_type>>;
 
@@ -341,4 +350,4 @@ namespace Helena
 
 #include <Helena/Core.ipp>
 
-#endif // HELENA_CORE_HPP
+#endif // HELENA_CORE_CORE_HPP

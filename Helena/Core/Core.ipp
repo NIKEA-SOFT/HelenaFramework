@@ -1,11 +1,7 @@
 #ifndef HELENA_CORE_IPP
 #define HELENA_CORE_IPP
 
-#include <Helena/Core.hpp>
-#include <Helena/Assert.hpp>
-#include <Helena/Hash.hpp>
-#include <Helena/Util.hpp>
-#include <Helena/Internal.hpp>
+#include <Helena/Core/Context.hpp>
 
 namespace Helena
 {
@@ -67,7 +63,7 @@ namespace Helena
     {
         m_Context->m_TimePrev	= m_Context->m_TimeNow;
         m_Context->m_TimeNow	= std::chrono::steady_clock::now();
-        m_Context->m_TimeDelta	= std::chrono::duration<double>{m_Context->m_TimeNow - m_Context->m_TimePrev}.count();
+        m_Context->m_TimeDelta	= std::chrono::duration<float>{m_Context->m_TimeNow - m_Context->m_TimePrev}.count();
 
         return m_Context->m_TimeDelta;
     }
