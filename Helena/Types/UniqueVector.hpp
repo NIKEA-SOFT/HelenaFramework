@@ -1,8 +1,8 @@
 #ifndef HELENA_TYPES_UNIQUE_VECTOR_HPP
 #define HELENA_TYPES_UNIQUE_VECTOR_HPP
 
-#include <Helena/Debug/Assert.hpp>
 #include <Helena/Dependencies/EnTT.hpp>
+#include <Helena/Debug/Assert.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Types/Hash.hpp>
@@ -12,10 +12,10 @@
 
 namespace Helena::Types 
 {
-	template <std::size_t Size, auto UUID = []{}>
+	template <std::size_t Capacity, auto UUID = []{}>
 	class UniqueVector final
 	{
-		static constexpr auto Length = Helena::Traits::PowerOf2<Size>::value;
+		static constexpr auto Length = Traits::PowerOf2<Capacity>::value;
 
 		using unique_type	= decltype(UUID);
 		using index_type	= std::size_t;
@@ -40,7 +40,7 @@ namespace Helena::Types
 				m_Storage.resize(index + 1u);
 			}
 
-			HF_ASSERT(!m_Indexes[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+			HELENA_ASSERT(!m_Indexes[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
 			m_Storage[index].template emplace<T>(std::forward<Args>(args)...);
 		}
 
@@ -76,8 +76,10 @@ namespace Helena::Types
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
 
-				HF_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
-				HF_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
+					Traits::NameOf<T...>::value, Traits::NameOf<UniqueVector>::value);
+				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
+					Traits::NameOf<T...>::value, Traits::NameOf<UniqueVector>::value);
 
 				return entt::any_cast<T&...>(m_Storage[index]);
 			} else {
@@ -94,8 +96,10 @@ namespace Helena::Types
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
 
-				HF_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
-				HF_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
+					Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
+					Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
 
 				m_Storage[index].reset();
 			} else {

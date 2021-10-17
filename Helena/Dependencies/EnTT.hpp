@@ -1,14 +1,15 @@
-#pragma once
+#ifndef HELENA_DEPENDENCIES_ENTT_HPP
+#define HELENA_DEPENDENCIES_ENTT_HPP
 
 #include <Helena/Debug/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
 
 #ifdef ENTT_ASSERT
     #undef ENTT_ASSERT
-    #define ENTT_ASSERT HF_ASSERT
 #endif
 
-#define ENTT_ID_TYPE std::uint32_t
+#define ENTT_ASSERT     HELENA_ASSERT
+#define ENTT_ID_TYPE    std::uint32_t
 
 #include <entt/entt.hpp>
 
@@ -28,3 +29,5 @@ namespace Helena::Hash
         }
     };
 }
+
+#endif // HELENA_DEPENDENCIES_ENTT_HPP
