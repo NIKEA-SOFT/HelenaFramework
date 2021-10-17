@@ -147,12 +147,25 @@ struct TestSystem
 
 #include <Helena/Helena.hpp>
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Containers/UniqueVector.hpp>
+#include <Helena/Types/UniqueVector.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Types/Delegate.hpp>
 #include <Helena/Types/TimeSpan.hpp>
 
 int main(int argc, char** argv)
-{    
+{   
+    using namespace Helena;
+
+    Types::UniqueVector<32> vec;
+    vec.Create<int>(22);
+    vec.Create<bool>(true);
+    vec.Create<std::string>("Hello");
+
+    if(vec.Has<int, bool>()) {
+        const auto [a, b] = vec.Get<int, bool>();
+        HELENA_MSG_DEFAULT("int: {}, bool: {}", a, b);
+    }
+
+    HELENA_MSG_DEFAULT(vec.Get<std::string>().c_str());
     return 0;
 }
