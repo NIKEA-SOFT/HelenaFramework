@@ -1,8 +1,6 @@
 #ifndef HELENA_CONCURRENCY_INTERNAL_HPP
 #define HELENA_CONCURRENCY_INTERNAL_HPP
 
-#include <Helena/Defines.hpp>
-
 #include <type_traits>
 
 namespace Helena::Internal {
