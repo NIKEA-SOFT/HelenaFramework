@@ -9,12 +9,11 @@
 //#include <Helena/Systems/ResourceManager.hpp>
 //#include <Helena/Systems/PropertyManager.hpp>
 
-#include <Helena/Log.hpp>
+//#include <Helena/Debug/Assert.hpp>
+//#include <Helena/Core/Log.hpp>
 
-using namespace Helena;
-using namespace Helena::Literals;
+#include <iostream>
 
-#include <Helena/Util.hpp>
 /*
 struct TestSystem 
 {
@@ -146,8 +145,14 @@ struct TestSystem
     }
 };*/
 
-int main(int argc, char** argv)
-{
+#include <Helena/Helena.hpp>
+#include <Helena/Engine/Engine.hpp>
+#include <Helena/Containers/UniqueVector.hpp>
+#include <Helena/Util/Format.hpp>
+#include <Helena/Types/Delegate.hpp>
+#include <Helena/Types/TimeSpan.hpp>
 
+int main(int argc, char** argv)
+{    
     return 0;
 }
