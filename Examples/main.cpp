@@ -145,27 +145,19 @@ struct TestSystem
     }
 };*/
 
-#include <Helena/Helena.hpp>
-#include <Helena/Engine/Engine.hpp>
-#include <Helena/Types/UniqueVector.hpp>
-#include <Helena/Util/Format.hpp>
-#include <Helena/Types/Delegate.hpp>
-#include <Helena/Types/TimeSpan.hpp>
+#include <Helena/Debug/Assert.hpp>
+#include <Helena/Util/Cast.hpp>
+//#include <Helena/Types/TimeSpan.hpp>
 
 int main(int argc, char** argv)
 {   
     using namespace Helena;
 
-    Types::UniqueVector<32> vec;
-    vec.Create<int>(22);
-    vec.Create<bool>(true);
-    vec.Create<std::string>("Hello");
+    const std::string_view str = "55.5";
 
-    if(vec.Has<int, bool>()) {
-        const auto [a, b] = vec.Get<int, bool>();
-        HELENA_MSG_DEFAULT("int: {}, bool: {}", a, b);
-    }
+    const auto value = Util::Cast<float>(str);
 
-    HELENA_MSG_DEFAULT(vec.Get<std::string>().c_str());
+    HELENA_ASSERT(false, "Test assert, value: {}", value.value_or(0));
+    HELENA_MSG_DEBUG("Hello world {}", 55);
     return 0;
 }

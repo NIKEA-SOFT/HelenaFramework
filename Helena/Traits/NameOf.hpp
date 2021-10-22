@@ -1,6 +1,7 @@
 #ifndef HELENA_TRAITS_NAMEOF_HPP
 #define HELENA_TRAITS_NAMEOF_HPP
 
+#include <Helena/Platform/Platform.hpp>
 #include <string_view>
 
 namespace Helena::Traits 

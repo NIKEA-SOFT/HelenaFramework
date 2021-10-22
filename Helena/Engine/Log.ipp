@@ -1,11 +1,13 @@
-#ifndef HELENA_ENGINE_LOG_HPP
-#define HELENA_ENGINE_LOG_HPP
+#ifndef HELENA_ENGINE_LOG_IPP
+#define HELENA_ENGINE_LOG_IPP
 
+#pragma message( "Compiling " __FILE__ )
+
+#include <Helena/Util/Cast.hpp>
+#include <Helena/Engine/Log.hpp>
 #include <Helena/Dependencies/Fmt.hpp>
 #include <Helena/Platform/Platform.hpp>
-#include <Helena/Traits/AnyOf.hpp>
-#include <Helena/Util/Cast.hpp>
-#include <Helena/Util/SourceLocation.hpp>
+//#include <Helena/Traits/AnyOf.hpp>
 
 namespace Helena::Log
 {
@@ -179,7 +181,7 @@ namespace Helena::Log
     }
 
     template <Details::PrefixTraits Prefix, typename... Args>
-    void Console(const Util::SourceLocation& source, const fmt::string_view msg, Args&&... args)
+    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args)
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
         const auto time = fmt::localtime(std::time(nullptr));
@@ -194,7 +196,7 @@ namespace Helena::Log
             const auto has_style = Details::MakeColor(buffer, style);
 
             fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), prefix));
-            fmt::detail::vformat_to(buffer, msg, fmt::make_format_args(args...));
+            fmt::detail::vformat_to(buffer, fmt::string_view{msg}, fmt::make_format_args(args...));
 
             if (has_style) {
                 Details::EndColor(buffer);
@@ -225,30 +227,4 @@ namespace Helena::Log
     }
 }
 
-
-// NOTE MSVC: If you get an error, make sure you add a preprocessor /Zc:preprocessor for support VA_OPT
-// Read it here: https://docs.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-160
-#define HELENA_MSG(prefix, fmt, ...)    Helena::Log::Console<prefix>(Helena::Util::SourceLocation::Create(__FILE__, __LINE__), fmt __VA_OPT__(,) __VA_ARGS__)
-
-#if defined(HELENA_DEBUG)
-    #define HELENA_MSG_DEFAULT(fmt, ...)    HELENA_MSG(Helena::Log::Details::Default,   fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_DEBUG(fmt, ...)      HELENA_MSG(Helena::Log::Details::Debug,     fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_INFO(fmt, ...)       HELENA_MSG(Helena::Log::Details::Info,      fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_WARNING(fmt, ...)    HELENA_MSG(Helena::Log::Details::Warning,   fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_ERROR(fmt, ...)      HELENA_MSG(Helena::Log::Details::Error,     fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_FATAL(fmt, ...)      HELENA_MSG(Helena::Log::Details::Fatal,     fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_ASSERT(fmt, ...)     HELENA_MSG(Helena::Log::Details::Assert,    fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_EXCEPTION(fmt, ...)  HELENA_MSG(Helena::Log::Details::Exception, fmt __VA_OPT__(,) __VA_ARGS__)
-#else
-    #define HELENA_MSG_DEFAULT(fmt, ...)
-    #define HELENA_MSG_DEBUG(fmt, ...)
-    #define HELENA_MSG_INFO(fmt, ...)
-    #define HELENA_MSG_WARNING(fmt, ...)    HELENA_MSG(Helena::Log::Details::Warning,   fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_ERROR(fmt, ...)      HELENA_MSG(Helena::Log::Details::Error,     fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_FATAL(fmt, ...)      HELENA_MSG(Helena::Log::Details::Fatal,     fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_ASSERT(fmt, ...)     HELENA_MSG(Helena::Log::Details::Assert,    fmt __VA_OPT__(,) __VA_ARGS__)
-    #define HELENA_MSG_EXCEPTION(fmt, ...)  HELENA_MSG(Helena::Log::Details::Exception, fmt __VA_OPT__(,) __VA_ARGS__)
-#endif
-
-
-#endif // HELENA_ENGINE_LOG_HPP
+#endif // HELENA_ENGINE_LOG_IPP

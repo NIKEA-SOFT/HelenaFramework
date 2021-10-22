@@ -1,11 +1,15 @@
 #ifndef HELENA_DEBUG_ASSERT_HPP
 #define HELENA_DEBUG_ASSERT_HPP
 
-#include <Helena/Engine/Message.hpp>
+#pragma message( "Compiling " __FILE__ )
+
+#include <Helena/Util/Cast.hpp>
+#include <Helena/Engine/Log.hpp>
 
 //#include <filesystem>
 //#include <fstream>
 #include <tuple>
+#include <cstdlib>
 
 #ifdef HELENA_DEBUG
     #define HELENA_ASSERT(cond, ...)                                                                \

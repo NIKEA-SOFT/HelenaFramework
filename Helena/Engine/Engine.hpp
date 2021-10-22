@@ -40,31 +40,33 @@ namespace Helena
         }
 
         [[nodiscard]] std::string_view GetShutdownReason() noexcept {
-            return std::string_view{m_ShutdownReason};
+            return m_ShutdownReason;
         }
 
     public:
+        virtual ~EngineContext() = default;
+        EngineContext(const EngineContext&) = delete;
+        EngineContext(EngineContext&&) noexcept = delete;
+        EngineContext& operator=(const EngineContext&) = delete;
+        EngineContext& operator=(EngineContext&&) noexcept = delete;
+
         template <typename T = EngineContext, typename... Args>
-        [[nodiscard]] static std::shared_ptr<EngineContext> CreateContext([[maybe_unused]] Args&&... args) {
+        [[nodiscard]] static std::shared_ptr<T> CreateContext([[maybe_unused]] Args&&... args) {
             HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
             m_Context = std::make_shared<T>(std::forward<Args>(args)...);
+            return std::static_pointer_cast<T>(m_Context);
         }
 
         [[nodiscard]] static std::shared_ptr<EngineContext> CreateContext(const std::shared_ptr<EngineContext>& ctx) noexcept {
             HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
             m_Context = ctx;
+            return m_Context;
         }
 
         [[nodiscard]] static std::shared_ptr<EngineContext> GetContext() noexcept {
             HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
             return m_Context;
         }
-
-        virtual ~EngineContext() = default;
-        EngineContext(const EngineContext&) = delete;
-        EngineContext(EngineContext&&) noexcept = delete;
-        EngineContext& operator=(const EngineContext&) = delete;
-        EngineContext& operator=(EngineContext&&) noexcept = delete;
 
         void SetTickrate(float tickrate) noexcept {
             m_Tickrate = std::min(tickrate, 1.f);

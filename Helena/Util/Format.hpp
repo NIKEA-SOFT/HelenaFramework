@@ -2,7 +2,7 @@
 #define HELENA_UTIL_FORMAT_HPP
 
 #include <Helena/Traits/PowerOf2.hpp>
-#include <Helena/Engine/Message.hpp>
+#include <Helena/Engine/Log.hpp>
 
 namespace Helena::Util
 {
