@@ -55,6 +55,7 @@ namespace Helena::Types
         // %h - hours
         // %m - minutes
         // %s - seconds
+        // %ms - milliseconds
         // Currently this function not constexpr becaus Util::Cast use from_chars
         [[nodiscard]] static TimeSpan FromString(std::string_view format, std::string_view time) noexcept
         {
@@ -75,7 +76,8 @@ namespace Helena::Types
             std::size_t offsetFormat{};
             std::size_t offsetTime{};
 
-            constexpr auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool {
+            auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
+            {
                 // Take string with fixed size length from buffer
                 const auto data = buffer.substr(offset, read_length);
 
@@ -102,8 +104,6 @@ namespace Helena::Types
                 return true;
             };
 
-            // 10:15:32.680
-            // %h:%m:%s.%ms
             while(true) 
             {
                 if(offsetFormat >= format.size()) {
@@ -122,7 +122,8 @@ namespace Helena::Types
                         continue;
                     }
 
-                    switch(format[offsetFormat]) {
+                    switch(format[offsetFormat]) 
+                    {
                         case 'D': hasError = fnParse(time, offsetTime, 2uLL, day); break;
                         case 'M': hasError = fnParse(time, offsetTime, 2uLL, month); break;
                         case 'Y': hasError = fnParse(time, offsetTime, 4uLL, year); break;
@@ -156,9 +157,7 @@ namespace Helena::Types
 
 
             const bool isLeap = (year % 400 == 0) || ((year % 4 == 0) && (year % 100 != 0));
-            const std::int32_t daysInMonth = 
-                                (month == 2 ? (isLeap ? 29 : 28) : ((month == 4 || month == 6 || month == 9 || month == 11) ? 30 : 31));
-
+            const std::int32_t daysInMonth = (month == 2 ? (isLeap ? 29 : 28) : ((month == 4 || month == 6 || month == 9 || month == 11) ? 30 : 31));
             if(month > 12 || day > daysInMonth || hours > 24 || minutes > 60 || seconds > 60 || milliseconds > 1000) {
                 return TimeSpan{};
             }
