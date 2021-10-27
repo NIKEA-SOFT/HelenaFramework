@@ -1,8 +1,6 @@
 #ifndef HELENA_UTIL_CAST_HPP
 #define HELENA_UTIL_CAST_HPP
 
-#pragma message( "Compiling " __FILE__ )
-
 #include <Helena/Traits/ScopedEnum.hpp>
 
 #include <string_view>
@@ -17,7 +15,7 @@ namespace Helena::Util
 
     template <typename T> 
     requires std::is_integral_v<T> || std::is_floating_point_v<T>
-    [[nodiscard]] constexpr auto Cast(std::string_view str) noexcept;
+    [[nodiscard]] auto Cast(std::string_view str) noexcept;
 }
 
 #include <Helena/Util/Cast.ipp>
