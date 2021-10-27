@@ -1,15 +1,15 @@
-#ifndef HELENA_UTIL_FORMAT_HPP
-#define HELENA_UTIL_FORMAT_HPP
+#ifndef HELENA_TYPES_FORMAT_HPP
+#define HELENA_TYPES_FORMAT_HPP
 
-#include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Engine/Log.hpp>
+#include <Helena/Types/FixedBuffer.hpp>
 
-namespace Helena::Util
+namespace Helena::Types
 {
 	template <std::size_t Capacity>
 	class Format
 	{
-		using memory_buffer = fmt::basic_memory_buffer<char, Traits::PowerOf2<Capacity>::value>;
+		using memory_buffer = fmt::basic_memory_buffer<char, Capacity>;
 
 	public:
 		template <typename... Args>
@@ -41,15 +41,19 @@ namespace Helena::Util
 		Format& operator=(const Format&) = delete;
 		Format& operator=(Format&&) = default;
 
-		[[nodiscard]] std::string_view GetText() noexcept {
-			return std::string_view{m_Buffer.data(), m_Buffer.size()};
+		[[nodiscard]] const char* GetData() const noexcept {
+			return m_Buffer.data();
 		}
 
-		[[nodiscard]] std::size_t GetSize() noexcept {
+		[[nodiscard]] std::string_view GetBuffer() const noexcept {
+			return {m_Buffer.data(), m_Buffer.size()};
+		}
+
+		[[nodiscard]] std::size_t GetSize() const noexcept {
 			return m_Buffer.size();
 		}
 
-		[[nodiscard]] std::size_t Empty() noexcept {
+		[[nodiscard]] std::size_t Empty() const noexcept {
 			return !m_Buffer.size();
 		}
 
@@ -57,9 +61,12 @@ namespace Helena::Util
 			m_Buffer.clear();
 		}
 
-	private:
+		[[nodiscard]] operator FixedBuffer<Capacity>() const noexcept {
+			return FixedBuffer<Capacity>(m_Buffer.data(), m_Buffer.size());
+		}
+
 		memory_buffer m_Buffer;
 	};
 }
 
-#endif // HELENA_UTIL_FORMAT_HPP
+#endif // HELENA_TYPES_FORMAT_HPP
