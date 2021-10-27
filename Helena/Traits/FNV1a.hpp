@@ -2,7 +2,6 @@
 #define HELENA_TRAITS_FNV1A_HPP
 
 #include <cstdint>
-#include <string_view>
 
 namespace Helena::Traits 
 {
