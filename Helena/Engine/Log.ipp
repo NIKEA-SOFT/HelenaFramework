@@ -1,11 +1,8 @@
 #ifndef HELENA_ENGINE_LOG_IPP
 #define HELENA_ENGINE_LOG_IPP
 
-#pragma message( "Compiling " __FILE__ )
-
-#include <Helena/Util/Cast.hpp>
 #include <Helena/Engine/Log.hpp>
-#include <Helena/Dependencies/Fmt.hpp>
+#include <Helena/Util/Cast.hpp>
 #include <Helena/Platform/Platform.hpp>
 //#include <Helena/Traits/AnyOf.hpp>
 
@@ -171,16 +168,9 @@ namespace Helena::Log
         inline void EndColor(fmt::memory_buffer& buffer) {
             fmt::detail::reset_color<char>(buffer);
         }
-
-        template <typename T>
-        concept PrefixTraits = requires {
-            //{ T::is_logging }   -> Traits::AnyOf<std::true_type, std::false_type>;
-            { T::GetPrefix() }  -> std::same_as<std::string_view>;
-            { T::GetStyle() }   -> std::same_as<fmt::text_style>;
-        };
     }
 
-    template <Details::PrefixTraits Prefix, typename... Args>
+    template <Details::Prefixable Prefix, typename... Args>
     void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args)
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");

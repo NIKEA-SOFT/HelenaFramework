@@ -1,24 +1,21 @@
 #ifndef HELENA_ENGINE_LOG_HPP
 #define HELENA_ENGINE_LOG_HPP
 
-#pragma message( "Compiling " __FILE__ )
-
+#include <Helena/Dependencies/Fmt.hpp>
 #include <Helena/Util/SourceLocation.hpp>
 
 namespace Helena::Log
 {
-    enum class Color : std::uint8_t;
-
     namespace Details {
-        struct Default;
-        struct Debug;
-        struct Info;
-        struct Warning;
-        struct Error;
-        struct Fatal;
-        struct Exception;
-        struct Assert;
+        template <typename T>
+        concept Prefixable = requires {
+            //{ T::is_logging }   -> Traits::AnyOf<std::true_type, std::false_type>;
+            { T::GetPrefix() }  -> std::same_as<std::string_view>;
+            { T::GetStyle() }   -> std::same_as<fmt::text_style>;
+        };
     }
+
+    enum class Color : std::uint8_t;
 
     [[nodiscard]] inline consteval auto CreatePrefix(const std::string_view prefix) noexcept;
 
@@ -26,7 +23,7 @@ namespace Helena::Log
 
     [[nodiscard]] inline consteval auto CreateStyle(const Color color, const Color background) noexcept;
 
-    template <typename Prefix, typename... Args>
+    template <Details::Prefixable Prefix, typename... Args>
     void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args);
 }
 
