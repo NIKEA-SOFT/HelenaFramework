@@ -5,41 +5,49 @@
 #include <Helena/Dependencies/FixedString.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/Format.hpp>
+#include <Helena/Util/Length.hpp>
 
 namespace Helena::Types
 {
-	template <std::size_t Capacity, typename Char = char>
+	template <std::size_t Capacity, typename Char = char, Util::ELengthPolicy Policy = Util::ELengthPolicy::Fixed>
 	class FixedBuffer
 	{
+	public:
+		using value_type =	fixstr::basic_fixed_string<Char, Capacity>;
+		using size_type	 =	std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
+							std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
+							std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
+
+		[[nodiscard]] static constexpr std::size_t GetCapacity() noexcept {
+			return Capacity;
+		}
+
+	private:
 		constexpr void FillBuffer(const Char* data, std::size_t size) noexcept 
 		{
-			if(!std::is_constant_evaluated()) {
-				HELENA_ASSERT(data, "Data ptr is null");
-			}
-
-			if(size > Capacity) {
+			if(!data && size || size > Capacity) {
 				Clear();
 				return;
 			}
 
 			std::copy_n(data, size, m_Buffer.data());
-			if(m_Size > size) {
-				std::fill_n(m_Buffer.begin() + size, m_Size - size, '\0');
+			if(m_Size > static_cast<size_type>(size)) {
+				std::fill_n(m_Buffer.begin() + size, m_Size - static_cast<size_type>(size), '\0');
 			}
 
-			m_Size = size;
+			m_Size = static_cast<size_type>(size);
 		}
 
 	public:
+
 		constexpr FixedBuffer() = default;
 
-		constexpr FixedBuffer(const Char* data, std::size_t length) noexcept {
+		explicit constexpr FixedBuffer(const Char* data, std::size_t length) noexcept {
 			FillBuffer(data, length);
 		}
 
-		template <std::size_t Size>
-		constexpr FixedBuffer(const Char (&data)[Size]) noexcept {
-			FillBuffer(data, Size);
+		constexpr FixedBuffer(const Char* data) noexcept {
+			FillBuffer(data, Util::Length(data, Capacity, Policy));
 		}
 
 		constexpr FixedBuffer(std::basic_string_view<Char> data) noexcept {
@@ -51,19 +59,19 @@ namespace Helena::Types
 			FillBuffer(other.GetData(), other.GetSize());
 		}
 
-		constexpr FixedBuffer(const FixedBuffer& other) noexcept {
-			FillBuffer(other.GetData(), other.m_Size);
+		explicit constexpr FixedBuffer(const FixedBuffer& other) noexcept {
+			FillBuffer(other.GetData(), other.GetSize());
 		}
 
 		constexpr ~FixedBuffer() = default;
 
 		constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
-			FillBuffer(other.GetData(), other.m_Size);
+			FillBuffer(other.GetData(), other.GetSize());
 			return *this;
 		}
 
-		template <std::size_t CapacityOther>
-		constexpr FixedBuffer& operator=(const Format<CapacityOther>& other) noexcept  {
+		template <std::size_t Capacity>
+		constexpr FixedBuffer& operator=(const Format<Capacity>& other) noexcept  {
 			FillBuffer(other.GetData(), other.GetSize());
 			return *this;
 		}
@@ -73,9 +81,8 @@ namespace Helena::Types
 		}
 
 		template <std::size_t Size>
-		constexpr FixedBuffer& SetData(const Char (&data)[Size]) noexcept {
+		constexpr void SetData(const Char (&data)[Size]) noexcept {
 			FillBuffer(data, Size);
-			return *this;
 		}
 
 		constexpr void SetData(std::basic_string_view<Char> data) noexcept {
@@ -94,10 +101,6 @@ namespace Helena::Types
 			return m_Size;
 		}
 
-		[[nodiscard]] static constexpr std::size_t GetCapacity() noexcept {
-			return Capacity;
-		}
-
 		template <std::size_t Capacity>
 		[[nodiscard]] constexpr bool IsEqual(const FixedBuffer<Capacity>& other) const noexcept {
 			if(m_Size != other.m_Size) return false;
@@ -109,23 +112,20 @@ namespace Helena::Types
 		}
 
 		[[nodiscard]] constexpr void Clear() noexcept {
-			std::fill_n(m_Buffer.data(), m_Size, '\0');
+			std::fill_n(GetData(), GetSize(), '\0');
 			m_Size = 0;
 		}
 
 		[[nodiscard]] constexpr operator std::basic_string_view<Char>() const noexcept {
-			return {GetData(), m_Size};
+			return {GetData(), GetSize()};
 		}
 
-		fixstr::basic_fixed_string<Char, Capacity> m_Buffer;
-		std::size_t m_Size {};
+		value_type m_Buffer;
+		size_type m_Size {};
 	};
 
 	template <std::size_t Capacity>
 	FixedBuffer(const Format<Capacity>&) -> FixedBuffer<Capacity, char>;
-
-	template <std::size_t Size, typename Char = char>
-	FixedBuffer(const Char (&)[Size]) -> FixedBuffer<Size, Char>;
 }
 
 #endif // HELENA_TYPES_FIXEDBUFFER_HPP
