@@ -154,8 +154,26 @@ struct TestSystem
 
 using namespace Helena;
 
+void foo(const Types::FixedBuffer<64> buffer) {
+    HELENA_MSG_INFO(buffer);
+}
+
 int main(int argc, char** argv)
 {   
+    constexpr auto arr_size = sizeof(std::array<char, 0>);
+    constexpr auto size = sizeof(Types::FixedBuffer<254>);
+    typename Types::FixedBuffer<257>::size_type wd = 10;
+
+    HELENA_MSG_DEBUG("Sizeof FixedBuffer: {}", sizeof(Types::FixedBuffer<10>));
+    Types::FixedBuffer<64> wtf{"Hello"};
+    wtf = Types::Format<32>("CZXCZXC");
+
+    const char* ptr = "LOL";
+    foo(ptr);
+    foo("Hello");
+    std::string_view temp = ptr;
+    foo(temp);
+
     auto timespan = Types::TimeSpan::FromString("%h:%m:%s", "22:04:17.666");
     {
         const auto days = timespan.GetDays();
