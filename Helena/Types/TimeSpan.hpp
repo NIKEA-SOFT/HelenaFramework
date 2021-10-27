@@ -2,8 +2,8 @@
 #define HELENA_TYPES_TIMESPAN_HPP
 
 #include <Helena/Debug/Assert.hpp>
-#include <Helena/Util/Format.hpp>
 #include <Helena/Util/Cast.hpp>
+#include <Helena/Util/Format.hpp>
 
 #include <charconv>
 #include <stdexcept>
@@ -63,10 +63,7 @@ namespace Helena::Types
                 return TimeSpan{};
             }
 
-            const auto fnCast
-
-            const char* buffer {};
-            std::errc error{};
+            bool hasError {};
 
             std::int32_t day{};
             std::int32_t month{};
@@ -77,6 +74,36 @@ namespace Helena::Types
 
             std::size_t offsetFormat{};
             std::size_t offsetTime{};
+
+            constexpr auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
+            {
+                // Take string with fixed size length from buffer
+                const auto data = buffer.substr(offset, read_length);
+
+                // Buffer can be small, need compare for check
+                if(data.size() == read_length)
+                {
+                    // Cast string to int
+                    const auto value = Util::Cast<std::int32_t>(data);
+
+                    // Check cast result
+                    if(value.has_value()) 
+                    {
+                        // Write casted value to out variable
+                        out = value.value();
+
+                        // Add size to offset for parse other data in next time
+                        offset += data.size();
+
+                        return true;
+                    }
+                    
+                    HELENA_MSG_EXCEPTION("Cast data: \"{}\" failed", data);
+                } else 
+                    HELENA_MSG_EXCEPTION("Parse data: \"{}\" failed, data size less than read_length", data);
+
+                return false;
+            };
 
             while(true) 
             {
@@ -94,13 +121,7 @@ namespace Helena::Types
                     switch(format[offsetFormat])
                     {
                         case 'D': {
-                            const auto date = time.substr(offsetTime, 4uLL);
-                            if(date.size() == 4uLL) {
-                                offsetTime += date.size();
-                                const auto result = std::from_chars(date.data(), date.data() + date.size(), day);
-                                
-                            }
-
+                            hasError = fnParse(time, offsetTime, 4uLL, year);
                         } break;
 
                         case 'M': {
