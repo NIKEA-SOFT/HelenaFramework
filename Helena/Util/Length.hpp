@@ -16,19 +16,22 @@ namespace Helena::Util
 		ELengthPolicy policy = ELengthPolicy::Truncate) noexcept 
 	{
 		if(!std::is_constant_evaluated()) {
-			HELENA_ASSERT(data, "Data ptr is null");
 			HELENA_ASSERT(max_size, "Max size cannot be null");
 		}
 
 		std::size_t offset = 0;
-		while (data[offset] != '\0') 
-		{
-			if(++offset > max_size) 
+
+		if(data)
+		{ 
+			while(data[offset] != '\0') 
 			{
-				if(policy == ELengthPolicy::Truncate) {
-					return offset - 1;
-				} else if(policy == ELengthPolicy::Fixed) {
-					return std::size_t{};
+				if(++offset > max_size) 
+				{
+					if(policy == ELengthPolicy::Truncate) {
+						return offset - 1;
+					} else if(policy == ELengthPolicy::Fixed) {
+						return std::size_t{};
+					}
 				}
 			}
 		}
