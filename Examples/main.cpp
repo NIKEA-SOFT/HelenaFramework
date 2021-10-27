@@ -145,19 +145,19 @@ struct TestSystem
     }
 };*/
 
-#include <Helena/Debug/Assert.hpp>
-#include <Helena/Util/Cast.hpp>
+#include <Helena/Types/Hash.hpp>
+#include <Helena/Types/FixedString.hpp>
+#include <Helena/Types/FixedBuffer.hpp>
+#include <Helena/Types/Format.hpp>
+#include <Helena/Util/Length.hpp>
 //#include <Helena/Types/TimeSpan.hpp>
+
+using namespace Helena;
 
 int main(int argc, char** argv)
 {   
-    using namespace Helena;
+    Types::FixedBuffer buffer = "Hello";
+    Types::FixedBuffer buffer = Types::Format<64>("My name: {}", "Alex");
 
-    const std::string_view str = "55.5";
-
-    const auto value = Util::Cast<float>(str);
-
-    HELENA_ASSERT(false, "Test assert, value: {}", value.value_or(0));
-    HELENA_MSG_DEBUG("Hello world {}", 55);
     return 0;
 }
