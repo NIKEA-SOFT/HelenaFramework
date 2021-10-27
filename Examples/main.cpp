@@ -150,14 +150,33 @@ struct TestSystem
 #include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Types/Format.hpp>
 #include <Helena/Util/Length.hpp>
-//#include <Helena/Types/TimeSpan.hpp>
+#include <Helena/Types/TimeSpan.hpp>
 
 using namespace Helena;
 
 int main(int argc, char** argv)
 {   
-    Types::FixedBuffer buffer = "Hello";
-    Types::FixedBuffer buffer = Types::Format<64>("My name: {}", "Alex");
+    auto timespan = Types::TimeSpan::FromString("%h:%m:%s", "22:04:17.666");
+    {
+        const auto days = timespan.GetDays();
+        const auto hours = timespan.GetHours();
+        const auto min = timespan.GetMinutes();
+        const auto sec = timespan.GetSeconds();
+        const auto msec = timespan.GetMilliseconds();
+
+        const auto wtf = 0;
+    }
+
+    {
+        const auto days = timespan.GetTotalDays();
+        const auto hours = timespan.GetTotalHours();
+        const auto min = timespan.GetTotalMinutes();
+        const auto sec = timespan.GetTotalSeconds();
+        const auto msec = timespan.GetTotalMilliseconds();
+
+        const auto wtf = 0;
+    }
+
 
     return 0;
 }
