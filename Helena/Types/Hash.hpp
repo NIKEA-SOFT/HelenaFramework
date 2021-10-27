@@ -12,21 +12,21 @@ namespace Helena::Hash
     template <typename>
     struct Equaler;
 
-    template <typename T = std::uint64_t>
-    constexpr auto Get(const std::string_view str) noexcept 
+    [[nodiscard]] constexpr auto Get(const std::string_view str) noexcept 
     {
-        using Hash = Helena::Traits::FNV1a<T>;
+        using Hash = Traits::FNV1a<std::uint64_t>;
 
-        auto hash{ Hash::Offset };
-        for(std::size_t i = 0u; i < str.size(); ++i) {
-            hash = (hash ^ static_cast<T>(str[i])) * Hash::Prime;
+        auto value { Hash::Offset };
+        for(std::size_t i = 0; i < str.size(); ++i) {
+            value = (value ^ static_cast<std::uint64_t>(str[i])) * Hash::Prime;
         }
-        return hash;
+
+        return value;
     }
 
-    template <typename T, typename U = std::uint64_t>
-    constexpr auto Get() noexcept {
-        return Get<U>(Helena::Traits::NameOf<T>::value);
+    template <typename T>
+    [[nodiscard]] constexpr auto Get() noexcept {
+        return Get(Helena::Traits::NameOf<T>::value);
     }
 }
 
