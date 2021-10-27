@@ -2,7 +2,6 @@
 #define HELENA_TYPES_FORMAT_HPP
 
 #include <Helena/Engine/Log.hpp>
-#include <Helena/Types/FixedBuffer.hpp>
 
 namespace Helena::Types
 {
@@ -59,10 +58,6 @@ namespace Helena::Types
 
 		void Clear() noexcept {
 			m_Buffer.clear();
-		}
-
-		[[nodiscard]] operator FixedBuffer<Capacity>() const noexcept {
-			return FixedBuffer<Capacity>(m_Buffer.data(), m_Buffer.size());
 		}
 
 		memory_buffer m_Buffer;
