@@ -1,33 +1,50 @@
 #ifndef HELENA_DEBUG_ASSERT_HPP
 #define HELENA_DEBUG_ASSERT_HPP
 
-#pragma message( "Compiling " __FILE__ )
-
-#include <Helena/Util/Cast.hpp>
-#include <Helena/Engine/Log.hpp>
+#include <Helena/Platform/Platform.hpp>
 
 //#include <filesystem>
 //#include <fstream>
 #include <tuple>
 #include <cstdlib>
 
+namespace Helena {
+
+    namespace Util {
+        struct SourceLocation;
+    }
+
+    namespace Log {
+        enum class Color : std::uint8_t;
+
+        namespace Details {
+            struct Assert;
+        }
+
+        template <typename Prefix, typename... Args>
+        void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args);
+    }
+}
+
 #ifdef HELENA_DEBUG
-    #define HELENA_ASSERT(cond, ...)                                                                \
-        do {                                                                                        \
-            if(!(cond)) {                                                                           \
-                using tuple = decltype(std::forward_as_tuple(__VA_ARGS__));                         \
-                if constexpr (std::tuple_size_v<tuple> > 0) {                                       \
-                    HELENA_MSG_ASSERT("Condition: " #cond " | Message: " __VA_ARGS__);              \
-                } else {                                                                            \
-                    HELENA_MSG_ASSERT("Condition: " #cond);                                         \
-                }                                                                                   \
-                                                                                                    \
-                if(HELENA_DEBUGGING()) {                                                            \
-                    HELENA_BREAKPOINT();                                                            \
-                }                                                                                   \
-                                                                                                    \
-                std::exit(EXIT_FAILURE);                                                            \
-            }                                                                                       \
+    #define HELENA_ASSERT(cond, ...)                                                                        \
+        do {                                                                                                \
+            if(!(cond)) {                                                                                   \
+                using assert    = Helena::Log::Details::Assert;                                             \
+                using tuple     = decltype(std::forward_as_tuple(__VA_ARGS__));                             \
+                constexpr auto location = Helena::Util::SourceLocation::Create(__FILE__, __LINE__);         \
+                if constexpr (std::tuple_size_v<tuple> > 0) {                                               \
+                    Helena::Log::Console<assert>(location, "Condition: " #cond " | Message: " __VA_ARGS__); \
+                } else {                                                                                    \
+                    Helena::Log::Console<assert>(location, "Condition: " #cond);                            \
+                }                                                                                           \
+                                                                                                            \
+                if(HELENA_DEBUGGING()) {                                                                    \
+                    HELENA_BREAKPOINT();                                                                    \
+                }                                                                                           \
+                                                                                                            \
+                std::exit(EXIT_FAILURE);                                                                    \
+            }                                                                                               \
         } while(false)
 
     //#define HELENA_ASSERT(cond, ...)                                                                    \
@@ -89,5 +106,7 @@
 #else
     #define HELENA_ASSERT(cond, ...)
 #endif
+
+#include <Helena/Engine/Log.hpp>
 
 #endif // HELENA_DEBUG_ASSERT_HPP
