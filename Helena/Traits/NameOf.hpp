@@ -12,7 +12,7 @@ namespace Helena::Traits
 	        constexpr std::string_view name { HELENA_FUNCTION };
 	        constexpr auto first = name.find_first_not_of(' ', name.find_first_of('<') + 1u);
 	        constexpr auto value = name.substr(first, name.find_last_of('<') - first - 3u);
-	        return value.data();
+	        return value;
 	    }();
 	};
 }
