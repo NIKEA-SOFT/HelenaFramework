@@ -267,8 +267,6 @@ namespace Helena
         // Add lambda invoke inside pool
         pool.emplace_back([callback](Event* event, std::uint64_t other_id) -> bool
         {
-            HELENA_ASSERT(Engine::HasSystem<System>(), "System {} not exist in pool of event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
-
             // This 'if' used as compare predicate for remove listener of signal
             // if other_id != OperationCall it's mean lambda called from RemoveEvent
             // if other_id == RemoveEvent it's mean lambda called from SignalEvent
@@ -276,6 +274,8 @@ namespace Helena
                 constexpr auto id = Hash::template Get<decltype(callback)>();
                 return id == other_id;
             }
+
+            HELENA_ASSERT(Engine::HasSystem<System>(), "System {} not exist in pool of event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
 
             // Check exist System
             if(Engine::HasSystem<System>()) {
