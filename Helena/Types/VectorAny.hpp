@@ -1,5 +1,5 @@
-#ifndef HELENA_TYPES_UNIQUE_VECTOR_HPP
-#define HELENA_TYPES_UNIQUE_VECTOR_HPP
+#ifndef HELENA_TYPES_VECTORANY_HPP
+#define HELENA_TYPES_VECTORANY_HPP
 
 #include <Helena/Dependencies/EnTT.hpp>
 #include <Helena/Debug/Assert.hpp>
@@ -13,7 +13,7 @@
 namespace Helena::Types 
 {
 	template <std::size_t Capacity, auto UUID = []{}>
-	class UniqueVector final
+	class VectorAny final
 	{
 		static constexpr auto Length = Traits::PowerOf2<Capacity>::value;
 
@@ -40,7 +40,7 @@ namespace Helena::Types
 				m_Storage.resize(index + 1u);
 			}
 
-			HELENA_ASSERT(!m_Indexes[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+			HELENA_ASSERT(!m_Storage[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<VectorAny>::value);
 			m_Storage[index].template emplace<T>(std::forward<Args>(args)...);
 		}
 
@@ -77,9 +77,9 @@ namespace Helena::Types
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<UniqueVector>::value);
+					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
 				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<UniqueVector>::value);
+					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
 
 				return entt::any_cast<T&...>(m_Storage[index]);
 			} else {
@@ -97,14 +97,18 @@ namespace Helena::Types
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
-					Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
 				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T>::value, Traits::NameOf<UniqueVector>::value);
+					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
 
 				m_Storage[index].reset();
 			} else {
 				(Remove<T>(), ...);
 			}
+		}
+
+		void Clear() noexcept {
+			m_Storage.clear();
 		}
 
 	private:
@@ -122,4 +126,4 @@ namespace Helena::Types
 	};
 }
 
-#endif // HELENA_TYPES_UNIQUE_VECTOR_HPP
+#endif // HELENA_TYPES_VECTORANY_HPP
