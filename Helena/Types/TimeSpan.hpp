@@ -4,7 +4,6 @@
 #include <Helena/Debug/Assert.hpp>
 #include <Helena/Util/Cast.hpp>
 
-#include <charconv>
 #include <stdexcept>
 
 namespace Helena::Types
@@ -16,6 +15,8 @@ namespace Helena::Types
         static constexpr std::int64_t m_TicksPerMinutes         = 60LL * m_TicksPerSeconds;
         static constexpr std::int64_t m_TicksPerHours           = 60LL * m_TicksPerMinutes;
         static constexpr std::int64_t m_TicksPerDays            = 24LL * m_TicksPerHours;
+
+        static constexpr auto m_DaysPerMonth                    = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
 
     public:
         explicit constexpr TimeSpan() : m_Ticks{} {};
@@ -47,131 +48,6 @@ namespace Helena::Types
 
         [[nodiscard]] static constexpr TimeSpan FromMax() noexcept {
             return TimeSpan{ std::numeric_limits<std::int64_t>::max() };
-        }
-
-        // %D - Day
-        // %M - Month
-        // %Y - Year
-        // %h - hours
-        // %m - minutes
-        // %s - seconds
-        // %ms - milliseconds
-        // Currently this function not constexpr becaus Util::Cast use from_chars
-        [[nodiscard]] static TimeSpan FromString(std::string_view format, std::string_view time) noexcept
-        {
-            if(format.empty() || time.empty()) {
-                return TimeSpan{};
-            }
-
-            bool hasError{};
-
-            std::int32_t day{};
-            std::int32_t month{};
-            std::int32_t year{};
-            std::int32_t hours{};
-            std::int32_t minutes{};
-            std::int32_t seconds{};
-            std::int32_t milliseconds{};
-
-            std::size_t offsetFormat{};
-            std::size_t offsetTime{};
-
-            auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
-            {
-                // Take string with fixed size length from buffer
-                const auto data = buffer.substr(offset, read_length);
-
-                // Buffer can be small, need compare for check
-                if(data.size() == read_length) {
-                    // Cast string to int
-                    const auto value = Util::Cast<std::int32_t>(data);
-
-                    // Check cast result
-                    if(value.has_value()) {
-                        // Write casted value to out variable
-                        out = value.value();
-
-                        // Add size to offset for parse other data in next time
-                        offset += data.size();
-
-                        return false;
-                    }
-
-                    HELENA_MSG_EXCEPTION("Cast data: \"{}\" failed", data);
-                } else
-                    HELENA_MSG_EXCEPTION("Parse data: \"{}\" failed, data size less than read_length", data);
-
-                return true;
-            };
-
-            while(true) 
-            {
-                if(offsetFormat >= format.size()) {
-                    break;
-                }
-
-                if(format[offsetFormat++] == '%') 
-                {
-                    if(offsetFormat >= format.size()) {
-                        hasError = true;
-                        continue;
-                    }
-
-                    if(offsetTime >= time.size()) {
-                        hasError = true;
-                        continue;
-                    }
-
-                    switch(format[offsetFormat]) 
-                    {
-                        case 'D': hasError = fnParse(time, offsetTime, 2uLL, day); break;
-                        case 'M': hasError = fnParse(time, offsetTime, 2uLL, month); break;
-                        case 'Y': hasError = fnParse(time, offsetTime, 4uLL, year); break;
-                        case 'h': hasError = fnParse(time, offsetTime, 2uLL, hours); break;
-                        case 'm':
-                            if(format[offsetFormat + 1] == 's') {
-                                ++offsetFormat;
-                                hasError = fnParse(time, offsetTime, 3uLL, milliseconds);
-                            } else {
-                                hasError = fnParse(time, offsetTime, 2uLL, minutes);
-                            }
-                        break;
-                        case 's': hasError = fnParse(time, offsetTime, 2uLL, seconds); break;
-
-                        default: {
-                            HELENA_ASSERT(false, "Format: \"{}\" incorrect, time: \"{}\"", format, time);
-                            hasError = true;
-                        }
-                    }
-
-                    ++offsetFormat;
-                } else {
-                    ++offsetTime;
-                }
-
-                if(hasError) {
-                    return TimeSpan{};
-                }
-            }
-
-
-
-            const bool isLeap = (year % 400 == 0) || ((year % 4 == 0) && (year % 100 != 0));
-            const std::int32_t daysInMonth = (month == 2 ? (isLeap ? 29 : 28) : ((month == 4 || month == 6 || month == 9 || month == 11) ? 30 : 31));
-            if(month > 12 || day > daysInMonth || hours > 24 || minutes > 60 || seconds > 60 || milliseconds > 1000) {
-                return TimeSpan{};
-            }
-
-            const std::int64_t ticks =  
-                                (static_cast<std::int64_t>(year * (isLeap ? 366 : 365)) * m_TicksPerDays) +
-                                (static_cast<std::int64_t>(month * daysInMonth) * m_TicksPerDays) +
-                                (static_cast<std::int64_t>(day) * m_TicksPerDays) +
-                                (static_cast<std::int64_t>(hours) * m_TicksPerHours) +
-                                (static_cast<std::int64_t>(minutes) * m_TicksPerMinutes) +
-                                (static_cast<std::int64_t>(seconds) * m_TicksPerSeconds) +
-                                (static_cast<std::int64_t>(milliseconds * m_TicksPerMilliseconds));
-
-            return TimeSpan{ticks};
         }
 
         [[nodiscard]] constexpr std::int64_t GetTicks() const noexcept {
