@@ -145,56 +145,89 @@ struct TestSystem
     }
 };*/
 
+#include <Helena/Engine/Engine.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/FixedString.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Types/Format.hpp>
-#include <Helena/Util/Length.hpp>
 #include <Helena/Types/TimeSpan.hpp>
+#include <Helena/Types/DateTime.hpp>
+#include <Helena/Types/VectorUnique.hpp>
+#include <Helena/Types/VectorAny.hpp>
+#include <Helena/Util/Format.hpp>
+#include <Helena/Platform/Windows/Windows.hpp>
+#include <Helena/Engine/Log.hpp>
+#include <Helena/Memory/CacheAllocator.hpp>
+#include <Helena/Traits/CVRefPtr.hpp>
+
 
 using namespace Helena;
 
-void foo(const Types::FixedBuffer<64> buffer) {
-    HELENA_MSG_INFO(buffer);
-}
+class MyContext : public Core::Context
+{
+public:
+    MyContext(int val) : value(val) {}
+    ~MyContext() = default;
+
+    int value = 100;
+};
+
+// Это евент
+struct MyEvent {
+    Types::FixedBuffer<32> m_Name;
+    int m_Age;
+};
+
+// Это класс системы
+struct MySystem {
+    MySystem(int value) : m_Value(value) {}
+    ~MySystem() = default;
+
+    int m_Value;
+
+    void CallbackEvent(MyEvent& data) {
+        HELENA_MSG_WARNING("Callback called, your name: {}, age: {}", data.m_Name, data.m_Age);
+    }
+};
 
 int main(int argc, char** argv)
-{   
-    constexpr auto arr_size = sizeof(std::array<char, 0>);
-    constexpr auto size = sizeof(Types::FixedBuffer<254>);
-    typename Types::FixedBuffer<257>::size_type wd = 10;
+{
+    const auto ctx = Core::Context::Initialize<MyContext>(500);
 
-    HELENA_MSG_DEBUG("Sizeof FixedBuffer: {}", sizeof(Types::FixedBuffer<10>));
-    Types::FixedBuffer<64> wtf{"Hello"};
-    wtf = Types::Format<32>("CZXCZXC");
+    ctx->SetAppName("Test");
+    ctx->SetTickrate(120);
+    ctx->m_CallbackInit.Connect<+[]() {
+        HELENA_MSG_INFO("Инициализация ядра!");
+        Engine::RegisterSystem<MySystem>(100500);
+        Engine::SubscribeEvent<MyEvent>(&MySystem::CallbackEvent); // тут подписались
+    }>();
 
-    const char* ptr = "LOL";
-    foo(ptr);
-    foo("Hello");
-    std::string_view temp = ptr;
-    foo(temp);
+    ctx->m_CallbackTick.Connect<+[]() {
+        HELENA_MSG_INFO("Tick");
+        Engine::SignalEvent<MyEvent>("Oleg", 22); // тут кинули сигнал
+        Engine::RemoveEvent<MyEvent>(&MySystem::CallbackEvent);
+    }>();
 
-    auto timespan = Types::TimeSpan::FromString("%h:%m:%s", "22:04:17.666");
-    {
-        const auto days = timespan.GetDays();
-        const auto hours = timespan.GetHours();
-        const auto min = timespan.GetMinutes();
-        const auto sec = timespan.GetSeconds();
-        const auto msec = timespan.GetMilliseconds();
+    ctx->m_CallbackUpdate.Connect<+[]() {
+        //HELENA_MSG_INFO("Update");
+        Engine::Shutdown();
+    }>();
 
-        const auto wtf = 0;
-    }
+    ctx->m_CallbackShutdown.Connect<+[]() {
+        if(Engine::HasSystem<MySystem>()) {
+            const auto& system = Engine::GetSystem<MySystem>();
+            HELENA_MSG_INFO("Your system name: {}, value: {}", Traits::NameOf<Traits::RemoveCVRefPtr<decltype(system)>>::value, system.m_Value);
 
-    {
-        const auto days = timespan.GetTotalDays();
-        const auto hours = timespan.GetTotalHours();
-        const auto min = timespan.GetTotalMinutes();
-        const auto sec = timespan.GetTotalSeconds();
-        const auto msec = timespan.GetTotalMilliseconds();
+            Engine::RemoveSystem<MySystem>();
+            if(!Engine::HasSystem<MySystem>()) {
+                HELENA_MSG_INFO("Your system removed successfully!");
+            }
+        }
 
-        const auto wtf = 0;
-    }
+    }>();
 
+
+    while(Engine::Heartbeat()) {}
 
     return 0;
 }
