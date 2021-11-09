@@ -112,7 +112,7 @@ namespace Helena::Log
             }
 
             [[nodiscard]] static consteval auto GetStyle() noexcept {
-                return CreateStyle(Color::BrightWhite, Color::BrightRed);
+                return CreateStyle(Color::BrightWhite, Color::Red);
             }
         };
 
@@ -201,8 +201,8 @@ namespace Helena::Log
             fmt::detail::vformat_to(buffer, fmt::string_view{
                 "\n----------------------------------------\n"
                 "|| Error: format syntax invalid!\n"
-                "|| Format: {}\n"
-                "----------------------------------------"
+                "|| Format: {}"
+                "\n----------------------------------------"
                 }, fmt::make_format_args(msg));
 
             if (has_style) {
