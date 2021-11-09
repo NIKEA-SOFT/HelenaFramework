@@ -10,6 +10,7 @@
     #endif
 
     #pragma comment(lib, "winmm.lib")
+    #pragma comment(lib, "dbghelp.lib")
 
     #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
@@ -20,7 +21,6 @@
     #include <WinSock2.h>
     #include <timeapi.h>
     #include <Dbghelp.h>
-    #include <minidumpapiset.h>
     #include <exception>
 
     #if defined(HELENA_COMPILER_MSVC)
@@ -35,12 +35,15 @@
     //    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
     //}
 
+    inline const auto ENABLE_TIME_BEGIN_PERIOD_1MS = []() {
+        timeBeginPeriod(1);
+        return 0;
+    }();
+
     inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
         // Set UTF-8
         SetConsoleCP(65001);
         SetConsoleOutputCP(65001);
-
-        timeBeginPeriod(1);
 
         // Fix Windows fmt.print, enable virtual terminal processing
         if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE)
