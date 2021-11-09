@@ -11,27 +11,25 @@ namespace Helena::Util
 	};
 
 	template <typename Char = char>
-	[[nodiscard]] constexpr std::size_t Length(const Char* data, 
-		std::size_t max_size = std::numeric_limits<std::size_t>::max(), 
-		ELengthPolicy policy = ELengthPolicy::Truncate) noexcept 
+	[[nodiscard]] constexpr std::size_t Length(ELengthPolicy policy, const Char* data, std::size_t max_size = std::numeric_limits<std::size_t>::max()) noexcept 
 	{
 		if(!std::is_constant_evaluated()) {
 			HELENA_ASSERT(max_size, "Max size cannot be null");
 		}
 
 		std::size_t offset = 0;
-
 		if(data)
 		{ 
-			while(data[offset] != '\0') 
+			while(offset < max_size && data[offset] != '\0') { 
+				++offset; 
+			}
+
+			if(offset >= max_size) 
 			{
-				if(++offset > max_size) 
+				switch(policy) 
 				{
-					if(policy == ELengthPolicy::Truncate) {
-						return offset - 1;
-					} else if(policy == ELengthPolicy::Fixed) {
-						return std::size_t{};
-					}
+					case ELengthPolicy::Truncate:	return offset - 1uLL;
+					case ELengthPolicy::Fixed:		return 0uLL;
 				}
 			}
 		}
