@@ -33,12 +33,10 @@ namespace Helena {
                 using assert    = Helena::Log::Details::Assert;                                             \
                 using tuple     = decltype(std::forward_as_tuple(__VA_ARGS__));                             \
                 constexpr auto location = Helena::Util::SourceLocation::Create(__FILE__, __LINE__);         \
+                Helena::Log::Console<assert>(location, "Condition: {}", #cond);                             \
                 if constexpr (std::tuple_size_v<tuple> > 0) {                                               \
-                    Helena::Log::Console<assert>(location, "Condition: " #cond " | Message: " __VA_ARGS__); \
-                } else {                                                                                    \
-                    Helena::Log::Console<assert>(location, "Condition: " #cond);                            \
+                    Helena::Log::Console<assert>(location, "Message: " __VA_ARGS__);                        \
                 }                                                                                           \
-                                                                                                            \
                 if(HELENA_DEBUGGING()) {                                                                    \
                     HELENA_BREAKPOINT();                                                                    \
                 }                                                                                           \
