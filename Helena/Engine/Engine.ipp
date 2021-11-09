@@ -250,27 +250,36 @@ namespace Helena
         using Pool = EventPool<Event>;
         using Callback = Callback<Event, T>;
 
+        // Create new pool if not exist
         auto& ctx = Core::Context::GetInstance();
         if(!ctx.m_Events.Has<Pool>()) {
             ctx.m_Events.Create<Pool>();
         }
 
+        // Pool on callbacks
         auto& pool = ctx.m_Events.Get<Pool>();
 
-        //HELENA_ASSERT(std::find_if(pool.cbegin(), pool.cend(), [id = Hash::template Get<decltype(callback)>()](const auto& instance) {
-        //    return instance(nullptr, id);
-        //}) == pool.cend(), "System {} already registered on event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
+        // Already registered check
+        HELENA_ASSERT(std::find_if(pool.cbegin(), pool.cend(), [id = Hash::template Get<decltype(callback)>()](const auto& instance) {
+            return instance(nullptr, id);
+        }) == pool.cend(), "System {} already registered on event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
 
+        // Add lambda invoke inside pool
         pool.emplace_back([callback](Event* event, std::uint64_t other_id) -> bool
         {
             HELENA_ASSERT(Engine::HasSystem<System>(), "System {} not exist in pool of event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
 
+            // This 'if' used as compare predicate for remove listener of signal
+            // if other_id != OperationCall it's mean lambda called from RemoveEvent
+            // if other_id == RemoveEvent it's mean lambda called from SignalEvent
             if(other_id) {
                 constexpr auto id = Hash::template Get<decltype(callback)>();
                 return id == other_id;
             }
 
+            // Check exist System
             if(Engine::HasSystem<System>()) {
+                // Invoke callback
                 (Engine::GetSystem<System>().*callback)(*event);
                 return true;
             }
@@ -284,15 +293,19 @@ namespace Helena
     {
         using Pool = EventPool<Event>;
 
+        // Get pool of events
         auto& ctx = Core::Context::GetInstance();
         if(ctx.m_Events.Has<Pool>()) 
         {
+            // Get pool of callbacks
             auto& pool = ctx.m_Events.Get<Pool>();
             if(pool.size())
             {
+                // Create Event with args
                 auto event = Event{std::forward<Args>(args)...};
                 for(auto size = pool.size(); size; --size) 
                 {
+                    // Signal
                     const auto& callback = pool[size - 1];
                     if(!callback(&event, OperationCall)) {
                         pool.erase(pool.cbegin() + (size - 1));
@@ -306,14 +319,23 @@ namespace Helena
     static void Engine::RemoveEvent(Callback<Event, T> callback) noexcept 
     {
         using Pool = EventPool<Event>;
+
+        // Get hash id for type of callback
         constexpr auto id = Hash::template Get<decltype(callback)>();
 
+        // Get pool of events
         auto& ctx = Core::Context::GetInstance();
         if(ctx.m_Events.Has<Pool>()) 
         {
+            // Get pool of callbacks
             auto& pool = ctx.m_Events.Get<Pool>();
             for(auto size = pool.size(); size; --size) 
             {
+                // Call lambda with compare signal
+                // when Event is nullptr and id != OperationCall
+                // used compare inside lambda.
+                // We compare current instance hash id with lambda
+                // instance hash id and if equal return true
                 const auto& instance = pool[size - 1];
                 if(instance(nullptr, id)) {
                     pool.erase(pool.cbegin() + (size - 1));
