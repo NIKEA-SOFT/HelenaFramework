@@ -6,8 +6,13 @@
 
 namespace Helena::Types
 {
-	template <std::size_t Size, typename Char = char>
-	using FixedString = fixstr::basic_fixed_string<Char, Size>;
+	template <size_t Size>
+	struct FixedString : fixstr::basic_fixed_string<char, Size> {
+		using fixstr::basic_fixed_string<char, Size>::basic_fixed_string;
+	};
+
+	template <std::size_t N>
+	FixedString(const char (&)[N]) -> FixedString<N - 1>;
 }
 
 #endif // HELENA_TYPES_FIXEDSTRING_HPP

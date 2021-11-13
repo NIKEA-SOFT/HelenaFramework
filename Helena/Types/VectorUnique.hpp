@@ -29,10 +29,10 @@ namespace Helena::Types
 
 	public:
 		template <typename T, typename... Args>
-		void Create([[maybe_unused]] Args&&... args) noexcept
+		void Create([[maybe_unused]] Args&&... args)
 		{
 			static_assert(std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>, "Type cannot be const/ptr/ref");
-			static_assert(std::is_constructible_v<T, Args...>, "Type cannot be constructable from args");
+			//static_assert(std::is_constructible_v<T, Args...>, "Type cannot be constructable from args");
 
 			const auto index = Indexer<unique_type, T>::GetIndex(m_Indexes);
 			if(index >= m_Storage.size()) {
@@ -40,11 +40,15 @@ namespace Helena::Types
 			}
 
 			HELENA_ASSERT(!m_Storage[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<VectorUnique>::value);
-			m_Storage[index].emplace(std::forward<Args>(args)...);
+
+			if(!m_Storage[index].has_value()) {
+				m_Storage[index].emplace(std::forward<Args>(args)...);
+				m_Size++;
+			}
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Has() noexcept 
+		[[nodiscard]] bool Has() const noexcept 
 		{
 			static_assert(sizeof...(T) > 0, "Type pack is empty!");
 			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
@@ -58,7 +62,7 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Any() noexcept 
+		[[nodiscard]] bool Any() const noexcept 
 		{
 			static_assert(sizeof...(T) > 1, "Exclusion-only Type are not supported");
 			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
@@ -67,7 +71,7 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] decltype(auto) Get() noexcept
+		[[nodiscard]] decltype(auto) Get() const noexcept
 		{
 			static_assert(sizeof...(T) > 0, "Type pack is empty!");
 			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
@@ -77,12 +81,26 @@ namespace Helena::Types
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
 					Traits::NameOf<T...>::value, Traits::NameOf<VectorUnique>::value);
-				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorUnique>::value);
 
 				return m_Storage[index].value();
 			} else {
 				return std::forward_as_tuple(Get<T>()...);
+			}
+		}
+
+		template <typename Callback>
+		void Each(Callback func, bool reset = false) noexcept 
+		{
+			for(std::size_t i = 0; i < m_Storage.size(); ++i)
+			{
+				if(auto& data = m_Storage[i]; data.has_value()) 
+				{
+					func(data.value());
+
+					if(reset) {
+						data.reset();
+					}
+				}
 			}
 		}
 
@@ -97,17 +115,31 @@ namespace Helena::Types
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
 					Traits::NameOf<T...>::value, Traits::NameOf<VectorUnique>::value);
-				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorUnique>::value);
 
-				m_Storage[index].reset();
+				if(m_Storage[index].has_value()) {
+					m_Storage[index].reset();
+					m_Size--;
+				}
 			} else {
 				(Remove<T>(), ...);
 			}
 		}
 
+		bool Empty() const noexcept {
+			return !m_Size;
+		}
+
+		std::size_t GetSize() const noexcept {
+			return m_Size;
+		}
+
+		std::size_t GetCapacity() const noexcept {
+			return m_Storage.size();
+		}
+
 		void Clear() noexcept {
 			m_Storage.clear();
+			m_Size = 0;
 		}
 
 	private:
@@ -115,13 +147,14 @@ namespace Helena::Types
 		struct Indexer {
 			[[nodiscard]] static auto GetIndex(map_type& map) {
 				// Get a name of type T and generate a hash to use as a key for a hash map
-				static const auto index = GetIndexByKey(map, Hash::Get(Traits::NameOf<T>::value));
+				static const auto index = GetIndexByKey(map, Hash::Get<T>());
 				return index;
 			}
 		};
 
-		map_type m_Indexes;			// Used for storage T indexes (for support dll/so across boundary)
+		mutable map_type m_Indexes;	// Used for storage T indexes (for support dll/so across boundary)
 		vec_type m_Storage;			// Used for storage T elements
+		std::size_t m_Size;			// Used size
 	};
 }
 

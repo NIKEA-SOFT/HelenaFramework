@@ -1,5 +1,5 @@
-#ifndef HELENA_ENGINE_STATE_HPP
-#define HELENA_ENGINE_STATE_HPP
+#ifndef HELENA_CORE_STATE_HPP
+#define HELENA_CORE_STATE_HPP
 
 #include <cstdint>
 
@@ -13,4 +13,4 @@ namespace Helena::Core
     };
 }
 
-#endif // HELENA_ENGINE_STATE_HPP
+#endif // HELENA_CORE_STATE_HPP

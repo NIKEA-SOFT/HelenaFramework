@@ -6,10 +6,6 @@
 namespace Helena
 {
 #if defined(HF_PLATFORM_WIN)
-    inline void Core::Terminate() {
-
-    }
-
     inline BOOL WINAPI Core::CtrlHandler(DWORD dwCtrlType)
     {
 
@@ -48,7 +44,6 @@ namespace Helena
     inline void Core::HookSignals()
     {
         #if defined(HF_PLATFORM_WIN)
-            set_terminate(Terminate);
             SetConsoleCtrlHandler(CtrlHandler, TRUE);
         #elif defined(HF_PLATFORM_LINUX)
             signal(SIGTERM, SigHandler);

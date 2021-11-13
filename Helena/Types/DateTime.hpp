@@ -262,7 +262,7 @@ namespace Helena::Types
             return DateTime(m_Ticks - m_Ticks % m_TicksPerDays);
         }
 
-        [[nodiscard]] constexpr void GetDate(std::int32_t& year, std::int32_t& month, std::int32_t& day) const noexcept {
+        constexpr void GetDate(std::int32_t& year, std::int32_t& month, std::int32_t& day) const noexcept {
             std::int32_t l = static_cast<std::int32_t>(GetJulianDay() + 0.5) + 68569;
             const std::int32_t n = 4 * l / 146097;
             l = l - (146097 * n + 3) / 4;

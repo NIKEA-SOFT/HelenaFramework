@@ -1,26 +1,37 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
-#include <Helena/Engine/Context.hpp>
-#include <Helena/Types/Function.hpp>
-#include <Helena/Types/FixedString.hpp>
-
-#include <vector>
+#include <Helena/Core/Context.hpp>
+#include <Helena/Traits/CVRefPtr.hpp>
 
 namespace Helena
 {
     class Engine final
     {
-        template <typename Event, typename T>
-        using Callback = void (T::*)(Event&);
+        template <std::uint64_t id>
+        struct EventID {};
 
         template <typename Event>
-        using EventCallback = std::function<bool (Event*, std::uint64_t)>;
+        struct EventPool : Core::IEventPool {
+            static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+            Types::VectorUnique<std::function<void (const Event&)>> m_Callbacks;
+        };
+
+        template <typename Event, typename System>
+        using EventCallbackSystem = void (System::*)(const Event&);
 
         template <typename Event>
-        using EventPool = std::vector<EventCallback<Event>>;
+        using EventCallback = void (*)(const Event&);
 
-        static constexpr std::uint64_t OperationCall = 0uLL;
+    private:
+        template <typename Pool>
+        [[nodiscard]] static Pool& GetCreatePool() noexcept;
+
+        template <typename Pool, typename Key>
+        static void RemoveEventByKey() noexcept;
+
+        template <typename Event, typename... Args>
+        static void SignalBase(Args&&... args);
 
     public:
         [[nodiscard]] static bool Heartbeat();
@@ -47,14 +58,20 @@ namespace Helena
         static void RemoveSystem() noexcept;
 
     public:
-        template <typename Event, typename T>
-        static void SubscribeEvent(Callback<Event, T> callback);
+        template <typename Event>
+        static void SubscribeEvent(EventCallback<Event> callback);
+
+        template <typename Event, typename System>
+        static void SubscribeEvent(EventCallbackSystem<Event, System> callback);
 
         template <typename Event, typename... Args>
-        static void SignalEvent(Args&&... args) noexcept;
+        static void SignalEvent(Args&&... args);
 
-        template <typename Event, typename T>
-        static void RemoveEvent(Callback<Event, T> callback) noexcept;
+        template <typename Event>
+        static void RemoveEvent(EventCallback<Event> callback);
+
+        template <typename Event, typename System>
+        static void RemoveEvent(EventCallbackSystem<Event, System> callback);
 
     private:
     #if defined(HELENA_PLATFORM_WIN)

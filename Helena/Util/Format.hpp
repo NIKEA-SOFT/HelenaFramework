@@ -13,7 +13,7 @@ namespace Helena::Util
 	{
 		try {
 			if(!msg.empty()) {
-				return fmt::format(msg, std::forward<Args>(args)...);
+				return fmt::vformat(msg, fmt::make_format_args(args...));
 			}
 		} catch(const fmt::format_error&) {
 			HELENA_MSG_EXCEPTION(

@@ -1,151 +1,4 @@
-﻿//#include <Helena/Helena.hpp>
-//#include <Helena/Concurrency/SPSCQueue.hpp>
-//#include <Helena/Concurrency/ThreadPool.hpp>
-//#include <Helena/Concurrency/ParallelPool.hpp>
-//#include <Helena/Concurrency/SpecificQueue.hpp>
-
-// Systems
-//#include <Helena/Systems/EntityComponent.hpp>
-//#include <Helena/Systems/ResourceManager.hpp>
-//#include <Helena/Systems/PropertyManager.hpp>
-
-//#include <Helena/Debug/Assert.hpp>
-//#include <Helena/Core/Log.hpp>
-
-#include <iostream>
-
-/*
-struct TestSystem 
-{
-    // Current method called when system initialized (it's system event)
-    void OnSystemCreate() {
-        //HF_MSG_DEBUG("OnSystemCreate");
-
-        // Test Core events
-        Core::RegisterEvent<Events::Initialize,     &TestSystem::OnCoreInitialize>(this);
-        Core::RegisterEvent<Events::Finalize,       &TestSystem::OnCoreFinalize>(this);
-    }
-
-    // Current method called after OnSystemCreate (it's system event)
-    void OnSystemExecute() {
-        //HF_MSG_DEBUG("OnSystemExecute");
-
-        //TestConfigManager();
-
-        //const std::size_t COUNT = 10'000'000
-
-        //Util::Sleep(10);
-    }
-
-    // Called when Core initialized
-    void OnCoreInitialize(const Events::Initialize& event) {
-        //HF_MSG_DEBUG("OnCoreInitialize");
-    }
-
-    // Called when Core finish
-    void OnCoreFinalize(const Events::Finalize& event) {
-        //HF_MSG_DEBUG("OnCoreFinalize");
-    }
-
-    // Called every tick (it's system event)
-    void OnSystemTick() {
-        //HF_MSG_DEBUG("OnSystemTick");
-    }
-
-    // Called every tickrate (fps) tick (default: 0.016 ms) (it's system event)
-    void OnSystemUpdate() {
-        //HF_MSG_DEBUG("OnSystemUpdate, delta: {:.4f}", Core::GetTimeDelta());
-    }
-
-    // Called when System destroyed (it's system event)
-    void OnSystemDestroy() {
-        //HF_MSG_DEBUG("OnSystemDestroy");
-    }
-
-    void TestConfigManager() {
-        // Get ConfigManager system
-        auto& resources = Core::GetSystem<Systems::ResourceManager>();
-
-        // Test Resources
-
-        // test structure
-        struct Info {
-            std::string name;
-            std::string url;
-            float version;
-        };
-
-        // test structure
-        struct Book {
-            std::string name;
-            std::string author;
-        };
-
-        HF_MSG_DEBUG("Info size: {}, book size: {}", sizeof(Info), sizeof(Book));
-
-        // Initialize and store the property inside config manager container
-        resources.Create<Info>("Helena Framework", "github.com/nikea-soft", 0.1f);
-        resources.Create<Book>("Effective Modern C++", "Scott Meyers");
-
-        // Check on exist
-        if(resources.Has<Info, Book>()) {
-            HF_MSG_DEBUG("Resource Data exist!");
-        }
-
-        // Check the availability of one of the Resources
-        if(resources.Any<Info, Book>()) {
-            HF_MSG_DEBUG("Any of the Resource exist");
-        }
-
-        // deduction guide support
-        [[maybe_unused]] const auto& [info, book] = resources.Get<Info, Book>();
-
-        // or get one of Resource
-        [[maybe_unused]] const auto& info_ = resources.Get<Info>();
-
-        //HF_MSG_INFO("Test Resource, info name: {}, url: {}, version: {:.2f}", info.name, info.url, info.version);
-        //HF_MSG_INFO("Test Resource, book name: {}, author: {}", book.name, book.author);
-
-        resources.Remove<Info, Book>();
-
-        // Test Properties
-        auto& properties = Core::GetSystem<Systems::PropertyManager>();
-
-        // Using of properties
-        using Version = Systems::PropertyManager::Property<"Version"_hs, std::string>;
-        using Speed = Systems::PropertyManager::Property<"Speed"_hs, float>;
-        using Velocity = Systems::PropertyManager::Property<"Velocity"_hs, float>;
-
-        // Initialize and store the property inside config manager container
-        properties.Create<Version>("Alpha 0.1");
-        properties.Create<Speed>(100.f);
-        properties.Create<Velocity>(200.f);
-
-        // Check on exist
-        if(properties.Has<Version, Speed, Velocity>()) {
-            HF_MSG_DEBUG("Properties exist!");
-        }
-
-        // Check the availability of one of the properties
-        if(properties.Any<Version, Speed, Velocity>()) {
-            HF_MSG_DEBUG("Any of the property exist");
-        }
-
-        // deduction guide support
-        [[maybe_unused]] const auto& [version, speed, velocity] = properties.Get<Version, Speed, Velocity>();
-
-        // or get one of property
-        [[maybe_unused]] const auto& version_ = properties.Get<Version>();
-
-        HF_MSG_INFO("Test Property, version: {}, speed: {:.2f}, velocity: {:.2f}", version, speed, velocity);
-
-        // remove property
-        properties.Remove<Version>();           // Remove one property
-        properties.Remove<Speed, Velocity>();   // Remove multiple property
-    }
-};*/
-
-#include <Helena/Engine/Engine.hpp>
+﻿#include <Helena/Engine/Engine.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/FixedString.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
@@ -159,73 +12,213 @@ struct TestSystem
 #include <Helena/Engine/Log.hpp>
 #include <Helena/Memory/CacheAllocator.hpp>
 #include <Helena/Traits/CVRefPtr.hpp>
+#include <Helena/Types/Dispatcher.hpp>
+#include <Helena/Traits/IntegralConstant.hpp>
+#include <Helena/Traits/Specialization.hpp>
+#include <Helena/Traits/AnyOf.hpp>
 
+// Systems
+#include <Helena/Systems/EntityComponent.hpp>
+#include <Helena/Systems/ResourceManager.hpp>
+#include <Helena/Types/Monostate.hpp>
+#include <Helena/Types/VectorKVAny.hpp>
 
 using namespace Helena;
 
-class MyContext : public Core::Context
+namespace Components 
 {
-public:
-    MyContext(int val) : value(val) {}
-    ~MyContext() = default;
+    struct Info {
+        Types::FixedBuffer<32> name;
+        std::uint64_t connection;
+    };
 
-    int value = 100;
-};
+    struct Health {
+        std::uint32_t health;
+    };
 
-// Это евент
-struct MyEvent {
-    Types::FixedBuffer<32> m_Name;
-    int m_Age;
-};
+    struct Position {
+        float x;
+        float y;
+        float z;
+    };
+
+    struct Velocity 
+    {
+        float x;
+        float y;
+        float z;
+    };
+
+    struct ModelInfo {
+        std::uint32_t id;
+        std::uint32_t size;
+        std::uint32_t bones;
+    };
+}
 
 // Это класс системы
-struct MySystem {
-    MySystem(int value) : m_Value(value) {}
-    ~MySystem() = default;
+class CharacterSystem 
+{
+    using EntityID = Systems::EntityComponent::Entity;
 
-    int m_Value;
+public:
+    void CreateCharacter(std::uint64_t connection, Types::FixedBuffer<32> name) 
+    {
+        auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
 
-    void CallbackEvent(MyEvent& data) {
-        HELENA_MSG_WARNING("Callback called, your name: {}, age: {}", data.m_Name, data.m_Age);
+        const EntityID id = ecs.CreateEntity();
+
+        ecs.AddComponent<Components::Info>(id, name, connection);
+        ecs.AddComponent<Components::ModelInfo>(id, 10u, 150u, 5u);
+        ecs.AddComponent<Components::Position>(id, 30.f, 50.f, 10.f);
+        ecs.AddComponent<Components::Velocity>(id, 0.f, 0.f, 0.f);
+        ecs.AddComponent<Components::Health>(id, 100u);
+
+        m_Characters.emplace(connection, id);
+
+        HELENA_MSG_INFO("Create entity: {} for connection: {}", id, connection);
+        PrintCharacterInfo(connection);
+    }
+
+    void RemoveCharacter(std::uint64_t connection) 
+    {
+        if(const auto entity = FindCharacter(connection); entity.has_value()) {
+            auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
+            ecs.RemoveEntity(entity.value());
+            m_Characters.erase(connection);
+            HELENA_MSG_INFO("Connection: {} entity: {} removed!", connection, entity.value());
+        }
+    }
+
+    void PrintCharacterInfo(std::uint64_t connection) 
+    {
+        if(const auto entity = FindCharacter(connection); entity.has_value()) 
+        {
+            auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
+
+            auto [info, health, position, velocity, model] = ecs.GetComponent<Components::Info, Components::Health, 
+                Components::Position, Components::Velocity, Components::ModelInfo>(entity.value());
+
+            HELENA_MSG_INFO(
+                "\n--------- [Connection: {}] --------\n"
+                "ID: {}\n"
+                "Name: {}\n"
+                "Health: {}\n"
+                "Position X: {}, Y: {}, Z: {}\n"
+                "Velocity X: {}, Y: {}, Z: {}\n"
+                "Model info ID: {}, Size: {}, Bones: {}\n"
+                "-----------------------------------\n", 
+                connection, 
+                entity.value(), 
+                info.name, 
+                health.health, 
+                position.x, position.y, position.z,
+                velocity.x, velocity.y, velocity.z,
+                model.id, model.size, model.bones);
+
+        } else HELENA_MSG_ERROR("Connection: {} entity: {} not found!", connection, entity.value());
+
+    }
+
+private:
+
+    // Find Entity from connection id
+    std::optional<EntityID> FindCharacter(std::uint64_t connection) {
+        const auto it = m_Characters.find(connection);
+        return it != m_Characters.cend() ? std::make_optional<EntityID>(it->second) : std::nullopt;
+    }
+
+    // Pair [connection <-> entity]
+    std::unordered_map<std::uint64_t, Systems::EntityComponent::Entity> m_Characters;
+};
+
+
+// Test PhysicsSystem 
+// Events for PhysicSystem
+namespace Helena::Events::PhysicSystem
+{
+    struct EntityMove {
+        using Entity = Systems::EntityComponent::Entity;
+        const Entity m_Entity;
+        const Components::Position& m_Position;
+        const Components::Velocity& m_Velocity;
+    };
+}
+
+class PhysicsSystem
+{
+public:
+    PhysicsSystem() {
+        // Start listen Engine event Update (called with fixed time)
+        Engine::SubscribeEvent<Events::EngineUpdate>(&PhysicsSystem::EventUpdate);
+    }
+
+    void EventUpdate(const Events::EngineUpdate&) 
+    {
+        // Get ref on used systems
+        auto [ecs, charSystem] = Engine::GetSystem<Systems::EntityComponent, CharacterSystem>();
+
+        // Get pool on entities with current components
+        const auto view = ecs.ViewComponent<Components::Info, Components::Position, Components::Velocity>();
+        for(auto id : view) 
+        {
+            // Get ref on components
+            auto [info, position, velocity] = view.get(id);
+
+            position.x += 0.1f;
+            position.y += 0.1f;
+            position.z += 0.1f;
+
+            velocity.x += 10.f;
+            velocity.y += 10.f;
+            velocity.z += 10.f;
+
+            Engine::SignalEvent<Events::PhysicSystem::EntityMove>(id, std::cref(position), std::cref(velocity));
+
+            // Remove character entity if velocity >= 100
+            if(velocity.x >= 100.f) {
+                charSystem.RemoveCharacter(info.connection);
+                Engine::Shutdown("test finished!");
+            }
+        }
     }
 };
 
+// Let's emulate network packet "CS_CreateCharacter"
+void NetworkCreateCharacter() 
+{
+    constexpr std::uint64_t connection_ivan = 0;      // Test emulation network connection
+    constexpr std::uint64_t connection_petr = 1;      // Test emulation network connection
+    constexpr std::uint64_t connection_alex = 2;      // Test emulation network connection
+
+    auto& characterSystem = Engine::GetSystem<CharacterSystem>();
+
+    // Create character entity for test
+    characterSystem.CreateCharacter(connection_ivan, "Ivan");
+    characterSystem.CreateCharacter(connection_petr, "Petr");
+    characterSystem.CreateCharacter(connection_alex, "Alex");
+
+    Engine::SubscribeEvent<Events::PhysicSystem::EntityMove>([](const Events::PhysicSystem::EntityMove& event) {
+        auto& [entity, pos, vel] = event;
+        HELENA_MSG_INFO("[Event: EntityMove] Entity: {} move to X: {:.3f}, Y: {:.3f}, Z: {:.3f}", entity, pos.x, pos.y, pos.z);
+    });
+}
+
 int main(int argc, char** argv)
 {
-    const auto ctx = Core::Context::Initialize<MyContext>(500);
+    // Engine started from Initialize method
+    Core::Context::Initialize<Core::Context>();
+    Core::Context::SetAppName("Test Framework");
+    Core::Context::SetTickrate(1.f);
+    Core::Context::SetCallback([]() -> void     // Register systems happen in this callback
+    {
+        // Register all used systems
+        Engine::RegisterSystem<Systems::EntityComponent>();
+        Engine::RegisterSystem<CharacterSystem>();
+        Engine::RegisterSystem<PhysicsSystem>();
 
-    ctx->SetAppName("Test");
-    ctx->SetTickrate(120);
-    ctx->m_CallbackInit.Connect<+[]() {
-        HELENA_MSG_INFO("Инициализация ядра!");
-        Engine::RegisterSystem<MySystem>(100500);
-        Engine::SubscribeEvent<MyEvent>(&MySystem::CallbackEvent); // тут подписались
-    }>();
-
-    ctx->m_CallbackTick.Connect<+[]() {
-        HELENA_MSG_INFO("Tick");
-        Engine::SignalEvent<MyEvent>("Oleg", 22); // тут кинули сигнал
-        Engine::RemoveEvent<MyEvent>(&MySystem::CallbackEvent);
-    }>();
-
-    ctx->m_CallbackUpdate.Connect<+[]() {
-        //HELENA_MSG_INFO("Update");
-        Engine::Shutdown();
-    }>();
-
-    ctx->m_CallbackShutdown.Connect<+[]() {
-        if(Engine::HasSystem<MySystem>()) {
-            const auto& system = Engine::GetSystem<MySystem>();
-            HELENA_MSG_INFO("Your system name: {}, value: {}", Traits::NameOf<Traits::RemoveCVRefPtr<decltype(system)>>::value, system.m_Value);
-
-            Engine::RemoveSystem<MySystem>();
-            if(!Engine::HasSystem<MySystem>()) {
-                HELENA_MSG_INFO("Your system removed successfully!");
-            }
-        }
-
-    }>();
-
+        NetworkCreateCharacter();   // Only for emulate new network connection
+    });
 
     while(Engine::Heartbeat()) {}
 

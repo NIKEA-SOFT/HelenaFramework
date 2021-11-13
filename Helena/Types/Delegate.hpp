@@ -21,20 +21,21 @@ namespace Helena::Types {
      */
     template<typename = void>
     class Delegate {
+    public:
         template<typename Ret, typename... Args>
-        auto function_pointer(Ret(*)(Args...)) -> Ret(*)(Args...);
+        static auto function_pointer(Ret(*)(Args...)) -> Ret(*)(Args...);
 
         template<typename Ret, typename Type, typename... Args, typename Other>
-        auto function_pointer(Ret(*)(Type, Args...), Other &&) -> Ret(*)(Args...);
+        static auto function_pointer(Ret(*)(Type, Args...), Other &&) -> Ret(*)(Args...);
 
         template<typename Class, typename Ret, typename... Args, typename... Other>
-        auto function_pointer(Ret(Class:: *)(Args...), Other &&...) -> Ret(*)(Args...);
+        static auto function_pointer(Ret(Class:: *)(Args...), Other &&...) -> Ret(*)(Args...);
 
         template<typename Class, typename Ret, typename... Args, typename... Other>
-        auto function_pointer(Ret(Class:: *)(Args...) const, Other &&...) -> Ret(*)(Args...);
+        static auto function_pointer(Ret(Class:: *)(Args...) const, Other &&...) -> Ret(*)(Args...);
 
         template<typename Class, typename Type, typename... Other>
-        auto function_pointer(Type Class:: *, Other &&...) -> Type(*)();
+        static auto function_pointer(Type Class:: *, Other &&...) -> Type(*)();
 
     public:
         template<typename... Type>

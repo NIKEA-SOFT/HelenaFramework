@@ -1,9 +1,9 @@
 #ifndef HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
 #define HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
 
-#include <entt/entity/registry.hpp>
+#include <Helena/Dependencies/EnTT.hpp>
 
-#include <Helena/Internal.hpp>
+#include <unordered_map>
 
 namespace Helena::Systems
 {
@@ -49,7 +49,7 @@ namespace Helena::Systems
 
         [[nodiscard]] auto SizeEntity() const noexcept -> std::size_t;
 
-        [[nodiscard]] auto AliveEntity() const noexcept -> std::size_t;
+        [[nodiscard]] auto AliveEntity() const -> std::size_t;
 
         auto ReserveEntity(const std::size_t size) -> void;
 
@@ -138,24 +138,24 @@ namespace Helena::Systems
     };
 }
 
-namespace Helena::Events::Systems::EntityComponent
+namespace Helena::Events::EntityComponent
 {
     struct CreateEntity {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     struct RemoveEntity {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct AddComponent {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct RemoveComponent {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
     };
 }
 

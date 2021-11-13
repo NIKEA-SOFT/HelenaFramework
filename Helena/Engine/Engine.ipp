@@ -3,8 +3,7 @@
 
 #include <Helena/Engine/Engine.hpp>
 #include <Helena/Types/DateTime.hpp>
-#include <Helena/Types/Hash.hpp>
-#include <Helena/Traits/CVRefPtr.hpp>
+#include <Helena/Types/Format.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
 
@@ -44,15 +43,15 @@ namespace Helena
         }
 
         HANDLE hProcess = GetCurrentProcess();
-        DWORD processId = GetProcessId(hProcess);
-        MINIDUMP_TYPE flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
+        const DWORD processId = GetProcessId(hProcess);
+        const MINIDUMP_TYPE flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
         MINIDUMP_EXCEPTION_INFORMATION exceptionInfo {
             .ThreadId = GetCurrentThreadId(),
             .ExceptionPointers = pException,
             .ClientPointers = TRUE
         };
 
-        BOOL result = MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, NULL, NULL);
+        const BOOL result = MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, NULL, NULL);
         if(!result) {
             HELENA_MSG_EXCEPTION("Create dump failed, error: {}", GetLastError());
             DeleteFileA(dumpName.c_str());
@@ -101,6 +100,51 @@ namespace Helena
     }
 #endif
 
+    template <typename Pool>
+    Pool& Engine::GetCreatePool() noexcept 
+    {
+        auto& ctx = Core::Context::GetInstance();
+        if(!ctx.m_Events.Has<Pool>()) {
+            ctx.m_Events.Create<Pool>(new Pool{});
+            HELENA_ASSERT(ctx.m_Events.Get<Pool>(), "Pool is nullptr");
+        }
+
+        return *static_cast<Pool*>(ctx.m_Events.Get<Pool>().get());
+    }
+
+    template <typename Pool, typename Key>
+    void Engine::RemoveEventByKey() noexcept 
+    {
+        auto& pool = GetCreatePool<Pool>();
+        if(pool.m_Callbacks.Has<Key>()) {
+            pool.m_Callbacks.Remove<Key>();
+        }
+    }
+
+    template <typename Event, typename... Args>
+    void Engine::SignalBase(Args&&... args) 
+    {
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+
+        using Pool = EventPool<Event>;
+        auto& pool = GetCreatePool<Pool>();
+        
+        if(!pool.m_Callbacks.Empty()) 
+        {
+            bool remove = true;
+
+            if constexpr(std::is_same_v<Event, Events::EngineTick> || std::is_same_v<Event, Events::EngineUpdate>) {
+                remove = false;
+            }
+
+            const auto event = Event{std::forward<Args>(args)...};
+            pool.m_Callbacks.Each([&event](const auto& callback) {
+                callback(event);
+            }, /*reset each elements after call */ remove);
+        }
+    }
+
+
     [[nodiscard]] inline bool Engine::Heartbeat() 
     {
         auto& ctx = Core::Context::GetInstance();
@@ -113,11 +157,6 @@ namespace Helena
         {
             case Core::EState::Undefined:  
             {
-                //HELENA_ASSERT(ctx.m_CallbackInit,       "Init callback is empty in Context");
-                HELENA_ASSERT(ctx.m_CallbackTick,       "Tick callback is empty in Context");
-                HELENA_ASSERT(ctx.m_CallbackUpdate,     "Update callback is empty in Context");
-                //HELENA_ASSERT(ctx.m_CallbackShutdown,   "Shutdown callback is empty in Context");
-
                 RegisterHandlers();
 
                 ctx.m_State     = Core::EState::Init;
@@ -125,9 +164,14 @@ namespace Helena
                 ctx.m_TimeNow   = ctx.m_TimeStart;
                 ctx.m_TimePrev  = ctx.m_TimeStart;
 
-                if(ctx.m_CallbackInit) {
-                    ctx.m_CallbackInit();
+                if(ctx.m_Callback) {
+                    ctx.m_Callback();
                 }
+
+                SignalBase<Events::EngineInit>();
+                SignalBase<Events::EngineConfig>();
+                SignalBase<Events::EngineExecute>();
+
             } break;
 
             case Core::EState::Init: 
@@ -151,12 +195,17 @@ namespace Helena
                 }
             #endif
 
-                ctx.m_CallbackTick();
+                // Base signal called only once for new listeners
+                SignalBase<Events::EngineInit>();
+                SignalBase<Events::EngineConfig>();
+                SignalBase<Events::EngineExecute>();
+                SignalBase<Events::EngineTick>();
 
                 if(ctx.m_TimeElapsed >= ctx.m_Tickrate) {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    ctx.m_CallbackUpdate();
-                    ++ctx.m_CountFPS;
+                    ctx.m_CountFPS++;
+
+                    SignalBase<Events::EngineUpdate>();
                 }
 
                 if(ctx.m_TimeElapsed < ctx.m_Tickrate) {
@@ -167,9 +216,12 @@ namespace Helena
 
             case Core::EState::Shutdown: 
             {
-                if(ctx.m_CallbackShutdown) {
-                    ctx.m_CallbackShutdown();
-                }
+                //if(ctx.m_CallbackShutdown) {
+                //    ctx.m_CallbackShutdown();
+                //}
+
+                SignalBase<Events::EngineFinalize>();
+                SignalBase<Events::EngineShutdown>();
 
                 ctx.m_State = Core::EState::Undefined;
 
@@ -243,105 +295,183 @@ namespace Helena
         return ctx.m_Systems.Remove<T...>();
     }
 
-    template <typename Event, typename T>
-    static void Engine::SubscribeEvent(Callback<Event, T> callback) 
+    template <typename Event>
+    void Engine::SubscribeEvent(EventCallback<Event> callback)
     {
-        using System = Traits::RemoveCVRefPtr<T>;
-        using Pool = EventPool<Event>;
-        using Callback = Callback<Event, T>;
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+        constexpr auto id = Hash::template Get<decltype(callback)>();
 
-        // Create new pool if not exist
-        auto& ctx = Core::Context::GetInstance();
-        if(!ctx.m_Events.Has<Pool>()) {
-            ctx.m_Events.Create<Pool>();
-        }
+        using Pool  = EventPool<Event>;
+        using Key   = EventID<id>;
 
-        // Pool on callbacks
-        auto& pool = ctx.m_Events.Get<Pool>();
+        auto& pool  = GetCreatePool<Pool>();
 
         // Already registered check
-        HELENA_ASSERT(std::find_if(pool.cbegin(), pool.cend(), [id = Hash::template Get<decltype(callback)>()](const auto& instance) {
-            return instance(nullptr, id);
-        }) == pool.cend(), "System {} already registered on event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
-
-        // Add lambda invoke inside pool
-        pool.emplace_back([callback](Event* event, std::uint64_t other_id) -> bool
+        //HELENA_ASSERT(!pool.m_Callbacks.Has<Key>(), "Callback already registered on event type: {}", Traits::NameOf<Event>::value);
+        if(!pool.m_Callbacks.Has<Key>())
         {
-            // This 'if' used as compare predicate for remove listener of signal
-            // if other_id != OperationCall it's mean lambda called from RemoveEvent
-            // if other_id == RemoveEvent it's mean lambda called from SignalEvent
-            if(other_id) {
-                constexpr auto id = Hash::template Get<decltype(callback)>();
-                return id == other_id;
-            }
+            pool.m_Callbacks.Create<Key>([callback](const Event& event) {
+                callback(event);
+            });
+        }
+    }
 
-            HELENA_ASSERT(Engine::HasSystem<System>(), "System {} not exist in pool of event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
+    template <typename Event, typename System>
+    void Engine::SubscribeEvent(EventCallbackSystem<Event, System> callback) 
+    {
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+        static_assert(std::is_same_v<System, Traits::RemoveCVRefPtr<System>>, "System type incorrect");
 
-            // Check exist System
-            if(Engine::HasSystem<System>()) {
-                // Invoke callback
-                (Engine::GetSystem<System>().*callback)(*event);
-                return true;
-            }
+        constexpr auto id = Hash::template Get<decltype(callback)>();
 
-            return false;
-        });
+        using Pool  = EventPool<Event>;
+        using Key   = EventID<id>;
+
+        auto& pool  = GetCreatePool<Pool>();
+        
+        // Already registered check
+        //HELENA_ASSERT(!pool.m_Callbacks.Has<Key>(), "System {} already registered on event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
+
+        if(!pool.m_Callbacks.Has<Key>())
+        {
+            pool.m_Callbacks.Create<Key>([callback](const Event& event) 
+            {
+                if(Engine::HasSystem<System>()) {
+                    (Engine::GetSystem<System>().*callback)(event);
+                }
+            });
+        }
+
+        //using System = Traits::RemoveCVRefPtr<T>;
+        //using Pool = EventPool<Event>;
+        //using Callback = Callback<Event, T>;
+
+        //// Create new pool if not exist
+        //auto& ctx = Core::Context::GetInstance();
+        //if(!ctx.m_Events.Has<Pool>()) {
+        //    ctx.m_Events.Create<Pool>();
+        //}
+
+        //// Pool on callbacks
+        //auto& pool = ctx.m_Events.Get<Pool>();
+
+        //// Already registered check
+        //HELENA_ASSERT(std::find_if(pool.cbegin(), pool.cend(), [id = Hash::template Get<decltype(callback)>()](const auto& instance) {
+        //    return instance(nullptr, id);
+        //}) == pool.cend(), "System {} already registered on event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
+
+        //// Add lambda invoke inside pool
+        //pool.emplace_back([callback](Event* event, std::uint64_t other_id) -> bool
+        //{
+        //    // This 'if' used as compare predicate for remove listener of signal
+        //    // if other_id != OperationCall it's mean lambda called from RemoveEvent
+        //    // if other_id == RemoveEvent it's mean lambda called from SignalEvent
+        //    if(other_id) {
+        //        constexpr auto id = Hash::template Get<decltype(callback)>();
+        //        return id == other_id;
+        //    }
+
+        //    HELENA_ASSERT(Engine::HasSystem<System>(), "System {} not exist in pool of event type: {}", Traits::NameOf<System>::value, Traits::NameOf<Event>::value);
+
+        //    // Check exist System
+        //    if(Engine::HasSystem<System>()) {
+        //        // Invoke callback
+        //        (Engine::GetSystem<System>().*callback)(*event);
+        //        return true;
+        //    }
+
+        //    return false;
+        //});
     }
 
     template <typename Event, typename... Args>
-    static void Engine::SignalEvent(Args&&... args) noexcept 
+    void Engine::SignalEvent(Args&&... args) 
     {
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+
         using Pool = EventPool<Event>;
 
-        // Get pool of events
-        auto& ctx = Core::Context::GetInstance();
-        if(ctx.m_Events.Has<Pool>()) 
-        {
-            // Get pool of callbacks
-            auto& pool = ctx.m_Events.Get<Pool>();
-            if(pool.size())
-            {
-                // Create Event with args
-                auto event = Event{std::forward<Args>(args)...};
-                for(auto size = pool.size(); size; --size) 
-                {
-                    // Signal
-                    const auto& callback = pool[size - 1];
-                    if(!callback(&event, OperationCall)) {
-                        pool.erase(pool.cbegin() + (size - 1));
-                    }
-                }
-            }
-        }
+        auto& pool = GetCreatePool<Pool>();
+
+        const auto event = Event{std::forward<Args>(args)...};
+        pool.m_Callbacks.Each([&event](const auto& callback) {
+            callback(event);
+        });
+
+        //using Pool = EventPool<Event>;
+
+        //// Get pool of events
+        //auto& ctx = Core::Context::GetInstance();
+        //if(ctx.m_Events.Has<Pool>()) 
+        //{
+        //    // Get pool of callbacks
+        //    auto& pool = ctx.m_Events.Get<Pool>();
+        //    if(pool.size())
+        //    {
+        //        // Create Event with args
+        //        auto event = Event{std::forward<Args>(args)...};
+        //        for(auto size = pool.size(); size; --size) 
+        //        {
+        //            // Signal
+        //            const auto& callback = pool[size - 1];
+        //            if(callback && !callback(&event, OperationCall)) {
+        //                pool.erase(pool.cbegin() + (size - 1));
+        //            }
+        //        }
+        //    }
+        //}
     }
 
-    template <typename Event, typename T>
-    static void Engine::RemoveEvent(Callback<Event, T> callback) noexcept 
+    template <typename Event>
+    void Engine::RemoveEvent(EventCallback<Event> callback) 
     {
-        using Pool = EventPool<Event>;
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
-        // Get hash id for type of callback
         constexpr auto id = Hash::template Get<decltype(callback)>();
 
-        // Get pool of events
-        auto& ctx = Core::Context::GetInstance();
-        if(ctx.m_Events.Has<Pool>()) 
-        {
-            // Get pool of callbacks
-            auto& pool = ctx.m_Events.Get<Pool>();
-            for(auto size = pool.size(); size; --size) 
-            {
-                // Call lambda with compare signal
-                // when Event is nullptr and id != OperationCall
-                // used compare inside lambda.
-                // We compare current instance hash id with lambda
-                // instance hash id and if equal return true
-                const auto& instance = pool[size - 1];
-                if(instance(nullptr, id)) {
-                    pool.erase(pool.cbegin() + (size - 1));
-                }
-            }
-        }
+        using Pool  = EventPool<Event>;
+        using Key   = EventID<id>;
+
+        RemoveEventByKey<Pool, Key>();
+    }
+
+    template <typename Event, typename System>
+    void Engine::RemoveEvent(EventCallbackSystem<Event, System> callback) 
+    {
+        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+        static_assert(std::is_same_v<System, Traits::RemoveCVRefPtr<System>>, "System type incorrect");
+
+        constexpr auto id = Hash::template Get<decltype(callback)>();
+
+        using Pool  = EventPool<Event>;
+        using Key   = EventID<id>;
+
+        RemoveEventByKey<Pool, Key>();
+
+        //using Pool = EventPool<Event>;
+
+        //// Get hash id for type of callback
+        //constexpr auto id = Hash::template Get<decltype(callback)>();
+
+        //// Get pool of events
+        //auto& ctx = Core::Context::GetInstance();
+        //if(ctx.m_Events.Has<Pool>()) 
+        //{
+        //    // Get pool of callbacks
+        //    auto& pool = ctx.m_Events.Get<Pool>();
+        //    for(auto size = pool.size(); size; --size) 
+        //    {
+        //        // Call lambda with compare signal
+        //        // when Event is nullptr and id != OperationCall
+        //        // used compare inside lambda.
+        //        // We compare current instance hash id with lambda
+        //        // instance hash id and if equal return true
+        //        const auto& instance = pool[size - 1];
+        //        if(instance && instance(nullptr, id)) {
+        //            pool.erase(pool.cbegin() + (size - 1));
+        //        }
+        //    }
+        //}
     }
 }
 

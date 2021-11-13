@@ -17,12 +17,14 @@ namespace Helena::Types
 	{
 		static constexpr auto Length = Traits::PowerOf2<Capacity>::value;
 
+	public:
 		using unique_type	= decltype(UUID);
 		using index_type	= std::size_t;
 		using any_type		= entt::basic_any<Length, alignof(typename std::aligned_storage_t<Length + !Length>)>;
 		using vec_type		= std::vector<any_type>;
 		using map_type		= std::unordered_map<index_type, index_type>;
 
+	private:
 		[[nodiscard]] static auto GetIndexByKey(map_type& map, const index_type key) {
 			const auto [it, result] = map.try_emplace(key, map.size());
 			return it->second;
@@ -30,10 +32,10 @@ namespace Helena::Types
 
 	public:
 		template <typename T, typename... Args>
-		void Create([[maybe_unused]] Args&&... args) noexcept
+		void Create([[maybe_unused]] Args&&... args)
 		{
 			static_assert(std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>, "Type cannot be const/ptr/ref");
-			static_assert(std::is_constructible_v<T, Args...>, "Type cannot be constructable from args");
+			//static_assert(std::is_constructible_v<T, Args...>, "Type cannot be constructable from args");
 
 			const auto index = Indexer<unique_type, T>::GetIndex(m_Indexes);
 			if(index >= m_Storage.size()) {
@@ -98,8 +100,6 @@ namespace Helena::Types
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
 					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
-				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
 
 				m_Storage[index].reset();
 			} else {
@@ -116,7 +116,7 @@ namespace Helena::Types
 		struct Indexer {
 			[[nodiscard]] static auto GetIndex(map_type& map) {
 				// Get a name of type T and generate a hash to use as a key for a hash map
-				static const auto index = GetIndexByKey(map, Hash::Get(Traits::NameOf<T>::value));
+				static const auto index = GetIndexByKey(map, Hash::Get<T>());
 				return index;
 			}
 		};

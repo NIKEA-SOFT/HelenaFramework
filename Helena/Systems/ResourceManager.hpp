@@ -1,25 +1,12 @@
 #ifndef HELENA_SYSTEMS_RESOURCEMANAGER_HPP
 #define HELENA_SYSTEMS_RESOURCEMANAGER_HPP
 
-#include <Helena/Internal.hpp>
-#include <Helena/HashComparator.hpp>
-
-#include <entt/core/any.hpp>
-#include <robin_hood/robin_hood.h>
-
-#include <vector>
+#include <Helena/Types/VectorAny.hpp>
 
 namespace Helena::Systems
 {
     class ResourceManager final
     {
-        using map_index_t = robin_hood::unordered_flat_map<entt::id_type, std::size_t, Hash::Hasher<entt::id_type>, Hash::Comparator<entt::id_type>>;
-
-        template <typename Resource>
-        struct ResourceIndex {
-            [[nodiscard]] static auto GetIndex(map_index_t& container) -> std::size_t;
-        };
-
     public:
         ResourceManager() = default;
         ~ResourceManager() = default;
@@ -44,12 +31,11 @@ namespace Helena::Systems
         auto Remove() noexcept -> void;
 
     private:
-        std::vector<entt::any> m_Resources;
-        map_index_t m_ResourceIndexes;
+        Types::VectorAny<64> m_Storage;
     };
 }
 
-namespace Helena::Events::Systems::ResourceManager
+namespace Helena::Events::ResourceManager
 {
     template <typename Resource>
     struct Create {};
