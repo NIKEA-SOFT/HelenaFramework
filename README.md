@@ -21,50 +21,86 @@ The HelenaFramework is an architectural pattern used mostly in backend developme
 
 ## Code Example
 ```cpp
-#include <Common/Helena.hpp>
+#include <Helena/Engine/Engine.hpp>
 
-using namespace Helena;
+#include <Helena/Systems/EntityComponent.hpp>
 
-struct TestSystem 
+// Component
+struct UserInfo {
+    std::string name;
+    std::uint32_t age;
+};
+
+// Test System
+class TestSystem
 {
-    // Current method called when system initialized (it's system event)
-    void OnSystemCreate() {}
+public:
+    TestSystem() {
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineInit>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineConfig>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineExecute>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineTick>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineUpdate>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineFinalize>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::EngineShutdown>(&TestSystem::OnEvent);
+    }
+    ~TestSystem() = default;
 
-    // Current method called after OnSystemCreate (it's system event)
-    void OnSystemExecute() {}
+    void OnEvent(const Helena::Events::EngineInit&) {
+        HELENA_MSG_DEBUG("EventInit");
 
-    // Called every tick (it's system event)
-    void OnSystemTick() {}
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
 
-    // Called every tickrate (fps) tick (default: 0.016 ms) (it's system event)
-    void OnSystemUpdate() {}
+        const auto entity = ecs.CreateEntity();
+        ecs.AddComponent<UserInfo>(entity, "Helena", 30u);
 
-    // Called when System destroyed (it's system event)
-    void OnSystemDestroy() {}
+        const auto& userInfo = ecs.GetComponent<UserInfo>(entity);
+        HELENA_MSG_DEBUG("User name: {}, age: {}", userInfo.name, userInfo.age);
+
+        ecs.RemoveEntity(entity);
+    }
+
+    void OnEvent(const Helena::Events::EngineConfig&) {
+        HELENA_MSG_DEBUG("EngineConfig");
+    }
+
+    void OnEvent(const Helena::Events::EngineExecute&) {
+        HELENA_MSG_DEBUG("EngineExecute");
+    }
+
+    void OnEvent(const Helena::Events::EngineTick&) {
+        HELENA_MSG_DEBUG("EngineTick");
+    }
+
+    void OnEvent(const Helena::Events::EngineUpdate&) {
+        HELENA_MSG_DEBUG("EngineUpdate");
+    }
+
+    void OnEvent(const Helena::Events::EngineFinalize&) {
+        HELENA_MSG_DEBUG("EngineFinalize");
+    }
+
+    void OnEvent(const Helena::Events::EngineShutdown&) {
+        HELENA_MSG_DEBUG("EngineShutdown");
+    }
 };
 
 int main(int argc, char** argv)
 {
-    return Core::Initialize([&]() -> bool 
+    // Engine started from Initialize method
+    Helena::Core::Context::Initialize<Helena::Core::Context>();     // Initialize Context (Context used in Engine)
+    Helena::Core::Context::SetAppName("Test Framework");            // Set application name
+    Helena::Core::Context::SetTickrate(60.f);                       // Set Update tickrate
+    Helena::Core::Context::SetCallback([]()                         // Register systems happen in this callback
     {
-        // Push args in Core
-        Core::SetArgs(argc, argv);
-
-        // Set tickrate
-        Core::SetTickrate(60.0);
-
-        // Get args size
-        HF_MSG_INFO("Args: {}", Core::GetArgs().size());
-        
-        // View arguments from vector of std::string_view
-        for(const auto& arg : Core::GetArgs()) {
-            HF_MSG_INFO("Arg: {}", arg);
-        }
-
-        // Systems
-        Core::RegisterSystem<TestSystem>();
-
-        return true;
+        // Register all used systems
+        Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
+        Helena::Engine::RegisterSystem<TestSystem>();                       // Test System
     });
+
+    // Engine loop
+    while(Helena::Engine::Heartbeat()) {}
+
+    return 0;
 }
 ```
