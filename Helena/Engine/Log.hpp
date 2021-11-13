@@ -24,7 +24,7 @@ namespace Helena::Log
     [[nodiscard]] inline consteval auto CreateStyle(const Color color, const Color background) noexcept;
 
     template <Details::Prefixable Prefix, typename... Args>
-    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args);
+    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept;
 }
 
 #include <Helena/Engine/Log.ipp>

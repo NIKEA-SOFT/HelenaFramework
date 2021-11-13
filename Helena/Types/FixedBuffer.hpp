@@ -33,10 +33,15 @@ namespace Helena::Types
 				}
 			}
 
-			std::copy_n(data, size, m_Buffer.data());
-			if(m_Size > static_cast<size_type>(size)) {
-				std::fill_n(m_Buffer.begin() + size, m_Size - static_cast<size_type>(size), '\0');
-			}
+			std::memcpy(m_Buffer.data(), data, size);
+			m_Buffer[size] = '\0';
+			//if(static_cast<std::size_t>(m_Size) > size) {
+			//	// Fill all ?
+			//	//std::memset(m_Buffer.data() + static_cast<std::ptrdiff_t>(size), '\0', static_cast<std::size_t>(m_Size) - size);
+
+			//	// Just add one null terminator
+			//	m_Buffer[size] = '\0';
+			//}
 
 			m_Size = static_cast<size_type>(size);
 		}
@@ -48,10 +53,13 @@ namespace Helena::Types
 							std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
 
 		constexpr FixedBuffer() = default;
+		constexpr ~FixedBuffer() = default;
 
 		constexpr FixedBuffer(const FixedBuffer& other) noexcept {
 			FillBuffer(other.m_Buffer.data(), other.m_Size);
 		}
+
+		constexpr FixedBuffer(FixedBuffer&& other) noexcept = delete;
 
 		constexpr FixedBuffer(const Char* data) noexcept {
 			FillBuffer(data);
@@ -61,8 +69,6 @@ namespace Helena::Types
 		constexpr FixedBuffer(const Format<Capacity>& other) noexcept {
 			FillBuffer(other.GetData(), other.GetSize());
 		}
-
-		constexpr ~FixedBuffer() = default;
 
 		constexpr void SetData(const Char* data) noexcept {
 			FillBuffer(data);
@@ -105,6 +111,8 @@ namespace Helena::Types
 			FillBuffer(other.m_Buffer.data(), other.m_Size);
 			return *this;
 		}
+
+		constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept = delete;
 
 		constexpr FixedBuffer& operator=(const Char* data) noexcept {
 			FillBuffer(data);

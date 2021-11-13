@@ -19,7 +19,7 @@ namespace Helena::Types
         static constexpr auto m_DaysPerMonth                    = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
 
     public:
-        explicit constexpr TimeSpan() : m_Ticks{} {};
+        explicit constexpr TimeSpan() noexcept : m_Ticks{} {};
         explicit constexpr TimeSpan(std::int64_t ticks) : m_Ticks{ticks} {}
 
         [[nodiscard]] static constexpr TimeSpan FromMilliseconds(double milliseconds) noexcept {

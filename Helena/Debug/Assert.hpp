@@ -23,7 +23,7 @@ namespace Helena {
         }
 
         template <typename Prefix, typename... Args>
-        void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args);
+        void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept;
     }
 }
 

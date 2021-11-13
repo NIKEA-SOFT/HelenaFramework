@@ -146,74 +146,77 @@ namespace Helena::Log
 
             if (style.has_emphasis()) {
                 has_style = true;
-                auto emphasis = fmt::detail::make_emphasis<char>(style.get_emphasis());
+                const auto emphasis = fmt::detail::make_emphasis<char>(style.get_emphasis());
                 buffer.append(emphasis.begin(), emphasis.end());
             }
 
             if (style.has_foreground()) {
                 has_style = true;
-                auto foreground = fmt::detail::make_foreground_color<char>(style.get_foreground());
+                const auto foreground = fmt::detail::make_foreground_color<char>(style.get_foreground());
                 buffer.append(foreground.begin(), foreground.end());
             }
 
             if (style.has_background()) {
                 has_style = true;
-                auto background = fmt::detail::make_background_color<char>(style.get_background());
+                const auto background = fmt::detail::make_background_color<char>(style.get_background());
                 buffer.append(background.begin(), background.end());
             }
             
             return has_style;
         }
 
-        inline void EndColor(fmt::memory_buffer& buffer) {
+        inline void EndColor(fmt::memory_buffer& buffer) noexcept {
             fmt::detail::reset_color<char>(buffer);
         }
     }
 
     template <Details::Prefixable Prefix, typename... Args>
-    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args)
+    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
         const auto time = fmt::localtime(std::time(nullptr));
 
         fmt::memory_buffer buffer;
-
-        try 
+        
+        try
         {
-            constexpr auto style    = Prefix::GetStyle();
-            constexpr auto prefix   = Prefix::GetPrefix();
+            try 
+            {
+                constexpr auto style    = Prefix::GetStyle();
+                constexpr auto prefix   = Prefix::GetPrefix();
 
-            const auto has_style = Details::MakeColor(buffer, style);
+                const auto has_style = Details::MakeColor(buffer, style);
 
-            fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), prefix));
-            fmt::detail::vformat_to(buffer, fmt::string_view{msg}, fmt::make_format_args(args...));
+                fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), prefix));
+                fmt::detail::vformat_to(buffer, fmt::string_view{msg}, fmt::make_format_args(args...));
 
-            if (has_style) {
-                Details::EndColor(buffer);
+                if (has_style) {
+                    Details::EndColor(buffer);
+                }
+
+            } catch(const fmt::format_error&) {
+
+                buffer.clear();
+                const auto has_style = Details::MakeColor(buffer, Details::Exception::GetStyle());
+
+                fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Details::Exception::GetPrefix()));
+                fmt::detail::vformat_to(buffer, fmt::string_view{
+                    "\n----------------------------------------\n"
+                    "|| Error: format syntax invalid!\n"
+                    "|| Format: {}"
+                    "\n----------------------------------------"
+                    }, fmt::make_format_args(msg));
+
+                if (has_style) {
+                    Details::EndColor(buffer);
+                }
             }
 
-        } catch(const fmt::format_error&) {
+            buffer.push_back('\n');
+            buffer.push_back('\0');
 
-            buffer.clear();
-            const auto has_style = Details::MakeColor(buffer, Details::Exception::GetStyle());
-
-            fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Details::Exception::GetPrefix()));
-            fmt::detail::vformat_to(buffer, fmt::string_view{
-                "\n----------------------------------------\n"
-                "|| Error: format syntax invalid!\n"
-                "|| Format: {}"
-                "\n----------------------------------------"
-                }, fmt::make_format_args(msg));
-
-            if (has_style) {
-                Details::EndColor(buffer);
-            }
-        }
-
-        buffer.push_back('\n');
-        buffer.push_back('\0');
-
-        std::fputs(buffer.data(), stdout);
+            std::fputs(buffer.data(), stdout);
+        } catch(const std::bad_alloc&) {}
     }
 }
 

@@ -35,12 +35,12 @@
     //    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
     //}
 
-    inline const auto ENABLE_TIME_BEGIN_PERIOD_1MS = []() {
+    inline auto ENABLE_TIME_BEGIN_PERIOD_1MS = []() noexcept  {
         timeBeginPeriod(1);
         return 0;
     }();
 
-    inline const auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() {
+    inline auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() noexcept {
         // Set UTF-8
         SetConsoleCP(65001);
         SetConsoleOutputCP(65001);

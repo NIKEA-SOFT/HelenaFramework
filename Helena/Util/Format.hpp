@@ -9,7 +9,7 @@
 namespace Helena::Util
 {
 	template <typename... Args>
-	[[nodiscard]] std::string Format(std::string_view msg, Args&&... args) noexcept 
+	[[nodiscard]] std::string Format(std::string_view msg, const Args&&... args) noexcept 
 	{
 		try {
 			if(!msg.empty()) {

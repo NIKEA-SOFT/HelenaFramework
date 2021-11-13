@@ -12,7 +12,7 @@
 namespace Helena
 {
 #if defined(HELENA_PLATFORM_WIN)
-    inline BOOL WINAPI Engine::CtrlHandler(DWORD dwCtrlType)
+    inline BOOL WINAPI Engine::CtrlHandler(DWORD)
     {
         const auto ctx = Core::Context::Get();
         if(ctx)
@@ -25,7 +25,7 @@ namespace Helena
         return TRUE;
     }
 
-    inline LONG Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException) 
+    inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
         const auto context  = Core::Context::Get();
         const auto dateTime = Types::DateTime::FromLocalTime();
@@ -91,7 +91,7 @@ namespace Helena
         }
     }
 
-    inline void Engine::RegisterHandlers() {
+    inline void Engine::RegisterHandlers() noexcept {
         signal(SIGTERM, SigHandler);
         signal(SIGSTOP, SigHandler);
         signal(SIGINT,  SigHandler);
@@ -101,11 +101,11 @@ namespace Helena
 #endif
 
     template <typename Pool>
-    Pool& Engine::GetCreatePool() noexcept 
+    Pool& Engine::GetCreatePool() 
     {
         auto& ctx = Core::Context::GetInstance();
         if(!ctx.m_Events.Has<Pool>()) {
-            ctx.m_Events.Create<Pool>(new Pool{});
+            ctx.m_Events.Create<Pool>(std::make_unique<Pool>());
             HELENA_ASSERT(ctx.m_Events.Get<Pool>(), "Pool is nullptr");
         }
 
@@ -113,7 +113,7 @@ namespace Helena
     }
 
     template <typename Pool, typename Key>
-    void Engine::RemoveEventByKey() noexcept 
+    void Engine::RemoveEventByKey() 
     {
         auto& pool = GetCreatePool<Pool>();
         if(pool.m_Callbacks.Has<Key>()) {
@@ -131,16 +131,16 @@ namespace Helena
         
         if(!pool.m_Callbacks.Empty()) 
         {
-            bool remove = true;
+            const auto event = Event{std::forward<Args>(args)...};
+            const auto& cb = [&event](const auto& callback) {
+                callback(event);
+            };
 
             if constexpr(std::is_same_v<Event, Events::EngineTick> || std::is_same_v<Event, Events::EngineUpdate>) {
-                remove = false;
+                pool.m_Callbacks.Each(cb);
+            } else {
+                pool.m_Callbacks.RemoveEach(cb);
             }
-
-            const auto event = Event{std::forward<Args>(args)...};
-            pool.m_Callbacks.Each([&event](const auto& callback) {
-                callback(event);
-            }, /*reset each elements after call */ remove);
         }
     }
 
@@ -254,14 +254,14 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const std::string_view format, Args&&... args) 
+    void Engine::Shutdown(const std::string_view format, Args&&... args)
     {
         auto& ctx = Core::Context::GetInstance();
         const std::lock_guard lock{ctx.m_ShutdownMutex};
 
         if(ctx.m_State != Core::EState::Shutdown) {
             ctx.m_State = Core::EState::Shutdown;
-            ctx.m_ShutdownReason = Types::Format<256>(format, std::forward<Args>(args)...);
+            ctx.m_ShutdownReason = Util::Format(format, std::forward<Args>(args)...);
         }
     }
 
@@ -272,25 +272,25 @@ namespace Helena
     }
 
     template <typename... T>
-    [[nodiscard]] bool Engine::HasSystem() noexcept {
+    [[nodiscard]] bool Engine::HasSystem() {
         auto& ctx = Core::Context::GetInstance();
         return ctx.m_Systems.Has<T...>();
     }
 
     template <typename... T>
-    [[nodiscard]] bool Engine::AnySystem() noexcept {
+    [[nodiscard]] bool Engine::AnySystem() {
         auto& ctx = Core::Context::GetInstance();
         return ctx.m_Systems.Any<T...>();
     }
 
     template <typename... T>
-    [[nodiscard]] decltype(auto) Engine::GetSystem() noexcept {
+    [[nodiscard]] decltype(auto) Engine::GetSystem() {
         auto& ctx = Core::Context::GetInstance();
         return ctx.m_Systems.Get<T...>();
     }
 
     template <typename... T>
-    void Engine::RemoveSystem() noexcept {
+    void Engine::RemoveSystem() {
         auto& ctx = Core::Context::GetInstance();
         return ctx.m_Systems.Remove<T...>();
     }

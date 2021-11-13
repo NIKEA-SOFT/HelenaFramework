@@ -13,6 +13,12 @@ namespace Helena
 
         template <typename Event>
         struct EventPool : Core::IEventPool {
+            EventPool() noexcept = default;
+            ~EventPool() = default;
+            EventPool(const EventPool&) = delete;
+            EventPool(EventPool&&) noexcept = delete;
+            EventPool& operator=(const EventPool&) = delete;
+            EventPool& operator=(EventPool&&) noexcept = delete;
             static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
             Types::VectorUnique<std::function<void (const Event&)>> m_Callbacks;
         };
@@ -25,10 +31,10 @@ namespace Helena
 
     private:
         template <typename Pool>
-        [[nodiscard]] static Pool& GetCreatePool() noexcept;
+        [[nodiscard]] static Pool& GetCreatePool();
 
         template <typename Pool, typename Key>
-        static void RemoveEventByKey() noexcept;
+        static void RemoveEventByKey();
 
         template <typename Event, typename... Args>
         static void SignalBase(Args&&... args);
@@ -46,16 +52,16 @@ namespace Helena
         static void RegisterSystem(Args&&... args);
 
         template <typename... T>
-        [[nodiscard]] static bool HasSystem() noexcept;
+        [[nodiscard]] static bool HasSystem();
 
         template <typename... T>
-        [[nodiscard]] static bool AnySystem() noexcept;
+        [[nodiscard]] static bool AnySystem();
 
         template <typename... T>
-        [[nodiscard]] static decltype(auto) GetSystem() noexcept;
+        [[nodiscard]] static decltype(auto) GetSystem();
 
         template <typename... T>
-        static void RemoveSystem() noexcept;
+        static void RemoveSystem();
 
     public:
         template <typename Event>
@@ -76,7 +82,7 @@ namespace Helena
     private:
     #if defined(HELENA_PLATFORM_WIN)
         static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
-        static LONG MiniDumpSEH(EXCEPTION_POINTERS* pException);
+        static LONG WINAPI MiniDumpSEH(EXCEPTION_POINTERS* pException);
         template <typename... Args>
         static void ConsoleInfo(std::string_view msg, Args&&... args);
     #elif defined(HELENA_PLATFORM_LINUX)

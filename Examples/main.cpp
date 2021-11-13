@@ -1,26 +1,9 @@
 ﻿#include <Helena/Engine/Engine.hpp>
-#include <Helena/Types/Hash.hpp>
-#include <Helena/Types/FixedString.hpp>
-#include <Helena/Types/FixedBuffer.hpp>
-#include <Helena/Types/Format.hpp>
-#include <Helena/Types/TimeSpan.hpp>
-#include <Helena/Types/DateTime.hpp>
-#include <Helena/Types/VectorUnique.hpp>
-#include <Helena/Types/VectorAny.hpp>
-#include <Helena/Util/Format.hpp>
-#include <Helena/Platform/Windows/Windows.hpp>
-#include <Helena/Engine/Log.hpp>
-#include <Helena/Memory/CacheAllocator.hpp>
-#include <Helena/Traits/CVRefPtr.hpp>
-#include <Helena/Types/Dispatcher.hpp>
-#include <Helena/Traits/IntegralConstant.hpp>
-#include <Helena/Traits/Specialization.hpp>
-#include <Helena/Traits/AnyOf.hpp>
 
-// Systems
 #include <Helena/Systems/EntityComponent.hpp>
 #include <Helena/Systems/ResourceManager.hpp>
-#include <Helena/Types/Monostate.hpp>
+
+#include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 
 using namespace Helena;

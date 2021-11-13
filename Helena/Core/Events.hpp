@@ -15,7 +15,12 @@ namespace Helena::Events
 namespace Helena::Core
 {
     struct IEventPool {
+        IEventPool() = default;
         virtual ~IEventPool() = default;
+        IEventPool(const IEventPool&) = default;
+        IEventPool(IEventPool&&) noexcept = default;
+        IEventPool& operator=(const IEventPool&) = default;
+        IEventPool& operator=(IEventPool&&) noexcept = default;
     };
 }
 

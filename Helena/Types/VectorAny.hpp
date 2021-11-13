@@ -1,10 +1,11 @@
 #ifndef HELENA_TYPES_VECTORANY_HPP
 #define HELENA_TYPES_VECTORANY_HPP
 
-#include <Helena/Dependencies/EnTT.hpp>
 #include <Helena/Debug/Assert.hpp>
+#include <Helena/Dependencies/EnTT.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
+#include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Types/Hash.hpp>
 
 #include <vector>
@@ -24,33 +25,33 @@ namespace Helena::Types
 		using vec_type		= std::vector<any_type>;
 		using map_type		= std::unordered_map<index_type, index_type>;
 
-	private:
-		[[nodiscard]] static auto GetIndexByKey(map_type& map, const index_type key) {
-			const auto [it, result] = map.try_emplace(key, map.size());
-			return it->second;
-		}
 
-	public:
+		VectorAny() : m_Indexes{}, m_Storage{} {}
+		~VectorAny() = default;
+		VectorAny(const VectorAny&) = delete;
+		VectorAny(VectorAny&&) noexcept = delete;
+		VectorAny& operator=(const VectorAny&) = delete;
+		VectorAny& operator=(VectorAny&&) noexcept = delete;
+
 		template <typename T, typename... Args>
-		void Create([[maybe_unused]] Args&&... args)
+		void Create(Args&&... args)
 		{
-			static_assert(std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>, "Type cannot be const/ptr/ref");
-			//static_assert(std::is_constructible_v<T, Args...>, "Type cannot be constructable from args");
+			static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
 
 			const auto index = Indexer<unique_type, T>::GetIndex(m_Indexes);
 			if(index >= m_Storage.size()) {
 				m_Storage.resize(index + 1u);
 			}
 
-			HELENA_ASSERT(!m_Storage[index], "Instance of {} already exist in {}", Traits::NameOf<T>::value, Traits::NameOf<VectorAny>::value);
+			HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>::value);
 			m_Storage[index].template emplace<T>(std::forward<Args>(args)...);
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Has() noexcept 
+		[[nodiscard]] bool Has() 
 		{
-			static_assert(sizeof...(T) > 0, "Type pack is empty!");
-			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
+			static_assert(sizeof...(T) > 0, "Pack is empty!");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
 
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
@@ -61,27 +62,25 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Any() noexcept 
+		[[nodiscard]] bool Any() 
 		{
 			static_assert(sizeof...(T) > 1, "Exclusion-only Type are not supported");
-			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
 
 			return (Has<T>() || ...);
 		}
 
 		template <typename... T>
-		[[nodiscard]] decltype(auto) Get() noexcept
+		[[nodiscard]] decltype(auto) Get()
 		{
-			static_assert(sizeof...(T) > 0, "Type pack is empty!");
-			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
+			static_assert(sizeof...(T) > 0, "Pack is empty!");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
 
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
 
-				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
-				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Instance of {} type mismatch in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
+				HELENA_ASSERT(entt::any_cast<T...>(&m_Storage[index]), "Type: {} type mismatch!", Traits::NameOf<T...>::value); 
 
 				return entt::any_cast<T&...>(m_Storage[index]);
 			} else {
@@ -90,16 +89,14 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		void Remove() noexcept 
+		void Remove() 
 		{
-			static_assert(sizeof...(T) > 0, "Type pack is empty!");
-			static_assert(((std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_pointer_v<T>) && ...), "Type cannot be const/ptr/ref");
+			static_assert(sizeof...(T) > 0, "Pack is empty!");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
 
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = Indexer<unique_type, T...>::GetIndex(m_Indexes);
-
-				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Instance of {} not exist in {}", 
-					Traits::NameOf<T...>::value, Traits::NameOf<VectorAny>::value);
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
 
 				m_Storage[index].reset();
 			} else {
@@ -120,6 +117,11 @@ namespace Helena::Types
 				return index;
 			}
 		};
+
+		[[nodiscard]] static auto GetIndexByKey(map_type& map, const index_type key) {
+			const auto [it, result] = map.try_emplace(key, map.size());
+			return it->second;
+		}
 
 		map_type m_Indexes;			// Used for storage T indexes (for support dll/so across boundary)
 		vec_type m_Storage;			// Used for storage T elements

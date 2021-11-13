@@ -45,15 +45,17 @@ namespace Helena::Types
             Sunday
         };
 
-        constexpr DateTime() = default;
+        constexpr DateTime() noexcept = default;
         constexpr ~DateTime() = default;
         constexpr DateTime(const DateTime&) noexcept = default;
+        constexpr DateTime(DateTime&&) noexcept = default;
         constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
         constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day, std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t ms = 0) {
             m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + ms * m_TicksPerMilliseconds;
         }
 
         constexpr DateTime& operator=(const DateTime&) = default;
+        constexpr DateTime& operator=(DateTime&&) noexcept = default;
 
         //[[nodiscard]] static std::int64_t NowTickTime() noexcept {
         //    return FromTickTime().GetTicks();
@@ -67,16 +69,16 @@ namespace Helena::Types
         //    return FromLocalTime().GetTicks();
         //}
 
-        [[nodiscard]] static DateTime FromTickTime() noexcept {
+        [[nodiscard]] static DateTime FromTickTime() {
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
 
-        [[nodiscard]] static DateTime FromUTCTime() noexcept {
+        [[nodiscard]] static DateTime FromUTCTime() {
             const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_sys_time().time_since_epoch()).count());
         }
 
-        [[nodiscard]] static DateTime FromLocalTime() noexcept {
+        [[nodiscard]] static DateTime FromLocalTime() {
             const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_local_time().time_since_epoch()).count());
         }
@@ -116,7 +118,7 @@ namespace Helena::Types
             std::size_t offsetFormat{};
             std::size_t offsetTime{};
 
-            auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
+            const auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
             {
                 // Take string with fixed size length from buffer
                 const auto data = buffer.substr(offset, read_length);

@@ -3,6 +3,7 @@
 
 #include <Helena/Systems/EntityComponent.hpp>
 #include <Helena/Engine/Engine.hpp>
+#include <Helena/Traits/IntegralConstant.hpp>
 
 namespace Helena::Systems
 {

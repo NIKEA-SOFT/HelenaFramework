@@ -38,7 +38,7 @@ namespace Helena::Core
     public:
         using Callback = std::function<void ()>;
 
-        Context() : m_Tickrate{1.f / 30.f}, m_DeltaTime{}, m_TimeElapsed{}, m_TimeLeftFPS{}, m_CountFPS{}, m_State{EState::Undefined} {}
+        Context() noexcept : m_Tickrate{1.f / 30.f}, m_DeltaTime{}, m_TimeElapsed{}, m_TimeLeftFPS{}, m_CountFPS{}, m_State{EState::Undefined} {}
         virtual ~Context() = default;
         Context(const Context&) = delete;
         Context(Context&&) noexcept = delete;
@@ -67,7 +67,7 @@ namespace Helena::Core
         }
 
         template <typename... Args>
-        static void SetAppName(std::string name) {
+        static void SetAppName(std::string name) noexcept {
             auto& ctx = GetInstance();
             ctx.m_ApplicationName = std::move(name);
         }
@@ -113,11 +113,11 @@ namespace Helena::Core
         float m_TimeElapsed;
         float m_TimeLeftFPS;
 
-        std::uint32_t m_CountFPS;
-
         std::chrono::steady_clock::time_point m_TimeStart;
         std::chrono::steady_clock::time_point m_TimeNow;
         std::chrono::steady_clock::time_point m_TimePrev;
+
+        std::uint32_t m_CountFPS;
 
         EState m_State;
 
@@ -131,7 +131,7 @@ namespace entt
     template <typename Type>
     struct ENTT_API type_seq<Type> 
     {
-        [[nodiscard]] inline static id_type value() ENTT_NOEXCEPT {
+        [[nodiscard]] inline static id_type value() {
             static const auto value = Helena::Core::Context::GetInstance().GetSequenceIndex(Helena::Hash::Get<Type>());
             return value;
         }
