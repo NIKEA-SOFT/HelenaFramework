@@ -25,6 +25,7 @@
 
 using namespace Helena;
 
+// Components for Entity
 namespace Components 
 {
     struct Info {
@@ -56,7 +57,7 @@ namespace Components
     };
 }
 
-// Это класс системы
+// system for create/remove character entity
 class CharacterSystem 
 {
     using EntityID = Systems::EntityComponent::Entity;
@@ -64,10 +65,13 @@ class CharacterSystem
 public:
     void CreateCharacter(std::uint64_t connection, Types::FixedBuffer<32> name) 
     {
+        // Get ref on ECS system
         auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
 
+        // Create new entity
         const EntityID id = ecs.CreateEntity();
 
+        // Add new components to entity
         ecs.AddComponent<Components::Info>(id, name, connection);
         ecs.AddComponent<Components::ModelInfo>(id, 10u, 150u, 5u);
         ecs.AddComponent<Components::Position>(id, 30.f, 50.f, 10.f);
@@ -82,7 +86,7 @@ public:
 
     void RemoveCharacter(std::uint64_t connection) 
     {
-        if(const auto entity = FindCharacter(connection); entity.has_value()) {
+        if(const auto entity = FindCharacter(connection)) {
             auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
             ecs.RemoveEntity(entity.value());
             m_Characters.erase(connection);
@@ -92,10 +96,11 @@ public:
 
     void PrintCharacterInfo(std::uint64_t connection) 
     {
-        if(const auto entity = FindCharacter(connection); entity.has_value()) 
+        if(const auto entity = FindCharacter(connection)) 
         {
             auto& ecs = Engine::GetSystem<Systems::EntityComponent>();
-
+            
+            // Get entity components
             auto [info, health, position, velocity, model] = ecs.GetComponent<Components::Info, Components::Health, 
                 Components::Position, Components::Velocity, Components::ModelInfo>(entity.value());
 
@@ -137,6 +142,7 @@ private:
 // Events for PhysicSystem
 namespace Helena::Events::PhysicSystem
 {
+    // Event structure
     struct EntityMove {
         using Entity = Systems::EntityComponent::Entity;
         const Entity m_Entity;
@@ -184,6 +190,7 @@ public:
     }
 };
 
+
 // Let's emulate network packet "CS_CreateCharacter"
 void NetworkCreateCharacter() 
 {
@@ -191,13 +198,14 @@ void NetworkCreateCharacter()
     constexpr std::uint64_t connection_petr = 1;      // Test emulation network connection
     constexpr std::uint64_t connection_alex = 2;      // Test emulation network connection
 
-    auto& characterSystem = Engine::GetSystem<CharacterSystem>();
+    auto& characterSystem = Engine::GetSystem<CharacterSystem>(); // Get ref on system
 
     // Create character entity for test
     characterSystem.CreateCharacter(connection_ivan, "Ivan");
     characterSystem.CreateCharacter(connection_petr, "Petr");
     characterSystem.CreateCharacter(connection_alex, "Alex");
 
+    // Listener on event EntityMove
     Engine::SubscribeEvent<Events::PhysicSystem::EntityMove>([](const Events::PhysicSystem::EntityMove& event) {
         auto& [entity, pos, vel] = event;
         HELENA_MSG_INFO("[Event: EntityMove] Entity: {} move to X: {:.3f}, Y: {:.3f}, Z: {:.3f}", entity, pos.x, pos.y, pos.z);
@@ -207,19 +215,20 @@ void NetworkCreateCharacter()
 int main(int argc, char** argv)
 {
     // Engine started from Initialize method
-    Core::Context::Initialize<Core::Context>();
-    Core::Context::SetAppName("Test Framework");
-    Core::Context::SetTickrate(1.f);
-    Core::Context::SetCallback([]() -> void     // Register systems happen in this callback
+    Core::Context::Initialize<Core::Context>();     // Initialize Context (Context used in Engine)
+    Core::Context::SetAppName("Test Framework");    // Set application name
+    Core::Context::SetTickrate(1.f);                // Set Update tickrate
+    Core::Context::SetCallback([]() -> void         // Register systems happen in this callback
     {
         // Register all used systems
-        Engine::RegisterSystem<Systems::EntityComponent>();
-        Engine::RegisterSystem<CharacterSystem>();
-        Engine::RegisterSystem<PhysicsSystem>();
+        Engine::RegisterSystem<Systems::EntityComponent>();     // Entity Component System
+        Engine::RegisterSystem<CharacterSystem>();              // Test System for Characters
+        Engine::RegisterSystem<PhysicsSystem>();                // Test Physic system for show example
 
-        NetworkCreateCharacter();   // Only for emulate new network connection
+        NetworkCreateCharacter();                               // Only for emulate new network connection
     });
 
+    // Engine loop
     while(Engine::Heartbeat()) {}
 
     return 0;
