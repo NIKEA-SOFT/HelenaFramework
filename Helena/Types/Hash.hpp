@@ -12,13 +12,14 @@ namespace Helena::Hash
     template <typename>
     struct Equaler;
 
+    template <typename T = std::uint64_t, typename = std::enable_if<std::is_integral_v<T>>>
     [[nodiscard]] constexpr auto Get(const std::string_view str) noexcept 
     {
-        using Hash = Traits::FNV1a<std::uint64_t>;
+        using Hash = Traits::FNV1a<T>;
 
         auto value { Hash::Offset };
         for(std::size_t i = 0; i < str.size(); ++i) {
-            value = (value ^ static_cast<std::uint64_t>(str[i])) * Hash::Prime;
+            value = (value ^ static_cast<T>(str[i])) * Hash::Prime;
         }
 
         return value;
