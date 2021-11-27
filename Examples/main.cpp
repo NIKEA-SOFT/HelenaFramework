@@ -32,7 +32,7 @@ public:
         HELENA_MSG_DEBUG("EventInit");
 
         auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
-        ecs.CreateEntity(); // Create entity and trigger event CreateEntity
+        (void)ecs.CreateEntity(); // Create entity and trigger event CreateEntity
     }
 
     void OnEvent(const Helena::Events::Engine::Config&) {
