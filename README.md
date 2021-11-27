@@ -36,62 +36,75 @@ class TestSystem
 {
 public:
     TestSystem() {
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineInit>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineConfig>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineExecute>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineTick>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineUpdate>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineFinalize>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::EngineShutdown>(&TestSystem::OnEvent);
+        // Start listen Engine events
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>    (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>  (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute> (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>    (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>  (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnEvent);
+
+        // Start listen events from system EntityComponent
+        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::CreateEntity>(&TestSystem::OnCreateEntity);
+        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::RemoveEntity>(&TestSystem::OnRemoveEntity);
     }
     ~TestSystem() = default;
 
-    void OnEvent(const Helena::Events::EngineInit&) {
+    void OnEvent(const Helena::Events::Engine::Init&) {
         HELENA_MSG_DEBUG("EventInit");
 
         auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
-
-        const auto entity = ecs.CreateEntity();
-        ecs.AddComponent<UserInfo>(entity, "Helena", 30u);
-
-        const auto& userInfo = ecs.GetComponent<UserInfo>(entity);
-        HELENA_MSG_DEBUG("User name: {}, age: {}", userInfo.name, userInfo.age);
-
-        ecs.RemoveEntity(entity);
+        ecs.CreateEntity(); // Create entity and trigger event CreateEntity
     }
 
-    void OnEvent(const Helena::Events::EngineConfig&) {
+    void OnEvent(const Helena::Events::Engine::Config&) {
         HELENA_MSG_DEBUG("EngineConfig");
     }
 
-    void OnEvent(const Helena::Events::EngineExecute&) {
+    void OnEvent(const Helena::Events::Engine::Execute&) {
         HELENA_MSG_DEBUG("EngineExecute");
     }
 
-    void OnEvent(const Helena::Events::EngineTick&) {
-        HELENA_MSG_DEBUG("EngineTick");
+    void OnEvent(const Helena::Events::Engine::Tick& tick) {
+        HELENA_MSG_DEBUG("EngineTick: {:.4f}", tick.deltaTime);
     }
 
-    void OnEvent(const Helena::Events::EngineUpdate&) {
-        HELENA_MSG_DEBUG("EngineUpdate");
+    void OnEvent(const Helena::Events::Engine::Update& update) {
+        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", update.deltaTime);
     }
 
-    void OnEvent(const Helena::Events::EngineFinalize&) {
+    void OnEvent(const Helena::Events::Engine::Finalize&) {
         HELENA_MSG_DEBUG("EngineFinalize");
     }
 
-    void OnEvent(const Helena::Events::EngineShutdown&) {
+    void OnEvent(const Helena::Events::Engine::Shutdown&) {
         HELENA_MSG_DEBUG("EngineShutdown");
+    }
+
+    void OnCreateEntity(const Helena::Events::EntityComponent::CreateEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto& userInfo = ecs.AddComponent<UserInfo>(event.Entity, "Helena", 30u);
+
+        HELENA_MSG_DEBUG("Entity created, user name: {}, age: {}", userInfo.name, userInfo.age);
+        ecs.RemoveEntity(event.Entity); // Removed entity after trigger RemoveEntity event
+    }
+
+    void OnRemoveEntity(const Helena::Events::EntityComponent::RemoveEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto& userInfo = ecs.GetComponent<UserInfo>(event.Entity);
+
+        HELENA_MSG_DEBUG("Entity: {} removed!", userInfo.name);
     }
 };
 
 int main(int argc, char** argv)
 {
     // Engine started from Initialize method
-    Helena::Core::Context::Initialize<Helena::Core::Context>();     // Initialize Context (Context used in Engine)
-    Helena::Core::Context::SetAppName("Test Framework");            // Set application name
-    Helena::Core::Context::SetTickrate(60.f);                       // Set Update tickrate
-    Helena::Core::Context::SetCallback([]()                         // Register systems happen in this callback
+    Helena::Engine::Context::Initialize();                          // Initialize Context (Context used in Engine)
+    Helena::Engine::Context::SetAppName("Test Framework");          // Set application name
+    Helena::Engine::Context::SetTickrate(60.f);                     // Set Update tickrate
+    Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
     {
         // Register all used systems
         Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
