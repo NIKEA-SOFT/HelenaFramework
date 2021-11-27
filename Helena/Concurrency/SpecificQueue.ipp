@@ -2,17 +2,16 @@
 #define HELENA_CONCURRENCY_SPECIFICQUEUE_IPP
 
 #include <Helena/Concurrency/SpecificQueue.hpp>
-#include <Helena/Internal.hpp>
-#include <Helena/Assert.hpp>
+#include <Helena/Debug/Assert.hpp>
 
 namespace Helena::Concurrency {
 
 
     template <typename T, std::size_t Capacity>
-    inline SpecificQueue<T, Capacity>::SpecificQueue() : m_Elements{}, m_Size{0u} {}
+    SpecificQueue<T, Capacity>::SpecificQueue() : m_Elements{}, m_Size{0u} {}
 
     template <typename T, std::size_t Capacity>
-    inline SpecificQueue<T, Capacity>::~SpecificQueue()
+    SpecificQueue<T, Capacity>::~SpecificQueue()
     {
         if constexpr(!std::is_integral_v<value_type> && Internal::is_detected_v<fn_dtor, value_type>)
         {
@@ -26,7 +25,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T, std::size_t Capacity>
-    inline SpecificQueue<T, Capacity>::SpecificQueue(const SpecificQueue& other) : m_Size{0u}
+    SpecificQueue<T, Capacity>::SpecificQueue(const SpecificQueue& other) : m_Size{0u}
     {
         for(size_type i = 0u; i < other.size(); ++i)
         {
@@ -47,7 +46,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T, std::size_t Capacity>
-    inline SpecificQueue<T, Capacity>::SpecificQueue(SpecificQueue&& other) noexcept : m_Size{0u}
+    SpecificQueue<T, Capacity>::SpecificQueue(SpecificQueue&& other) noexcept : m_Size{0u}
     {
         for(size_type i = 0u; i < other.size(); ++i)
         {
@@ -73,7 +72,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T, std::size_t Capacity>
-    inline auto SpecificQueue<T, Capacity>::operator=(const SpecificQueue& other) -> SpecificQueue&
+    auto SpecificQueue<T, Capacity>::operator=(const SpecificQueue& other) -> SpecificQueue&
     {
         for(size_type i = 0u; i < other.size(); ++i)
         {
@@ -93,7 +92,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T, std::size_t Capacity>
-    inline auto SpecificQueue<T, Capacity>::operator=(SpecificQueue&& other) noexcept -> SpecificQueue&
+    auto SpecificQueue<T, Capacity>::operator=(SpecificQueue&& other) noexcept -> SpecificQueue&
     {
         for(size_type i = 0u; i < other.size(); ++i)
         {
@@ -119,9 +118,9 @@ namespace Helena::Concurrency {
 
     template <typename T, std::size_t Capacity>
     template <typename... Args>
-    inline void SpecificQueue<T, Capacity>::emplace([[maybe_unused]] Args&&... args)
+    void SpecificQueue<T, Capacity>::Push([[maybe_unused]] Args&&... args)
     {
-        HF_ASSERT(m_Size < Capacity, "Buffer overflow");
+        HELENA_ASSERT(m_Size < Capacity, "Buffer overflow");
 
         if constexpr(std::is_integral_v<value_type>) {
             m_Elements[m_Size++] = value_type(std::forward<Args>(args)...);
@@ -136,7 +135,7 @@ namespace Helena::Concurrency {
 
     template <typename T, std::size_t Capacity>
     template <typename Func>
-    inline void SpecificQueue<T, Capacity>::view_and_pop(Func callback)
+    void SpecificQueue<T, Capacity>::Pop(Func callback)
     {
         for(size_type i = 0; i < m_Size; ++i)
         {
@@ -157,27 +156,27 @@ namespace Helena::Concurrency {
     }
 
     template <typename T, std::size_t Capacity>
-    [[nodiscard]] inline bool SpecificQueue<T, Capacity>::full() const noexcept {
+    [[nodiscard]] bool SpecificQueue<T, Capacity>::IsFull() const noexcept {
         return m_Size == Capacity;
     }
 
     template <typename T, std::size_t Capacity>
-    [[nodiscard]] inline bool SpecificQueue<T, Capacity>::empty() const noexcept {
+    [[nodiscard]] bool SpecificQueue<T, Capacity>::IsEmpty() const noexcept {
         return !m_Size;
     }
 
     template <typename T, std::size_t Capacity>
-    [[nodiscard]] inline auto SpecificQueue<T, Capacity>::size() const noexcept -> size_type {
+    [[nodiscard]] auto SpecificQueue<T, Capacity>::GetSize() const noexcept -> size_type {
         return m_Size;
     }
 
     template <typename T, std::size_t Capacity>
-    [[nodiscard]] inline auto SpecificQueue<T, Capacity>::space() const noexcept -> size_type {
+    [[nodiscard]] auto SpecificQueue<T, Capacity>::GetRemainingSize() const noexcept -> size_type {
         return Capacity - m_Size;
     }
 
     template <typename T, std::size_t Capacity>
-    [[nodiscard]] inline constexpr auto SpecificQueue<T, Capacity>::capacity() const noexcept -> size_type {
+    [[nodiscard]] constexpr auto SpecificQueue<T, Capacity>::GetCapacity() noexcept -> size_type {
         return Capacity;
     }
 }

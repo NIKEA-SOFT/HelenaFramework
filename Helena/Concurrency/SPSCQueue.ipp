@@ -3,25 +3,24 @@
 
 #include <Helena/Concurrency/SPSCQueue.hpp>
 #include <Helena/Concurrency/Internal.hpp>
-#include <Helena/Internal.hpp>
 
 namespace Helena::Concurrency {
 
     template <typename T>
-    inline SPSCQueue<T>::SPSCQueue(const size_type size)
+    SPSCQueue<T>::SPSCQueue(const size_type size)
         : m_Elements {std::make_unique<data_type[]>(Internal::round_up_to_power_of_2(size))},
           m_Head {},
           m_Tail {},
           m_Capacity {size} {}
 
     template <typename T>
-    inline SPSCQueue<T>::~SPSCQueue() {
+    SPSCQueue<T>::~SPSCQueue() {
         while(pop());
     }
 
     template <typename T>
     template <typename... Args>
-    [[nodiscard]] inline bool SPSCQueue<T>::push([[maybe_unused]] Args&&... args)
+    [[nodiscard]] bool SPSCQueue<T>::push([[maybe_unused]] Args&&... args)
     {
         const auto head = m_Head.load(std::memory_order_relaxed);
         if(head - m_Tail.load(std::memory_order_acquire) >= m_Capacity) {
@@ -43,7 +42,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::front() const noexcept -> decltype(auto)
+    [[nodiscard]] auto SPSCQueue<T>::front() const noexcept -> decltype(auto)
     {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
 
@@ -55,7 +54,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    [[nodiscard]] inline bool SPSCQueue<T>::pop()
+    [[nodiscard]] bool SPSCQueue<T>::pop()
     {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
         if(m_Head.load(std::memory_order_acquire) == tail) {
@@ -71,7 +70,7 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    [[nodiscard]] inline bool SPSCQueue<T>::pop(reference value)
+    [[nodiscard]] bool SPSCQueue<T>::pop(reference value)
     {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
         if(m_Head.load(std::memory_order_acquire) == tail) {
@@ -90,7 +89,7 @@ namespace Helena::Concurrency {
 
     template <typename T>
     template <typename Func>
-    [[nodiscard]] inline bool SPSCQueue<T>::view_and_pop(Func callback)
+    [[nodiscard]] bool SPSCQueue<T>::view_and_pop(Func callback)
     {
         const auto tail = m_Tail.load(std::memory_order_relaxed);
         if(m_Head.load(std::memory_order_acquire) == tail) {
@@ -113,17 +112,17 @@ namespace Helena::Concurrency {
     }
 
     template <typename T>
-    [[nodiscard]] inline bool SPSCQueue<T>::empty() const noexcept {
+    [[nodiscard]] bool SPSCQueue<T>::empty() const noexcept {
         return !size();
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::size() const noexcept -> size_type {
+    [[nodiscard]] auto SPSCQueue<T>::size() const noexcept -> size_type {
         return m_Head.load(std::memory_order_acquire) - m_Tail.load(std::memory_order_acquire);
     }
 
     template <typename T>
-    [[nodiscard]] inline auto SPSCQueue<T>::capacity() const noexcept -> size_type {
+    [[nodiscard]] auto SPSCQueue<T>::capacity() const noexcept -> size_type {
         return m_Capacity;
     }
 }

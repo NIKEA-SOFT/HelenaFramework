@@ -11,7 +11,7 @@
 #define ENTT_ASSERT     HELENA_ASSERT
 #define ENTT_ID_TYPE    std::uint32_t
 
-#include <entt/entt.hpp>
+#include <Dependencies/entt/entt.hpp>
 
 namespace Helena::Hash
 {

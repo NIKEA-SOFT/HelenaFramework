@@ -5,10 +5,6 @@
 #include <memory>
 #include <type_traits>
 
-#include <Helena/Internal.hpp>
-
-#include <Dependencies/entt/core/fwd.hpp>
-
 namespace Helena::Concurrency {
 
     template <typename T, std::size_t Capacity>
@@ -38,17 +34,17 @@ namespace Helena::Concurrency {
         auto operator=(SpecificQueue&&) noexcept -> SpecificQueue&;
 
         template <typename... Args>
-        void emplace([[maybe_unused]] Args&&... args);
+        void Push([[maybe_unused]] Args&&... args);
 
         template <typename Func>
-        void view_and_pop(Func callback);
+        void Pop(Func callback);
 
-        [[nodiscard]] bool full() const noexcept;
-        [[nodiscard]] bool empty() const noexcept;
+        [[nodiscard]] bool IsFull() const noexcept;
+        [[nodiscard]] bool IsEmpty() const noexcept;
 
-        [[nodiscard]] auto size() const noexcept -> size_type;
-        [[nodiscard]] auto space() const noexcept -> size_type;
-        [[nodiscard]] constexpr auto capacity() const noexcept -> size_type;
+        [[nodiscard]] auto GetSize() const noexcept -> size_type;
+        [[nodiscard]] auto GetRemainingSize() const noexcept -> size_type;
+        [[nodiscard]] static constexpr auto GetCapacity() noexcept -> size_type;
 
     private:
         data_type m_Elements[Capacity];
