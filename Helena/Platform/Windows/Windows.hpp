@@ -9,9 +9,6 @@
         #pragma warning(disable:4068)
     #endif
 
-    #pragma comment(lib, "winmm.lib")
-    #pragma comment(lib, "dbghelp.lib")
-
     #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
@@ -19,9 +16,17 @@
 
     #include <Windows.h>
     #include <WinSock2.h>
+    #include <iphlpapi.h>
+    #include <userenv.h>
     #include <timeapi.h>
     #include <Dbghelp.h>
     #include <exception>
+
+    #pragma comment(lib, "winmm.lib")
+    #pragma comment(lib, "dbghelp.lib")
+    #pragma comment(lib, "WS2_32.lib")
+    #pragma comment(lib, "Iphlpapi.lib")
+    #pragma comment(lib, "Userenv.lib")
 
     #if defined(HELENA_COMPILER_MSVC)
         #if _MSC_VER >= 1910
