@@ -94,15 +94,16 @@ namespace Helena::Systems
 
     // Components
     template <typename Component, typename... Args>
-    auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> void
+    auto EntityComponent::AddComponent(const Entity id, Args&&... args) -> decltype(auto)
     {
         static_assert(std::is_same_v<Traits::RemoveCVRefPtr<Component>, Component>, "Component type cannot be const/ptr/ref");
 
         HELENA_ASSERT(HasEntity(id), "Entity {} is not valid", id);
         HELENA_ASSERT(!HasComponent<Component>(id), "Entity {}, component {} is already exist", id, Traits::NameOf<Component>::value);
 
-        m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
+        auto& component = m_Registry.emplace<Component>(id, std::forward<Args>(args)...);
         Engine::SignalEvent<Events::EntityComponent::AddComponent<Component>>(id);
+        return component;
     }
 
     template <typename... Components>

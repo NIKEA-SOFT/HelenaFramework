@@ -70,13 +70,7 @@ namespace Helena::Systems
         auto EachOrphans(Func&& callback) const -> void;
 
         template <typename Component, typename... Args>
-        auto AddComponent(const Entity id, Args&&... args) -> void;
-
-        template <typename Func>
-        auto VisitComponent(const Entity id, Func&& callback) const -> void;
-
-        template <typename Func>
-        auto VisitComponent(Func&& callback) const -> void;
+        auto AddComponent(const Entity id, Args&&... args) -> decltype(auto);
 
         template <typename... Components>
         [[nodiscard]] auto GetComponent(const Entity id) -> decltype(auto);
@@ -97,6 +91,12 @@ namespace Helena::Systems
 
         template <typename... Components>
         [[nodiscard]] auto AnyComponent(const Entity id) const -> bool;
+
+        template <typename Func>
+        auto VisitComponent(const Entity id, Func&& callback) const -> void;
+
+        template <typename Func>
+        auto VisitComponent(Func&& callback) const -> void;
 
         template <typename... Components, typename... ExcludeFilter>
         [[nodiscard]] auto ViewComponent(ExcludeType<ExcludeFilter...> = {}) -> decltype(auto);
@@ -141,21 +141,21 @@ namespace Helena::Systems
 namespace Helena::Events::EntityComponent
 {
     struct CreateEntity {
-        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     struct RemoveEntity {
-        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct AddComponent {
-        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct RemoveComponent {
-        Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 }
 
