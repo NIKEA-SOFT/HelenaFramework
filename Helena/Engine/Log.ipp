@@ -174,12 +174,11 @@ namespace Helena::Log
     void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
-        const auto time = fmt::localtime(std::time(nullptr));
-
         fmt::memory_buffer buffer;
         
         try
         {
+            const auto time = fmt::localtime(std::time(nullptr));
             try 
             {
                 constexpr auto style    = Prefix::GetStyle();
@@ -216,7 +215,7 @@ namespace Helena::Log
             buffer.push_back('\0');
 
             std::fputs(buffer.data(), stdout);
-        } catch(const std::bad_alloc&) {}
+        } catch(...) {}
     }
 }
 
