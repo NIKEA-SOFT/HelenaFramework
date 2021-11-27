@@ -2,7 +2,7 @@
 // awaitable.hpp
 // ~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -47,7 +47,7 @@ template <typename, typename> class awaitable_frame;
 
 /// The return type of a coroutine or asynchronous operation.
 template <typename T, typename Executor = any_io_executor>
-class awaitable
+class ASIO_NODISCARD awaitable
 {
 public:
   /// The type of the awaited value.
@@ -100,7 +100,7 @@ public:
   // Support for co_await keyword.
   T await_resume()
   {
-    return frame_->get();
+    return awaitable(static_cast<awaitable&&>(*this)).frame_->get();
   }
 
 #endif // !defined(GENERATING_DOCUMENTATION)

@@ -21,50 +21,99 @@ The HelenaFramework is an architectural pattern used mostly in backend developme
 
 ## Code Example
 ```cpp
-#include <Common/Helena.hpp>
+#include <Helena/Engine/Engine.hpp>
 
-using namespace Helena;
+#include <Helena/Systems/EntityComponent.hpp>
 
-struct TestSystem 
+// Component
+struct UserInfo {
+    std::string name;
+    std::uint32_t age;
+};
+
+// Test System
+class TestSystem
 {
-    // Current method called when system initialized (it's system event)
-    void OnSystemCreate() {}
+public:
+    TestSystem() {
+        // Start listen Engine events
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>    (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>  (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute> (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>    (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>  (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnEvent);
 
-    // Current method called after OnSystemCreate (it's system event)
-    void OnSystemExecute() {}
+        // Start listen events from system EntityComponent
+        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::CreateEntity>(&TestSystem::OnCreateEntity);
+        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::RemoveEntity>(&TestSystem::OnRemoveEntity);
+    }
+    ~TestSystem() = default;
 
-    // Called every tick (it's system event)
-    void OnSystemTick() {}
+    void OnEvent(const Helena::Events::Engine::Init&) {
+        HELENA_MSG_DEBUG("EventInit");
 
-    // Called every tickrate (fps) tick (default: 0.016 ms) (it's system event)
-    void OnSystemUpdate() {}
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        ecs.CreateEntity(); // Create entity and trigger event CreateEntity
+    }
 
-    // Called when System destroyed (it's system event)
-    void OnSystemDestroy() {}
+    void OnEvent(const Helena::Events::Engine::Config&) {
+        HELENA_MSG_DEBUG("EngineConfig");
+    }
+
+    void OnEvent(const Helena::Events::Engine::Execute&) {
+        HELENA_MSG_DEBUG("EngineExecute");
+    }
+
+    void OnEvent(const Helena::Events::Engine::Tick& tick) {
+        HELENA_MSG_DEBUG("EngineTick: {:.4f}", tick.deltaTime);
+    }
+
+    void OnEvent(const Helena::Events::Engine::Update& update) {
+        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", update.deltaTime);
+    }
+
+    void OnEvent(const Helena::Events::Engine::Finalize&) {
+        HELENA_MSG_DEBUG("EngineFinalize");
+    }
+
+    void OnEvent(const Helena::Events::Engine::Shutdown&) {
+        HELENA_MSG_DEBUG("EngineShutdown");
+    }
+
+    void OnCreateEntity(const Helena::Events::EntityComponent::CreateEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto& userInfo = ecs.AddComponent<UserInfo>(event.Entity, "Helena", 30u);
+
+        HELENA_MSG_DEBUG("Entity created, user name: {}, age: {}", userInfo.name, userInfo.age);
+        ecs.RemoveEntity(event.Entity); // Removed entity after trigger RemoveEntity event
+    }
+
+    void OnRemoveEntity(const Helena::Events::EntityComponent::RemoveEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto& userInfo = ecs.GetComponent<UserInfo>(event.Entity);
+
+        HELENA_MSG_DEBUG("Entity: {} removed!", userInfo.name);
+    }
 };
 
 int main(int argc, char** argv)
 {
-    return Core::Initialize([&]() -> bool 
+    // Engine started from Initialize method
+    Helena::Engine::Context::Initialize();                          // Initialize Context (Context used in Engine)
+    Helena::Engine::Context::SetAppName("Test Framework");          // Set application name
+    Helena::Engine::Context::SetTickrate(60.f);                     // Set Update tickrate
+    Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
     {
-        // Push args in Core
-        Core::SetArgs(argc, argv);
-
-        // Set tickrate
-        Core::SetTickrate(60.0);
-
-        // Get args size
-        HF_MSG_INFO("Args: {}", Core::GetArgs().size());
-        
-        // View arguments from vector of std::string_view
-        for(const auto& arg : Core::GetArgs()) {
-            HF_MSG_INFO("Arg: {}", arg);
-        }
-
-        // Systems
-        Core::RegisterSystem<TestSystem>();
-
-        return true;
+        // Register all used systems
+        Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
+        Helena::Engine::RegisterSystem<TestSystem>();                       // Test System
     });
+
+    // Engine loop
+    while(Helena::Engine::Heartbeat()) {}
+
+    return 0;
 }
 ```

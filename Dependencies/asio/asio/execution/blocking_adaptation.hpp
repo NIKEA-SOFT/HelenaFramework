@@ -2,7 +2,7 @@
 // execution/blocking_adaptation.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -166,8 +166,18 @@ struct blocking_adaptation_t
 #if defined(ASIO_HAS_VARIABLE_TEMPLATES)
   template <typename T>
   ASIO_STATIC_CONSTEXPR(bool,
-    is_applicable_property_v = is_executor<T>::value
-      || is_sender<T>::value || is_scheduler<T>::value);
+    is_applicable_property_v = (
+      is_executor<T>::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_sender<T>
+          >::type::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_scheduler<T>
+          >::type::value));
 #endif // defined(ASIO_HAS_VARIABLE_TEMPLATES)
 
   ASIO_STATIC_CONSTEXPR(bool, is_requirable = false);
@@ -192,20 +202,74 @@ struct blocking_adaptation_t
   {
   }
 
+  template <typename T>
+  struct proxy
+  {
+#if defined(ASIO_HAS_DEDUCED_QUERY_MEMBER_TRAIT)
+    struct type
+    {
+      template <typename P>
+      auto query(ASIO_MOVE_ARG(P) p) const
+        noexcept(
+          noexcept(
+            declval<typename conditional<true, T, P>::type>().query(
+              ASIO_MOVE_CAST(P)(p))
+          )
+        )
+        -> decltype(
+          declval<typename conditional<true, T, P>::type>().query(
+            ASIO_MOVE_CAST(P)(p))
+        );
+    };
+#else // defined(ASIO_HAS_DEDUCED_QUERY_MEMBER_TRAIT)
+    typedef T type;
+#endif // defined(ASIO_HAS_DEDUCED_QUERY_MEMBER_TRAIT)
+  };
+
+  template <typename T>
+  struct static_proxy
+  {
+#if defined(ASIO_HAS_DEDUCED_QUERY_STATIC_CONSTEXPR_MEMBER_TRAIT)
+    struct type
+    {
+      template <typename P>
+      static constexpr auto query(ASIO_MOVE_ARG(P) p)
+        noexcept(
+          noexcept(
+            conditional<true, T, P>::type::query(ASIO_MOVE_CAST(P)(p))
+          )
+        )
+        -> decltype(
+          conditional<true, T, P>::type::query(ASIO_MOVE_CAST(P)(p))
+        )
+      {
+        return T::query(ASIO_MOVE_CAST(P)(p));
+      }
+    };
+#else // defined(ASIO_HAS_DEDUCED_QUERY_STATIC_CONSTEXPR_MEMBER_TRAIT)
+    typedef T type;
+#endif // defined(ASIO_HAS_DEDUCED_QUERY_STATIC_CONSTEXPR_MEMBER_TRAIT)
+  };
+
+  template <typename T>
+  struct query_member :
+    traits::query_member<typename proxy<T>::type, blocking_adaptation_t> {};
+
+  template <typename T>
+  struct query_static_constexpr_member :
+    traits::query_static_constexpr_member<
+      typename static_proxy<T>::type, blocking_adaptation_t> {};
+
 #if defined(ASIO_HAS_DEDUCED_STATIC_QUERY_TRAIT) \
   && defined(ASIO_HAS_SFINAE_VARIABLE_TEMPLATES)
   template <typename T>
   static ASIO_CONSTEXPR
-  typename traits::query_static_constexpr_member<
-      T, blocking_adaptation_t>::result_type
+  typename query_static_constexpr_member<T>::result_type
   static_query()
     ASIO_NOEXCEPT_IF((
-      traits::query_static_constexpr_member<
-        T, blocking_adaptation_t
-      >::is_noexcept))
+      query_static_constexpr_member<T>::is_noexcept))
   {
-    return traits::query_static_constexpr_member<
-        T, blocking_adaptation_t>::value();
+    return query_static_constexpr_member<T>::value();
   }
 
   template <typename T>
@@ -213,10 +277,13 @@ struct blocking_adaptation_t
   typename traits::static_query<T, disallowed_t>::result_type
   static_query(
       typename enable_if<
-        !traits::query_static_constexpr_member<
-            T, blocking_adaptation_t>::is_valid
-          && !traits::query_member<T, blocking_adaptation_t>::is_valid
-          && traits::static_query<T, disallowed_t>::is_valid
+        !query_static_constexpr_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !query_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        traits::static_query<T, disallowed_t>::is_valid
       >::type* = 0) ASIO_NOEXCEPT
   {
     return traits::static_query<T, disallowed_t>::value();
@@ -227,11 +294,16 @@ struct blocking_adaptation_t
   typename traits::static_query<T, allowed_t>::result_type
   static_query(
       typename enable_if<
-        !traits::query_static_constexpr_member<
-            T, blocking_adaptation_t>::is_valid
-          && !traits::query_member<T, blocking_adaptation_t>::is_valid
-          && !traits::static_query<T, disallowed_t>::is_valid
-          && traits::static_query<T, allowed_t>::is_valid
+        !query_static_constexpr_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !query_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !traits::static_query<T, disallowed_t>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        traits::static_query<T, allowed_t>::is_valid
       >::type* = 0) ASIO_NOEXCEPT
   {
     return traits::static_query<T, allowed_t>::value();
@@ -270,13 +342,15 @@ struct blocking_adaptation_t
       typename enable_if<
         can_query<const Executor&, disallowed_t>::value
       >::type* = 0)
-#if defined(_MSC_VER) // Visual C++ wants the type to be qualified.
+#if !defined(__clang__) // Clang crashes if noexcept is used here.
+#if defined(ASIO_MSVC) // Visual C++ wants the type to be qualified.
     ASIO_NOEXCEPT_IF((
       is_nothrow_query<const Executor&,
         blocking_adaptation_t<>::disallowed_t>::value))
-#elif !defined(__clang__) // Clang crashes if noexcept is used here.
+#else // defined(ASIO_MSVC)
     ASIO_NOEXCEPT_IF((
       is_nothrow_query<const Executor&, disallowed_t>::value))
+#endif // defined(ASIO_MSVC)
 #endif // !defined(__clang__)
   {
     return asio::query(ex, disallowed_t());
@@ -287,15 +361,19 @@ struct blocking_adaptation_t
       const Executor& ex, convertible_from_blocking_adaptation_t,
       typename enable_if<
         !can_query<const Executor&, disallowed_t>::value
-          && can_query<const Executor&, allowed_t>::value
+      >::type* = 0,
+      typename enable_if<
+        can_query<const Executor&, allowed_t>::value
       >::type* = 0)
-#if defined(_MSC_VER) // Visual C++ wants the type to be qualified.
+#if !defined(__clang__) // Clang crashes if noexcept is used here.
+#if defined(ASIO_MSVC) // Visual C++ wants the type to be qualified.
     ASIO_NOEXCEPT_IF((
       is_nothrow_query<const Executor&,
         blocking_adaptation_t<>::allowed_t>::value))
-#elif !defined(__clang__) // Clang crashes if noexcept is used here.
+#else // defined(ASIO_MSVC)
     ASIO_NOEXCEPT_IF((
       is_nothrow_query<const Executor&, allowed_t>::value))
+#endif // defined(ASIO_MSVC)
 #endif // !defined(__clang__)
   {
     return asio::query(ex, allowed_t());
@@ -340,8 +418,18 @@ struct disallowed_t
 #if defined(ASIO_HAS_VARIABLE_TEMPLATES)
   template <typename T>
   ASIO_STATIC_CONSTEXPR(bool,
-    is_applicable_property_v = is_executor<T>::value
-      || is_sender<T>::value || is_scheduler<T>::value);
+    is_applicable_property_v = (
+      is_executor<T>::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_sender<T>
+          >::type::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_scheduler<T>
+          >::type::value));
 #endif // defined(ASIO_HAS_VARIABLE_TEMPLATES)
 
   ASIO_STATIC_CONSTEXPR(bool, is_requirable = true);
@@ -352,25 +440,43 @@ struct disallowed_t
   {
   }
 
+  template <typename T>
+  struct query_member :
+    traits::query_member<
+      typename blocking_adaptation_t<I>::template proxy<T>::type,
+        disallowed_t> {};
+
+  template <typename T>
+  struct query_static_constexpr_member :
+    traits::query_static_constexpr_member<
+      typename blocking_adaptation_t<I>::template static_proxy<T>::type,
+        disallowed_t> {};
+
 #if defined(ASIO_HAS_DEDUCED_STATIC_QUERY_TRAIT) \
   && defined(ASIO_HAS_SFINAE_VARIABLE_TEMPLATES)
   template <typename T>
   static ASIO_CONSTEXPR
-  typename traits::query_static_constexpr_member<T, disallowed_t>::result_type
+  typename query_static_constexpr_member<T>::result_type
   static_query()
     ASIO_NOEXCEPT_IF((
-      traits::query_static_constexpr_member<T, disallowed_t>::is_noexcept))
+      query_static_constexpr_member<T>::is_noexcept))
   {
-    return traits::query_static_constexpr_member<T, disallowed_t>::value();
+    return query_static_constexpr_member<T>::value();
   }
 
   template <typename T>
   static ASIO_CONSTEXPR disallowed_t static_query(
       typename enable_if<
-        !traits::query_static_constexpr_member<T, disallowed_t>::is_valid
-          && !traits::query_member<T, disallowed_t>::is_valid
-          && !traits::query_free<T, disallowed_t>::is_valid
-          && !can_query<T, allowed_t<I> >::value
+        !query_static_constexpr_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !query_member<T>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !traits::query_free<T, disallowed_t>::is_valid
+      >::type* = 0,
+      typename enable_if<
+        !can_query<T, allowed_t<I> >::value
       >::type* = 0) ASIO_NOEXCEPT
   {
     return disallowed_t();
@@ -411,7 +517,7 @@ template <typename Executor>
 class adapter
 {
 public:
-  explicit adapter(const Executor& e) ASIO_NOEXCEPT
+  adapter(int, const Executor& e) ASIO_NOEXCEPT
     : executor_(e)
   {
   }
@@ -478,7 +584,7 @@ public:
   {
     return adapter<typename decay<
       typename require_result<const Executor&, Property>::type
-        >::type>(asio::require(executor_, p));
+        >::type>(0, asio::require(executor_, p));
   }
 
   template <typename Property>
@@ -493,7 +599,7 @@ public:
   {
     return adapter<typename decay<
       typename prefer_result<const Executor&, Property>::type
-        >::type>(asio::prefer(executor_, p));
+        >::type>(0, asio::prefer(executor_, p));
   }
 
   template <typename Function>
@@ -524,8 +630,18 @@ struct allowed_t
 #if defined(ASIO_HAS_VARIABLE_TEMPLATES)
   template <typename T>
   ASIO_STATIC_CONSTEXPR(bool,
-    is_applicable_property_v = is_executor<T>::value
-      || is_sender<T>::value || is_scheduler<T>::value);
+    is_applicable_property_v = (
+      is_executor<T>::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_sender<T>
+          >::type::value
+        || conditional<
+            is_executor<T>::value,
+            false_type,
+            is_scheduler<T>
+          >::type::value));
 #endif // defined(ASIO_HAS_VARIABLE_TEMPLATES)
 
   ASIO_STATIC_CONSTEXPR(bool, is_requirable = true);
@@ -536,16 +652,28 @@ struct allowed_t
   {
   }
 
+  template <typename T>
+  struct query_member :
+    traits::query_member<
+      typename blocking_adaptation_t<I>::template proxy<T>::type,
+        allowed_t> {};
+
+  template <typename T>
+  struct query_static_constexpr_member :
+    traits::query_static_constexpr_member<
+      typename blocking_adaptation_t<I>::template static_proxy<T>::type,
+        allowed_t> {};
+
 #if defined(ASIO_HAS_DEDUCED_STATIC_QUERY_TRAIT) \
   && defined(ASIO_HAS_SFINAE_VARIABLE_TEMPLATES)
   template <typename T>
   static ASIO_CONSTEXPR
-  typename traits::query_static_constexpr_member<T, allowed_t>::result_type
+  typename query_static_constexpr_member<T>::result_type
   static_query()
     ASIO_NOEXCEPT_IF((
-      traits::query_static_constexpr_member<T, allowed_t>::is_noexcept))
+      query_static_constexpr_member<T>::is_noexcept))
   {
-    return traits::query_static_constexpr_member<T, allowed_t>::value();
+    return query_static_constexpr_member<T>::value();
   }
 
   template <typename E, typename T = decltype(allowed_t::static_query<E>())>
@@ -578,7 +706,7 @@ struct allowed_t
         is_executor<Executor>::value
       >::type* = 0)
   {
-    return adapter<Executor>(e);
+    return adapter<Executor>(0, e);
   }
 };
 
@@ -669,8 +797,16 @@ template <typename T>
 struct is_applicable_property<T, execution::blocking_adaptation_t>
   : integral_constant<bool,
       execution::is_executor<T>::value
-        || execution::is_sender<T>::value
-        || execution::is_scheduler<T>::value>
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_sender<T>
+          >::type::value
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_scheduler<T>
+          >::type::value>
 {
 };
 
@@ -678,8 +814,16 @@ template <typename T>
 struct is_applicable_property<T, execution::blocking_adaptation_t::disallowed_t>
   : integral_constant<bool,
       execution::is_executor<T>::value
-        || execution::is_sender<T>::value
-        || execution::is_scheduler<T>::value>
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_sender<T>
+          >::type::value
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_scheduler<T>
+          >::type::value>
 {
 };
 
@@ -687,8 +831,16 @@ template <typename T>
 struct is_applicable_property<T, execution::blocking_adaptation_t::allowed_t>
   : integral_constant<bool,
       execution::is_executor<T>::value
-        || execution::is_sender<T>::value
-        || execution::is_scheduler<T>::value>
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_sender<T>
+          >::type::value
+        || conditional<
+            execution::is_executor<T>::value,
+            false_type,
+            execution::is_scheduler<T>
+          >::type::value>
 {
 };
 
@@ -733,30 +885,30 @@ struct query_free_default<T, execution::blocking_adaptation_t,
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t,
   typename enable_if<
-    traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t>::is_valid
+    execution::detail::blocking_adaptation_t<0>::
+      query_static_constexpr_member<T>::is_valid
   >::type>
 {
   ASIO_STATIC_CONSTEXPR(bool, is_valid = true);
   ASIO_STATIC_CONSTEXPR(bool, is_noexcept = true);
 
-  typedef typename traits::query_static_constexpr_member<T,
-    execution::blocking_adaptation_t>::result_type result_type;
+  typedef typename execution::detail::blocking_adaptation_t<0>::
+    query_static_constexpr_member<T>::result_type result_type;
 
   static ASIO_CONSTEXPR result_type value()
   {
-    return traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t>::value();
+    return execution::detail::blocking_adaptation_t<0>::
+      query_static_constexpr_member<T>::value();
   }
 };
 
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t,
   typename enable_if<
-    !traits::query_static_constexpr_member<T,
-        execution::blocking_adaptation_t>::is_valid
-      && !traits::query_member<T,
-        execution::blocking_adaptation_t>::is_valid
+    !execution::detail::blocking_adaptation_t<0>::
+        query_static_constexpr_member<T>::is_valid
+      && !execution::detail::blocking_adaptation_t<0>::
+        query_member<T>::is_valid
       && traits::static_query<T,
         execution::blocking_adaptation_t::disallowed_t>::is_valid
   >::type>
@@ -777,10 +929,10 @@ struct static_query<T, execution::blocking_adaptation_t,
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t,
   typename enable_if<
-    !traits::query_static_constexpr_member<T,
-        execution::blocking_adaptation_t>::is_valid
-      && !traits::query_member<T,
-        execution::blocking_adaptation_t>::is_valid
+    !execution::detail::blocking_adaptation_t<0>::
+        query_static_constexpr_member<T>::is_valid
+      && !execution::detail::blocking_adaptation_t<0>::
+        query_member<T>::is_valid
       && !traits::static_query<T,
         execution::blocking_adaptation_t::disallowed_t>::is_valid
       && traits::static_query<T,
@@ -803,30 +955,30 @@ struct static_query<T, execution::blocking_adaptation_t,
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t::disallowed_t,
   typename enable_if<
-    traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t::disallowed_t>::is_valid
+    execution::detail::blocking_adaptation::disallowed_t<0>::
+      query_static_constexpr_member<T>::is_valid
   >::type>
 {
   ASIO_STATIC_CONSTEXPR(bool, is_valid = true);
   ASIO_STATIC_CONSTEXPR(bool, is_noexcept = true);
 
-  typedef typename traits::query_static_constexpr_member<T,
-    execution::blocking_adaptation_t::disallowed_t>::result_type result_type;
+  typedef typename execution::detail::blocking_adaptation::disallowed_t<0>::
+    query_static_constexpr_member<T>::result_type result_type;
 
   static ASIO_CONSTEXPR result_type value()
   {
-    return traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t::disallowed_t>::value();
+    return execution::detail::blocking_adaptation::disallowed_t<0>::
+      query_static_constexpr_member<T>::value();
   }
 };
 
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t::disallowed_t,
   typename enable_if<
-    !traits::query_static_constexpr_member<T,
-        execution::blocking_adaptation_t::disallowed_t>::is_valid
-      && !traits::query_member<T,
-        execution::blocking_adaptation_t::disallowed_t>::is_valid
+    !execution::detail::blocking_adaptation::disallowed_t<0>::
+        query_static_constexpr_member<T>::is_valid
+      && !execution::detail::blocking_adaptation::disallowed_t<0>::
+        query_member<T>::is_valid
       && !traits::query_free<T,
         execution::blocking_adaptation_t::disallowed_t>::is_valid
       && !can_query<T, execution::blocking_adaptation_t::allowed_t>::value
@@ -846,20 +998,20 @@ struct static_query<T, execution::blocking_adaptation_t::disallowed_t,
 template <typename T>
 struct static_query<T, execution::blocking_adaptation_t::allowed_t,
   typename enable_if<
-    traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t::allowed_t>::is_valid
+    execution::detail::blocking_adaptation::allowed_t<0>::
+      query_static_constexpr_member<T>::is_valid
   >::type>
 {
   ASIO_STATIC_CONSTEXPR(bool, is_valid = true);
   ASIO_STATIC_CONSTEXPR(bool, is_noexcept = true);
 
-  typedef typename traits::query_static_constexpr_member<T,
-    execution::blocking_adaptation_t::allowed_t>::result_type result_type;
+  typedef typename execution::detail::blocking_adaptation::allowed_t<0>::
+    query_static_constexpr_member<T>::result_type result_type;
 
   static ASIO_CONSTEXPR result_type value()
   {
-    return traits::query_static_constexpr_member<T,
-      execution::blocking_adaptation_t::allowed_t>::value();
+    return execution::detail::blocking_adaptation::allowed_t<0>::
+      query_static_constexpr_member<T>::value();
   }
 };
 

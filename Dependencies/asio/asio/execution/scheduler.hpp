@@ -2,7 +2,7 @@
 // execution/scheduler.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -24,6 +24,18 @@
 
 namespace asio {
 namespace execution {
+namespace detail {
+
+template <typename T>
+struct is_scheduler_base :
+  integral_constant<bool,
+    is_copy_constructible<typename remove_cvref<T>::type>::value
+      && traits::equality_comparable<typename remove_cvref<T>::type>::is_valid
+  >
+{
+};
+
+} // namespace detail
 
 /// The is_scheduler trait detects whether a type T satisfies the
 /// execution::scheduler concept.
@@ -37,11 +49,11 @@ struct is_scheduler :
 #if defined(GENERATING_DOCUMENTATION)
   integral_constant<bool, automatically_determined>
 #else // defined(GENERATING_DOCUMENTATION)
-  integral_constant<bool,
-    is_copy_constructible<typename remove_cvref<T>::type>::value
-      && traits::equality_comparable<typename remove_cvref<T>::type>::is_valid
-      && can_schedule<T>::value
-  >
+  conditional<
+    can_schedule<T>::value,
+    detail::is_scheduler_base<T>,
+    false_type
+  >::type
 #endif // defined(GENERATING_DOCUMENTATION)
 {
 };

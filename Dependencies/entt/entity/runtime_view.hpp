@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <type_traits>
 #include "../config/config.h"
+#include "entity.hpp"
 #include "sparse_set.hpp"
 #include "fwd.hpp"
 
@@ -55,24 +56,16 @@ namespace entt {
  */
 template<typename Entity>
 class basic_runtime_view final {
-    using underlying_iterator = typename basic_sparse_set<Entity>::iterator;
+    using basic_common_type = basic_sparse_set<Entity>;
+    using underlying_iterator = typename basic_common_type::iterator;
 
     class view_iterator final {
-        friend class basic_runtime_view<Entity>;
-
-        view_iterator(const std::vector<const basic_sparse_set<Entity> *> &cpools, const std::vector<const basic_sparse_set<Entity> *> &ignore, underlying_iterator curr) ENTT_NOEXCEPT
-            : pools{&cpools},
-              filter{&ignore},
-              it{curr}
-        {
-            if(it != (*pools)[0]->end() && !valid()) {
-                ++(*this);
-            }
-        }
-
         [[nodiscard]] bool valid() const {
-            return std::all_of(pools->begin()++, pools->end(), [entt = *it](const auto *curr) { return curr->contains(entt); })
-                    && std::none_of(filter->cbegin(), filter->cend(), [entt = *it](const auto *curr) { return curr && curr->contains(entt); });
+            const auto entt = *it;
+
+            return (!stable_storage || (entt != tombstone))
+                && std::all_of(pools->begin()++, pools->end(), [entt](const auto *curr) { return curr->contains(entt); })
+                && std::none_of(filter->cbegin(), filter->cend(), [entt](const auto *curr) { return curr && curr->contains(entt); });
         }
 
     public:
@@ -83,6 +76,17 @@ class basic_runtime_view final {
         using iterator_category = std::bidirectional_iterator_tag;
 
         view_iterator() ENTT_NOEXCEPT = default;
+
+        view_iterator(const std::vector<const basic_common_type *> &cpools, const std::vector<const basic_common_type *> &ignore, underlying_iterator curr) ENTT_NOEXCEPT
+            : pools{&cpools},
+              filter{&ignore},
+              it{curr},
+              stable_storage{std::any_of(pools->cbegin(), pools->cend(), [](const basic_common_type *cpool) { return (cpool->policy() == deletion_policy::in_place); })}
+        {
+            if(it != (*pools)[0]->end() && !valid()) {
+                ++(*this);
+            }
+        }
 
         view_iterator & operator++() {
             while(++it != (*pools)[0]->end() && !valid());
@@ -121,9 +125,10 @@ class basic_runtime_view final {
         }
 
     private:
-        const std::vector<const basic_sparse_set<Entity> *> *pools;
-        const std::vector<const basic_sparse_set<Entity> *> *filter;
+        const std::vector<const basic_common_type *> *pools;
+        const std::vector<const basic_common_type *> *filter;
         underlying_iterator it;
+        bool stable_storage;
     };
 
     [[nodiscard]] bool valid() const {
@@ -149,16 +154,14 @@ public:
      * @param cpools The storage for the types to iterate.
      * @param epools The storage for the types used to filter the view.
      */
-    basic_runtime_view(std::vector<const basic_sparse_set<Entity> *> cpools, std::vector<const basic_sparse_set<Entity> *> epools) ENTT_NOEXCEPT
+    basic_runtime_view(std::vector<const basic_common_type *> cpools, std::vector<const basic_common_type *> epools) ENTT_NOEXCEPT
         : pools{std::move(cpools)},
           filter{std::move(epools)}
     {
-        const auto it = std::min_element(pools.begin(), pools.end(), [](const auto *lhs, const auto *rhs) {
-            return (!lhs && rhs) || (lhs && rhs && lhs->size() < rhs->size());
-        });
-
         // brings the best candidate (if any) on front of the vector
-        std::rotate(pools.begin(), it, pools.end());
+        std::rotate(pools.begin(), std::min_element(pools.begin(), pools.end(), [](const auto *lhs, const auto *rhs) {
+            return (!lhs && rhs) || (lhs && rhs && lhs->size() < rhs->size());
+        }), pools.end());
     }
 
     /**
@@ -231,8 +234,8 @@ public:
     }
 
 private:
-    std::vector<const basic_sparse_set<Entity> *> pools;
-    std::vector<const basic_sparse_set<Entity> *> filter;
+    std::vector<const basic_common_type *> pools;
+    std::vector<const basic_common_type *> filter;
 };
 
 

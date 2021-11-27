@@ -2,7 +2,7 @@
 // execution/bulk_execute.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -41,9 +41,9 @@ namespace execution {
  * @li <tt>S.bulk_execute(F, N)</tt>, if that expression is valid. If the
  *   function selected does not execute <tt>N</tt> invocations of the function
  *   object <tt>F</tt> on the executor <tt>S</tt> in bulk with forward progress
- *   guarantee <tt>std::query(S, execution::bulk_guarantee)</tt>, and the result
- *   of that function does not model <tt>sender<void></tt>, the program is
- *   ill-formed with no diagnostic required.
+ *   guarantee <tt>asio::query(S, execution::bulk_guarantee)</tt>, and
+ *   the result of that function does not model <tt>sender<void></tt>, the
+ *   program is ill-formed with no diagnostic required.
  *
  * @li Otherwise, <tt>bulk_execute(S, F, N)</tt>, if that expression is valid,
  *   with overload resolution performed in a context that includes the
@@ -51,13 +51,14 @@ namespace execution {
  *   declaration of <tt>execution::bulk_execute</tt>. If the function selected
  *   by overload resolution does not execute <tt>N</tt> invocations of the
  *   function object <tt>F</tt> on the executor <tt>S</tt> in bulk with forward
- *   progress guarantee <tt>std::query(E, execution::bulk_guarantee)</tt>, and
- *   the result of that function does not model <tt>sender<void></tt>, the
- *   program is ill-formed with no diagnostic required.
+ *   progress guarantee <tt>asio::query(E,
+ *   execution::bulk_guarantee)</tt>, and the result of that function does not
+ *   model <tt>sender<void></tt>, the program is ill-formed with no diagnostic
+ *   required.
  *
  * @li Otherwise, if the types <tt>F</tt> and
  *   <tt>executor_index_t<remove_cvref_t<S>></tt> model <tt>invocable</tt> and
- *   if <tt>std::query(S, execution::bulk_guarantee)</tt> equals
+ *   if <tt>asio::query(S, execution::bulk_guarantee)</tt> equals
  *   <tt>execution::bulk_guarantee.unsequenced</tt>, then
  *
  *    - Evaluates <tt>DECAY_COPY(std::forward<decltype(F)>(F))</tt> on the
@@ -123,7 +124,8 @@ enum overload_type
   ill_formed
 };
 
-template <typename S, typename Args, typename = void>
+template <typename S, typename Args, typename = void, typename = void,
+    typename = void, typename = void, typename = void, typename = void>
 struct call_traits
 {
   ASIO_STATIC_CONSTEXPR(overload_type, overload = ill_formed);
@@ -134,15 +136,15 @@ struct call_traits
 template <typename S, typename F, typename N>
 struct call_traits<S, void(F, N),
   typename enable_if<
-    (
-      is_convertible<N, std::size_t>::value
-      &&
-      bulk_execute_member<S, F, N>::is_valid
-      &&
-      is_sender<
-        typename bulk_execute_member<S, F, N>::result_type
-      >::value
-    )
+    is_convertible<N, std::size_t>::value
+  >::type,
+  typename enable_if<
+    bulk_execute_member<S, F, N>::is_valid
+  >::type,
+  typename enable_if<
+    is_sender<
+      typename bulk_execute_member<S, F, N>::result_type
+    >::value
   >::type> :
   bulk_execute_member<S, F, N>
 {
@@ -152,17 +154,18 @@ struct call_traits<S, void(F, N),
 template <typename S, typename F, typename N>
 struct call_traits<S, void(F, N),
   typename enable_if<
-    (
-      is_convertible<N, std::size_t>::value
-      &&
-      !bulk_execute_member<S, F, N>::is_valid
-      &&
-      bulk_execute_free<S, F, N>::is_valid
-      &&
-      is_sender<
-        typename bulk_execute_free<S, F, N>::result_type
-      >::value
-    )
+    is_convertible<N, std::size_t>::value
+  >::type,
+  typename enable_if<
+    !bulk_execute_member<S, F, N>::is_valid
+  >::type,
+  typename enable_if<
+    bulk_execute_free<S, F, N>::is_valid
+  >::type,
+  typename enable_if<
+    is_sender<
+      typename bulk_execute_free<S, F, N>::result_type
+    >::value
   >::type> :
   bulk_execute_free<S, F, N>
 {
@@ -172,26 +175,29 @@ struct call_traits<S, void(F, N),
 template <typename S, typename F, typename N>
 struct call_traits<S, void(F, N),
   typename enable_if<
-    (
-      is_convertible<N, std::size_t>::value
-      &&
-      !bulk_execute_member<S, F, N>::is_valid
-      &&
-      !bulk_execute_free<S, F, N>::is_valid
-      &&
-      is_sender<S>::value
-      &&
-      is_same<
-        typename result_of<
-          F(typename executor_index<typename remove_cvref<S>::type>::type)
-        >::type,
-        typename result_of<
-          F(typename executor_index<typename remove_cvref<S>::type>::type)
-        >::type
-      >::value
-      &&
-      static_require<S, bulk_guarantee_t::unsequenced_t>::is_valid
-    )
+    is_convertible<N, std::size_t>::value
+  >::type,
+  typename enable_if<
+    !bulk_execute_member<S, F, N>::is_valid
+  >::type,
+  typename enable_if<
+    !bulk_execute_free<S, F, N>::is_valid
+  >::type,
+  typename enable_if<
+    is_sender<S>::value
+  >::type,
+  typename enable_if<
+    is_same<
+      typename result_of<
+        F(typename executor_index<typename remove_cvref<S>::type>::type)
+      >::type,
+      typename result_of<
+        F(typename executor_index<typename remove_cvref<S>::type>::type)
+      >::type
+    >::value
+  >::type,
+  typename enable_if<
+    static_require<S, bulk_guarantee_t::unsequenced_t>::is_valid
   >::type>
 {
   ASIO_STATIC_CONSTEXPR(overload_type, overload = adapter);
@@ -345,8 +351,9 @@ static ASIO_CONSTEXPR
 template <typename S, typename F, typename N>
 struct can_bulk_execute :
   integral_constant<bool,
-    asio_execution_bulk_execute_fn::call_traits<S, void(F, N)>::overload !=
-      asio_execution_bulk_execute_fn::ill_formed>
+    asio_execution_bulk_execute_fn::call_traits<
+      S, void(F, N)>::overload !=
+        asio_execution_bulk_execute_fn::ill_formed>
 {
 };
 
@@ -360,7 +367,8 @@ constexpr bool can_bulk_execute_v = can_bulk_execute<S, F, N>::value;
 template <typename S, typename F, typename N>
 struct is_nothrow_bulk_execute :
   integral_constant<bool,
-    asio_execution_bulk_execute_fn::call_traits<S, void(F, N)>::is_noexcept>
+    asio_execution_bulk_execute_fn::call_traits<
+      S, void(F, N)>::is_noexcept>
 {
 };
 

@@ -2,7 +2,7 @@
 // detail/type_traits.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -21,6 +21,7 @@
 # include <type_traits>
 #else // defined(ASIO_HAS_STD_TYPE_TRAITS)
 # include <boost/type_traits/add_const.hpp>
+# include <boost/type_traits/add_lvalue_reference.hpp>
 # include <boost/type_traits/aligned_storage.hpp>
 # include <boost/type_traits/alignment_of.hpp>
 # include <boost/type_traits/conditional.hpp>
@@ -50,6 +51,7 @@ namespace asio {
 
 #if defined(ASIO_HAS_STD_TYPE_TRAITS)
 using std::add_const;
+using std::add_lvalue_reference;
 using std::aligned_storage;
 using std::alignment_of;
 using std::conditional;
@@ -88,6 +90,7 @@ using std::result_of;
 using std::true_type;
 #else // defined(ASIO_HAS_STD_TYPE_TRAITS)
 using boost::add_const;
+using boost::add_lvalue_reference;
 using boost::aligned_storage;
 using boost::alignment_of;
 template <bool Condition, typename Type = void>
@@ -139,6 +142,14 @@ template <typename Head, typename... Tail> struct conjunction<Head, Tail...> :
   conditional<Head::value, conjunction<Tail...>, Head>::type {};
 
 #endif // defined(ASIO_HAS_VARIADIC_TEMPLATES)
+
+struct defaulted_constraint
+{
+  ASIO_CONSTEXPR defaulted_constraint() {}
+};
+
+template <bool Condition, typename Type = int>
+struct constraint : enable_if<Condition, Type> {};
 
 } // namespace asio
 

@@ -5,7 +5,7 @@
 
 #include <utility>
 
-namespace Helena::Concurrency::Internal {
+namespace Helena::Internal {
 
     template <typename T, typename>
     [[nodiscard]] inline constexpr T log2(const T value) noexcept {

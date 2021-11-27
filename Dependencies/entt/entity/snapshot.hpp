@@ -55,7 +55,7 @@ class basic_snapshot {
 
         while(begin != last) {
             const auto entt = *(begin++);
-            ((reg->template all_of<Component>(entt) ? ++size[Index] : size[Index]), ...);
+            ((reg->template all_of<Component>(entt) ? ++size[Index] : 0u), ...);
         }
 
         (get<Component>(archive, size[Index], first, last), ...);
@@ -99,7 +99,7 @@ public:
             archive(*first);
         }
 
-        archive(reg->destroyed());
+        archive(reg->released());
 
         return *this;
     }
@@ -177,7 +177,7 @@ class basic_snapshot_loader {
             while(length--) {
                 archive(entt);
                 const auto entity = reg->valid(entt) ? entt : reg->create(entt);
-                ENTT_ASSERT(entity == entt);
+                ENTT_ASSERT(entity == entt, "Entity not available for use");
                 reg->template emplace<Type>(entity);
             }
         } else {
@@ -186,7 +186,7 @@ class basic_snapshot_loader {
             while(length--) {
                 archive(entt, instance);
                 const auto entity = reg->valid(entt) ? entt : reg->create(entt);
-                ENTT_ASSERT(entity == entt);
+                ENTT_ASSERT(entity == entt, "Entity not available for use");
                 reg->template emplace<Type>(entity, std::move(instance));
             }
         }
@@ -204,7 +204,7 @@ public:
         : reg{&source}
     {
         // restoring a snapshot as a whole requires a clean registry
-        ENTT_ASSERT(reg->empty());
+        ENTT_ASSERT(reg->empty(), "Registry must be empty");
     }
 
     /*! @brief Default move constructor. */
@@ -273,7 +273,7 @@ public:
      */
     const basic_snapshot_loader & orphans() const {
         reg->orphans([this](const auto entt) {
-            reg->destroy(entt);
+            reg->release(entt);
         });
 
         return *this;
@@ -380,7 +380,7 @@ class basic_continuous_loader {
             const auto local = ref.second.first;
 
             if(reg->valid(local)) {
-                reg->template remove_if_exists<Component>(local);
+                reg->template remove<Component>(local);
             }
         }
     }
@@ -448,7 +448,7 @@ public:
         for(decltype(length) pos{}; pos < length; ++pos) {
             archive(entt);
 
-            if(const auto entity = (to_integral(entt) & traits_type::entity_mask); entity == pos) {
+            if(const auto entity = traits_type::to_entity(entt); entity == pos) {
                 restore(entt);
             } else {
                 destroy(entt);
@@ -529,7 +529,7 @@ public:
      */
     basic_continuous_loader & orphans() {
         reg->orphans([this](const auto entt) {
-            reg->destroy(entt);
+            reg->release(entt);
         });
 
         return *this;

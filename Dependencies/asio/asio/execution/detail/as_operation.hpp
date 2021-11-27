@@ -2,7 +2,7 @@
 // execution/detail/as_operation.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -68,7 +68,7 @@ struct as_operation
     {
 #if defined(ASIO_HAS_STD_EXCEPTION_PTR)
       execution::set_error(
-          ASIO_MOVE_CAST(
+          ASIO_MOVE_OR_LVALUE(
             typename remove_cvref<Receiver>::type)(
               receiver_),
           std::current_exception());

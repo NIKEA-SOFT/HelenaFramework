@@ -1,9 +1,9 @@
 #ifndef HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
 #define HELENA_SYSTEMS_ENTITYCOMPONENT_HPP
 
-#include <entt/entity/registry.hpp>
+#include <Helena/Dependencies/EnTT.hpp>
 
-#include <Helena/Internal.hpp>
+#include <unordered_map>
 
 namespace Helena::Systems
 {
@@ -49,7 +49,7 @@ namespace Helena::Systems
 
         [[nodiscard]] auto SizeEntity() const noexcept -> std::size_t;
 
-        [[nodiscard]] auto AliveEntity() const noexcept -> std::size_t;
+        [[nodiscard]] auto AliveEntity() const -> std::size_t;
 
         auto ReserveEntity(const std::size_t size) -> void;
 
@@ -70,22 +70,7 @@ namespace Helena::Systems
         auto EachOrphans(Func&& callback) const -> void;
 
         template <typename Component, typename... Args>
-        auto AddComponent(const Entity id, Args&&... args) -> void;
-
-        //template <std::size_t Type, std::integral_constant<typename Type> Component>
-        //auto AddComponentTag(const Entity id) -> void;
-
-        //template <typename Component, typename... Args>
-        //auto AddOrGetComponent(const Entity id, Args&&... args) -> Component&;
-
-        //template <typename Component, typename... Args>
-        //auto AddOrReplaceComponent(const Entity id, Args&&... args) -> Component&;
-
-        template <typename Func>
-        auto VisitComponent(const Entity id, Func&& callback) const -> void;
-
-        template <typename Func>
-        auto VisitComponent(Func&& callback) const -> void;
+        auto AddComponent(const Entity id, Args&&... args) -> decltype(auto);
 
         template <typename... Components>
         [[nodiscard]] auto GetComponent(const Entity id) -> decltype(auto);
@@ -106,6 +91,12 @@ namespace Helena::Systems
 
         template <typename... Components>
         [[nodiscard]] auto AnyComponent(const Entity id) const -> bool;
+
+        template <typename Func>
+        auto VisitComponent(const Entity id, Func&& callback) const -> void;
+
+        template <typename Func>
+        auto VisitComponent(Func&& callback) const -> void;
 
         template <typename... Components, typename... ExcludeFilter>
         [[nodiscard]] auto ViewComponent(ExcludeType<ExcludeFilter...> = {}) -> decltype(auto);
@@ -131,8 +122,6 @@ namespace Helena::Systems
         template <typename... Components, typename It>
         auto RemoveComponent(It first, It last) -> void;
 
-        auto RemoveComponents(const Entity id) -> void;
-
         template <typename... Components>
         auto ClearComponent() -> void;
 
@@ -144,35 +133,29 @@ namespace Helena::Systems
         template <typename... Components>
         auto ReserveComponent(const std::size_t size) -> void;
 
-        auto ReservePool(const std::size_t size) -> void;
-
     private:
         entt::registry m_Registry;
     };
 }
 
-namespace Helena::Events::Systems::EntityComponent
+namespace Helena::Events::EntityComponent
 {
     struct CreateEntity {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     struct RemoveEntity {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct AddComponent {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 
     template <typename Component>
     struct RemoveComponent {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
-    };
-
-    struct RemoveComponents {
-        Helena::Systems::EntityComponent::Entity m_Entity {Helena::Systems::EntityComponent::Null};
+        Systems::EntityComponent::Entity Entity {Helena::Systems::EntityComponent::Null};
     };
 }
 

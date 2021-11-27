@@ -1,11 +1,9 @@
 #ifndef HELENA_CONCURRENCY_INTERNAL_HPP
 #define HELENA_CONCURRENCY_INTERNAL_HPP
 
-#include <Helena/Defines.hpp>
-
 #include <type_traits>
 
-namespace Helena::Concurrency::Internal {
+namespace Helena::Internal {
 #ifdef __cpp_lib_hardware_interference_size
     inline constexpr std::size_t cache_line = std::hardware_destructive_interference_size;
 #else
