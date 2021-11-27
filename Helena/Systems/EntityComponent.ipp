@@ -5,6 +5,18 @@
 #include <Helena/Engine/Engine.hpp>
 #include <Helena/Traits/IntegralConstant.hpp>
 
+namespace entt
+{
+    template <typename Type>
+    struct ENTT_API type_seq<Type>
+    {
+        [[nodiscard]] inline static id_type value() {
+            static const auto value = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>().GetSequenceIndex(Helena::Hash::Get<Type>());
+            return value;
+        }
+    };
+}
+
 namespace Helena::Systems
 {
     inline EntityComponent::~EntityComponent() {
