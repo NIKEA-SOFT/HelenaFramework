@@ -6,6 +6,12 @@
 #include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 
+#include <Helena/Dependencies/EnTT.hpp>
+
+#include <Helena/Platform/Platform.hpp>
+
+#include <Helena/Util/Cast.hpp>
+
 using namespace Helena;
 
 // Components for Entity
@@ -139,10 +145,10 @@ class PhysicsSystem
 public:
     PhysicsSystem() {
         // Start listen Engine event Update (called with fixed time)
-        Engine::SubscribeEvent<Events::EngineUpdate>(&PhysicsSystem::EventUpdate);
+        Engine::SubscribeEvent<Events::Engine::Update>(&PhysicsSystem::EventUpdate);
     }
 
-    void EventUpdate(const Events::EngineUpdate&) 
+    void EventUpdate(const Events::Engine::Update&)
     {
         // Get ref on used systems
         auto [ecs, charSystem] = Engine::GetSystem<Systems::EntityComponent, CharacterSystem>();
@@ -195,22 +201,24 @@ void NetworkCreateCharacter()
     });
 }
 
+
 int main(int argc, char** argv)
 {
     // Engine started from Initialize method
-    Core::Context::Initialize<Core::Context>();     // Initialize Context (Context used in Engine)
-    Core::Context::SetAppName("Test Framework");    // Set application name
-    Core::Context::SetTickrate(1.f);                // Set Update tickrate
-    Core::Context::SetCallback([]() -> void         // Register systems happen in this callback
+    Engine::Context::Initialize();     // Initialize Context (Context used in Engine)
+    Engine::Context::SetAppName("Test Framework");    // Set application name
+    Engine::Context::SetTickrate(1.f);                // Set Update tickrate
+    Engine::Context::SetCallback([]() -> void         // Register systems happen in this callback
     {
         // Register all used systems
+        //Engine::RegisterSystem<Systems::NetworkManager>();      // Network system
         Engine::RegisterSystem<Systems::EntityComponent>();     // Entity Component System
         Engine::RegisterSystem<CharacterSystem>();              // Test System for Characters
         Engine::RegisterSystem<PhysicsSystem>();                // Test Physic system for show example
 
         NetworkCreateCharacter();                               // Only for emulate new network connection
     });
-
+    
     // Engine loop
     while(Engine::Heartbeat()) {}
 
