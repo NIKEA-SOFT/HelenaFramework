@@ -2,9 +2,8 @@
 #define HELENA_TYPES_VECTORUNIQUE_HPP
 
 #include <Helena/Debug/Assert.hpp>
-#include <Helena/Dependencies/EnTT.hpp>
-#include <Helena/Traits/NameOf.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
+#include <Helena/Traits/NameOf.hpp>
 
 #include <optional>
 
