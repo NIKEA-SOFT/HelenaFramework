@@ -1,6 +1,8 @@
 ﻿#include <Helena/Engine/Engine.hpp>
 
 #include <Helena/Systems/EntityComponent.hpp>
+#include <Helena/Systems/ResourceManager.hpp>
+#include <Helena/Systems/PluginManager.hpp>
 
 // Component
 struct UserInfo {
@@ -32,7 +34,7 @@ public:
         HELENA_MSG_DEBUG("EventInit");
 
         auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
-        (void)ecs.CreateEntity(); // Create entity and trigger event CreateEntity
+        ecs.CreateEntity(); // Create entity and trigger event CreateEntity
     }
 
     void OnEvent(const Helena::Events::Engine::Config&) {
@@ -43,12 +45,12 @@ public:
         HELENA_MSG_DEBUG("EngineExecute");
     }
 
-    void OnEvent(const Helena::Events::Engine::Tick& tick) {
-        HELENA_MSG_DEBUG("EngineTick: {:.4f}", tick.deltaTime);
+    void OnEvent(const Helena::Events::Engine::Tick& event) {
+        HELENA_MSG_DEBUG("EngineTick: {:.4f}", event.deltaTime);
     }
 
-    void OnEvent(const Helena::Events::Engine::Update& update) {
-        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", update.deltaTime);
+    void OnEvent(const Helena::Events::Engine::Update& event) {
+        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", event.fixedTime);
     }
 
     void OnEvent(const Helena::Events::Engine::Finalize&) {
@@ -84,7 +86,9 @@ int main(int argc, char** argv)
     Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
     {
         // Register all used systems
+        Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>(); // Resource storage System
         Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
+        Helena::Engine::RegisterSystem<Helena::Systems::PluginManager>();   // Plugin manager System
         Helena::Engine::RegisterSystem<TestSystem>();                       // Test System
     });
 
