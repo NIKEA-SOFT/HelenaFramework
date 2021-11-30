@@ -33,8 +33,14 @@ namespace Helena::Systems
     template <typename... Resources>
     void ResourceManager::Remove() noexcept 
     {
-        if(m_Storage.Has<Resources...>()) {
-            m_Storage.Remove<Resources...>();
+        if constexpr(sizeof...(Resources) == 1) {
+            if(m_Storage.Has<Resources...>()) {
+                Engine::SignalEvent<Events::ResourceManager::Remove<Resources...>>();
+                m_Storage.Remove<Resources...>();
+            }
+        }
+        else {
+            (Remove<Resources>(), ...);
         }
     }
 }
