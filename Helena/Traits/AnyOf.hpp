@@ -6,11 +6,11 @@
 
 namespace Helena::Traits
 {
-	template <typename T, typename... Args>
-	struct IsAnyOf : std::disjunction<std::is_same<T, Args>...> {};
+	template <typename T, typename... Types>
+	struct IsAnyOf : std::disjunction<std::is_same<T, Types> && std::is_same<Types, T>...> {};
 
-	template <typename T, typename... Args>
-	concept AnyOf = IsAnyOf<T, Args...>::value;
+	template <typename T, typename... Types>
+	concept AnyOf = (std::same_as<T, Types> || ...);
 }
 
 #endif // HELENA_TRAITS_PAIR_HPP
