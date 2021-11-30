@@ -80,25 +80,14 @@ namespace Helena::Types
 		{
 			for(std::size_t i = 0; i < m_Storage.size(); ++i)
 			{
-				if(auto& data = m_Storage[i]; data.has_value()) 
+				if(auto& data = m_Storage[i]) 
 				{
 					func(data.value());
 
 					if(reset) {
-						data.reset();
+						m_Storage[i].reset();
+						m_Size--;
 					}
-				}
-			}
-		}
-
-		template <typename Callback>
-		void RemoveEach(Callback&& func) 
-		{
-			for(std::size_t i = 0; i < m_Storage.size(); ++i)
-			{
-				if(auto& data = m_Storage[i]; data.has_value()) {
-					func(data.value());
-					data.reset();
 				}
 			}
 		}
