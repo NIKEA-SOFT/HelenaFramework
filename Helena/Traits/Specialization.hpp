@@ -12,8 +12,8 @@ namespace Helena::Traits
     template <template <typename...> typename Primary, typename... Args>
     struct SpecializationOf<Primary<Args...>, Primary> : std::true_type {};
 
-    template <template <typename...> typename Primary, typename... Args>
-    concept Specialization = SpecializationOf<Primary<Args...>, Primary>::value;
+    template <typename T, template <typename...> typename Primary>
+    concept Specialization = SpecializationOf<T, Primary>::value;
 }
 
 
