@@ -4,6 +4,7 @@
 #include <Helena/Debug/Assert.hpp>
 #include <Helena/Util/Cast.hpp>
 
+#include <array>
 #include <stdexcept>
 
 namespace Helena::Types
