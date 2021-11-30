@@ -19,7 +19,7 @@ namespace Helena
             float deltaTime;
         };
         struct Update {
-            float deltaTime;
+            float fixedTime;
         };
         struct Finalize {};
         struct Shutdown {};

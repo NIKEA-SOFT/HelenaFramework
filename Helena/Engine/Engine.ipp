@@ -137,9 +137,9 @@ namespace Helena
             };
 
             if constexpr(std::is_same_v<Event, Events::Engine::Tick> || std::is_same_v<Event, Events::Engine::Update>) {
-                pool.Each(cb);
+                pool.Each(cb, false);
             } else {
-                pool.RemoveEach(cb);
+                pool.Each(cb, true);
             }
         }
     }
@@ -201,7 +201,7 @@ namespace Helena
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
                     ctx.m_CountFPS++;
 
-                    SignalBase<Events::Engine::Update>(ctx.m_DeltaTime);
+                    SignalBase<Events::Engine::Update>(ctx.m_Tickrate);
                 }
 
                 if(ctx.m_TimeElapsed < ctx.m_Tickrate) {
