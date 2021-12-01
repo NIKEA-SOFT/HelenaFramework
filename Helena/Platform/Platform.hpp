@@ -45,7 +45,7 @@
     #endif
 
     // Definition
-    #define HELENA_MODULE_ENTRYPOINT                "MainModule"
+    #define HELENA_PLUGIN_API                       extern "C" HELENA_API_EXPORT
 
 
     /* ----------- [Diagnostic Pragma] ----------- */
