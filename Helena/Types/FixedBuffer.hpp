@@ -47,7 +47,9 @@ namespace Helena::Types
 			FillBuffer(other.m_Buffer, other.m_Size);
 		}
 
-		constexpr FixedBuffer(FixedBuffer&& other) noexcept = delete;
+		constexpr FixedBuffer(FixedBuffer&& other) noexcept {
+			FillBuffer(other.m_Buffer, other.m_Size);
+		}
 
 		constexpr FixedBuffer(const Char* data) noexcept {
 			FillBuffer(data);
@@ -104,7 +106,10 @@ namespace Helena::Types
 			return *this;
 		}
 
-		constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept = delete;
+		constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
+			FillBuffer(other.m_Buffer, other.m_Size);
+			return *this;
+		}
 
 		constexpr FixedBuffer& operator=(const Char* data) noexcept {
 			FillBuffer(data);
