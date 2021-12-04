@@ -15,18 +15,33 @@ namespace Helena::Systems
         }
     }
 
+    template <typename Resource>
+    auto ResourceManager::Create(Resource&& instance) -> void
+    {
+        using T = Traits::RemoveCVRefPtr<Resource>;
+        if(!m_Storage.Has<T>()) {
+            m_Storage.Create<T>(std::forward<Resource>(instance));
+            Engine::SignalEvent<Events::ResourceManager::Create<T>>();
+        }
+    }
+
     template <typename... Resources>
-    [[nodiscard]] bool ResourceManager::Has() noexcept {
+    [[nodiscard]] bool ResourceManager::Has() const noexcept {
         return m_Storage.Has<Resources...>();
     }
 
     template <typename... Resources>
-    [[nodiscard]] bool ResourceManager::Any() noexcept {
+    [[nodiscard]] bool ResourceManager::Any() const noexcept {
         return m_Storage.Any<Resources...>();
     }
 
     template <typename... Resources>
     [[nodiscard]] decltype(auto) ResourceManager::Get() noexcept {
+        return m_Storage.Get<Resources...>();
+    }
+
+    template <typename... Resources>
+    [[nodiscard]] decltype(auto) ResourceManager::Get() const noexcept {
         return m_Storage.Get<Resources...>();
     }
 
