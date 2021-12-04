@@ -101,6 +101,10 @@ namespace Helena::Types
 			return IsEqual(other);
 		}
 
+		constexpr bool operator!=(const FixedBuffer& other) const noexcept {
+			return !IsEqual(other);
+		}
+
 		constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
 			FillBuffer(other.m_Buffer, other.m_Size);
 			return *this;
