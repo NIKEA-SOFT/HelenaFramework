@@ -20,6 +20,7 @@
 	#define HELENA_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
 	#define HELENA_MODULE_GETSYM(a, b)  dlsym(a, b)
 	#define HELENA_MODULE_UNLOAD(a)     dlclose(a)
+	#define HELENA_MODULE_EXTENSION     ".so"
 
 	#define HELENA_SEPARATOR '/'
 
