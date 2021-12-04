@@ -4,6 +4,7 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
+#include <Helena/Types/Delegate.hpp>
 
 #include <mutex>
 #include <functional>
@@ -27,8 +28,15 @@ namespace Helena
 
     class Engine final
     {
+        template <std::size_t Value> 
+        struct IUniqueKey {};
+
+        using UKEventPool       = IUniqueKey<0>;
+        using UKEventStorage    = IUniqueKey<1>;
+        using UKSystems         = IUniqueKey<2>;
+
         template <typename Event>
-        using EventPool = Types::VectorUnique<std::function<void(const Event&)>>;
+        using EventPool = Types::VectorUnique<UKEventPool, std::function<void (const Event&)>>;
 
     public:
         enum class EState : std::uint8_t
@@ -42,16 +50,22 @@ namespace Helena
         {
             friend class Engine;
 
-            [[nodiscard]] static Context& GetInstance() noexcept {
+        protected:
+            using Callback = std::function<void()>;
+
+            template <typename T = Context>
+            [[nodiscard]] static T& GetInstance() noexcept {
                 HELENA_ASSERT(m_Context, "Context not initilized");
-                return *m_Context.get();
+                return *static_cast<T*>(m_Context.get());
             }
 
         public:
-            using Callback = std::function<void()>;
 
             Context() noexcept : m_Tickrate{ 1.f / 30.f }, m_DeltaTime{}, m_TimeElapsed{}, m_TimeLeftFPS{}, m_CountFPS{}, m_State{ EState::Undefined } {}
-            virtual ~Context() = default;
+            virtual ~Context() {
+                m_Events.Clear();
+                m_Systems.Clear();
+            }
             Context(const Context&) = delete;
             Context(Context&&) noexcept = delete;
             Context& operator=(const Context&) = delete;
@@ -71,6 +85,10 @@ namespace Helena
                 m_Context = ctx;
             }
 
+            static void Finalize() noexcept {
+                m_Context.reset();
+            }
+
             template <typename T = Context>
             requires std::is_base_of_v<Context, T>
             [[nodiscard]] static std::shared_ptr<T> Get() noexcept {
@@ -84,7 +102,7 @@ namespace Helena
                 ctx.m_ApplicationName = std::move(name);
             }
 
-            static std::string_view GetAppName() noexcept {
+            static const std::string& GetAppName() noexcept {
                 const auto& ctx = GetInstance();
                 return ctx.m_ApplicationName;
             }
@@ -105,8 +123,8 @@ namespace Helena
             }
 
         private:
-            Types::VectorAny<64> m_Systems;
-            Types::VectorKVAny<sizeof(double)> m_Events;
+            Types::VectorAny<UKSystems, sizeof(double)> m_Systems;
+            Types::VectorKVAny<UKEventStorage, sizeof(double)> m_Events;
 
             Callback m_Callback;
 
@@ -144,7 +162,7 @@ namespace Helena
 
     private:
         template <typename Event>
-        [[nodiscard]] static decltype(auto) GetCreatePool();
+        [[nodiscard]] static decltype(auto) GetEventPool();
 
         template <typename Event, typename Type>
         static void RemoveEventByKey();
