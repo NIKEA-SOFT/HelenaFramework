@@ -1,10 +1,24 @@
 ﻿#include <Helena/Systems/PluginManager.hpp>
 
+
 class GameApplication
 {
 public:
-	GameApplication(std::uint32_t val) : value{val} {}
-	~GameApplication() = default;
+	GameApplication(std::uint32_t val) : value{val} {
+		Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&GameApplication::OnEvent);
+		Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&GameApplication::OnEvent);
+	}
+	~GameApplication() {
+		HELENA_MSG_INFO("DTOR gameapplicatio");
+	}
+
+	void OnEvent(const Helena::Events::Engine::Init&) {
+		HELENA_MSG_INFO("OnEvent init");
+	}
+
+	void OnEvent(const Helena::Events::Engine::Shutdown&) {
+		HELENA_MSG_INFO("OnEvent init");
+	}
 
 	std::uint32_t value{};
 };
