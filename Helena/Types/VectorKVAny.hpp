@@ -8,7 +8,7 @@
 
 namespace Helena::Types 
 {
-	template <std::size_t Capacity, auto UUID = []{}>
+	template <typename UniqueKey, std::size_t Capacity>
 	class VectorKVAny final
 	{
 		using any_type = Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
@@ -37,7 +37,7 @@ namespace Helena::Types
 		}
 
 		template <typename... Key>
-		[[nodiscard]] bool Has() noexcept 
+		[[nodiscard]] bool Has() const noexcept
 		{
 			static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
 
@@ -50,7 +50,7 @@ namespace Helena::Types
 		}
 
 		template <typename... Key>
-		[[nodiscard]] bool Any() noexcept 
+		[[nodiscard]] bool Any() const noexcept 
 		{
 			static_assert(sizeof...(Key) > 1, "Exclusion-only Type are not supported");
 			static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
@@ -67,6 +67,22 @@ namespace Helena::Types
 			const auto index = m_TypeIndexer.Get<Key>();
 
 			HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {}, Type: {} not exist!", 
+				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
+			HELENA_ASSERT(AnyCast<T>(&m_Storage[index]), "Key: {}, Type: {} type mismatch!",
+				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
+
+			return AnyCast<T&>(m_Storage[index]);
+		}
+
+		template <typename Key, typename T>
+		[[nodiscard]] decltype(auto) Get() const noexcept
+		{
+			static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
+			static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
+
+			const auto index = m_TypeIndexer.Get<Key>();
+
+			HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {}, Type: {} not exist!",
 				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
 			HELENA_ASSERT(AnyCast<T>(&m_Storage[index]), "Key: {}, Type: {} type mismatch!",
 				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
@@ -91,12 +107,15 @@ namespace Helena::Types
 			}
 		}
 
-		void Clear() noexcept {
-			m_Storage.clear();
+		void Clear() noexcept 
+		{
+			for(auto& any : m_Storage) {
+				any.Reset();
+			}
 		}
 
 	private:
-		Types::UniqueIndexer<UUID> m_TypeIndexer;
+		Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
 		std::vector<any_type> m_Storage;
 	};
 }

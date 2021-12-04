@@ -9,13 +9,13 @@
 namespace Helena::Types
 {
     // UniqueIndexer cannot be used in storage where used multiple object with same type
-    template <auto UUID = []{}>
+    template <typename UniqueKey>
     class UniqueIndexer
     {
     public:
         using key_type      = typename Traits::FNV1a<std::uint64_t>::value_type;
         using index_type    = std::size_t;
-        using map_type      = std::unordered_map<key_type, index_type>;
+        using storage_type  = std::vector<index_type>;
 
     public:
         UniqueIndexer() = default;
@@ -31,23 +31,36 @@ namespace Helena::Types
             return TypeIndexer<T>::GetIndex(m_Indexes);
         }
 
+        std::size_t Size() const noexcept {
+            return m_Indexes.size();
+        }
+
     private:
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] static auto GetIndex(map_type& map) {
+            [[nodiscard]] static auto GetIndex(storage_type& storage) {
                 // Get a name of type T and generate a hash to use as a key for a hash map
-                static const auto index = GetIndexByKey(map, Hash::Get<T>());
+                static const auto index = GetIndexByKey(storage, Hash::Get<T>());
+                HELENA_ASSERT(index < storage.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
                 return index;
             }
         };
 
-        [[nodiscard]] static auto GetIndexByKey(map_type& map, const index_type key) {
-            const auto [it, result] = map.try_emplace(key, map.size());
-            return it->second;
+        [[nodiscard]] static auto GetIndexByKey(storage_type& storage, const index_type key) {
+
+            for(std::size_t i = 0; i < storage.size(); ++i) 
+            {
+                if(storage[i] == key) {
+                    return i;
+                }
+            }
+            
+            storage.emplace_back(key);
+            return storage.size() - 1;
         }
 
-        mutable map_type m_Indexes;
+        mutable storage_type m_Indexes;
     };
 
 }
