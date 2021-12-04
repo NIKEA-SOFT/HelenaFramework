@@ -7,6 +7,8 @@ namespace Helena::Systems
 {
     class ResourceManager final
     {
+        struct UniqueKey {};
+
     public:
         ResourceManager() = default;
         ~ResourceManager() = default;
@@ -18,20 +20,26 @@ namespace Helena::Systems
         template <typename Resource, typename... Args>
         auto Create([[maybe_unused]] Args&&... args) -> void;
 
-        template <typename... Resources>
-        [[nodiscard]] auto Has() noexcept -> bool;
+        template <typename Resource>
+        auto Create(Resource&& instance) -> void;
 
         template <typename... Resources>
-        [[nodiscard]] auto Any() noexcept -> bool;
+        [[nodiscard]] auto Has() const noexcept -> bool;
+
+        template <typename... Resources>
+        [[nodiscard]] auto Any() const noexcept -> bool;
 
         template <typename... Resources>
         [[nodiscard]] auto Get() noexcept -> decltype(auto);
 
         template <typename... Resources>
+        [[nodiscard]] auto Get() const noexcept -> decltype(auto);
+
+        template <typename... Resources>
         auto Remove() noexcept -> void;
 
     private:
-        Types::VectorAny<64> m_Storage;
+        Types::VectorAny<UniqueKey, 64> m_Storage;
     };
 }
 

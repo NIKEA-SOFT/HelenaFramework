@@ -2,15 +2,14 @@
 #define HELENA_TYPES_VECTORUNIQUE_HPP
 
 #include <Helena/Debug/Assert.hpp>
-#include <Helena/Dependencies/EnTT.hpp>
-#include <Helena/Traits/NameOf.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
+#include <Helena/Traits/NameOf.hpp>
 
 #include <optional>
 
 namespace Helena::Types 
 {
-	template <typename T, auto UUID = []{}>
+	template <typename UniqueKey, typename T>
 	class VectorUnique final
 	{
 	public:
@@ -30,7 +29,7 @@ namespace Helena::Types
 			if(index >= m_Storage.size()) {
 				m_Storage.resize(index + 1u);
 			}
-
+			
 			HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>::value);
 			if(!m_Storage[index].has_value()) {
 				m_Storage[index].emplace(std::forward<Args>(args)...);
@@ -61,6 +60,22 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
+		[[nodiscard]] decltype(auto) Get()
+		{
+			static_assert(sizeof...(T) > 0, "Pack is empty!");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
+
+			if constexpr(sizeof...(T) == 1) {
+				const auto index = m_TypeIndexer.Get<T...>();
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
+				return m_Storage[index].value();
+			}
+			else {
+				return std::forward_as_tuple(Get<T>()...);
+			}
+		}
+
+		template <typename... T>
 		[[nodiscard]] decltype(auto) Get() const
 		{
 			static_assert(sizeof...(T) > 0, "Pack is empty!");
@@ -69,7 +84,6 @@ namespace Helena::Types
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = m_TypeIndexer.Get<T...>();
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
-
 				return m_Storage[index].value();
 			} else {
 				return std::forward_as_tuple(Get<T>()...);
@@ -81,25 +95,14 @@ namespace Helena::Types
 		{
 			for(std::size_t i = 0; i < m_Storage.size(); ++i)
 			{
-				if(auto& data = m_Storage[i]; data.has_value()) 
+				if(auto& data = m_Storage[i]) 
 				{
 					func(data.value());
 
 					if(reset) {
-						data.reset();
+						m_Storage[i].reset();
+						m_Size--;
 					}
-				}
-			}
-		}
-
-		template <typename Callback>
-		void RemoveEach(Callback&& func) 
-		{
-			for(std::size_t i = 0; i < m_Storage.size(); ++i)
-			{
-				if(auto& data = m_Storage[i]; data.has_value()) {
-					func(data.value());
-					data.reset();
 				}
 			}
 		}
@@ -113,7 +116,6 @@ namespace Helena::Types
 			if constexpr(sizeof...(T) == 1) {
 				const auto index = m_TypeIndexer.Get<T...>();
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
-
 				if(m_Storage[index].has_value()) {
 					m_Storage[index].reset();
 					m_Size--;
@@ -135,13 +137,17 @@ namespace Helena::Types
 			return m_Storage.size();
 		}
 
-		void Clear() noexcept {
-			m_Storage.clear();
+		void Clear() noexcept 
+		{
+			for(auto& opt : m_Storage) {
+				opt.reset();
+			}
+
 			m_Size = 0;
 		}
 
 	private:
-		Types::UniqueIndexer<UUID> m_TypeIndexer;
+		Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
 		std::vector<std::optional<T>> m_Storage;
 		std::size_t m_Size;
 	};

@@ -4,8 +4,10 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
+#include <Helena/Types/Delegate.hpp>
 
 #include <mutex>
+#include <functional>
 
 namespace Helena
 {
@@ -18,7 +20,7 @@ namespace Helena
             float deltaTime;
         };
         struct Update {
-            float deltaTime;
+            float fixedTime;
         };
         struct Finalize {};
         struct Shutdown {};
@@ -26,8 +28,15 @@ namespace Helena
 
     class Engine final
     {
+        template <std::size_t Value> 
+        struct IUniqueKey {};
+
+        using UKEventPool       = IUniqueKey<0>;
+        using UKEventStorage    = IUniqueKey<1>;
+        using UKSystems         = IUniqueKey<2>;
+
         template <typename Event>
-        using EventPool = Types::VectorUnique<std::function<void(const Event&)>>;
+        using EventPool = Types::VectorUnique<UKEventPool, std::function<void (const Event&)>>;
 
     public:
         enum class EState : std::uint8_t
@@ -41,46 +50,47 @@ namespace Helena
         {
             friend class Engine;
 
-            // EnTT type_seq need overload for using our shared memory indexer
-            template <typename, typename>
-            friend struct ENTT_API entt::type_seq;
+        protected:
+            using Callback = std::function<void()>;
 
-            [[nodiscard]] static Context& GetInstance() noexcept {
+            template <typename T = Context>
+            [[nodiscard]] static T& GetInstance() noexcept {
                 HELENA_ASSERT(m_Context, "Context not initilized");
-                return *m_Context.get();
-            }
-
-            entt::id_type GetSequenceIndex(std::uint64_t index) {
-                const auto [it, result] = m_TypeSequence.try_emplace(index, m_TypeSequence.size());
-                return static_cast<entt::id_type>(it->second);
+                return *static_cast<T*>(m_Context.get());
             }
 
         public:
-            using Callback = std::function<void()>;
 
             Context() noexcept : m_Tickrate{ 1.f / 30.f }, m_DeltaTime{}, m_TimeElapsed{}, m_TimeLeftFPS{}, m_CountFPS{}, m_State{ EState::Undefined } {}
-            virtual ~Context() = default;
+            virtual ~Context() {
+                m_Events.Clear();
+                m_Systems.Clear();
+            }
             Context(const Context&) = delete;
             Context(Context&&) noexcept = delete;
             Context& operator=(const Context&) = delete;
             Context& operator=(Context&&) noexcept = delete;
 
             template <typename T = Context, typename... Args>
-                requires std::is_base_of_v<Context, T>&& std::is_constructible_v<T, Args...>
+            requires std::is_base_of_v<Context, T>&& std::is_constructible_v<T, Args...>
             [[nodiscard]] static void Initialize([[maybe_unused]] Args&&... args) {
                 HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
                 m_Context = std::make_shared<T>(std::forward<Args>(args)...);
             }
 
             template <typename T = Context>
-                requires std::is_base_of_v<Context, T>
+            requires std::is_base_of_v<Context, T>
             static void Initialize(const std::shared_ptr<T>& ctx) noexcept {
                 HELENA_ASSERT(!m_Context, "Context already initialized!");
                 m_Context = ctx;
             }
 
+            static void Finalize() noexcept {
+                m_Context.reset();
+            }
+
             template <typename T = Context>
-                requires std::is_base_of_v<Context, T>
+            requires std::is_base_of_v<Context, T>
             [[nodiscard]] static std::shared_ptr<T> Get() noexcept {
                 HELENA_ASSERT(m_Context, "Context not initialized");
                 return std::static_pointer_cast<T>(m_Context);
@@ -92,7 +102,7 @@ namespace Helena
                 ctx.m_ApplicationName = std::move(name);
             }
 
-            static std::string_view GetAppName() noexcept {
+            static const std::string& GetAppName() noexcept {
                 const auto& ctx = GetInstance();
                 return ctx.m_ApplicationName;
             }
@@ -112,13 +122,9 @@ namespace Helena
                 return ctx.m_Tickrate;
             }
 
-            // Engine callback's
         private:
-            std::unordered_map<std::uint64_t, entt::id_type> m_TypeSequence;     // Support EnTT type_seq across boundary
-
-            Types::VectorAny<64> m_Systems;
-            Types::VectorKVAny<sizeof(double)> m_Events;
-            //Types::VectorUnique<std::unique_ptr<IEventPool>> m_Events;
+            Types::VectorAny<UKSystems, sizeof(double)> m_Systems;
+            Types::VectorKVAny<UKEventStorage, sizeof(double)> m_Events;
 
             Callback m_Callback;
 
@@ -156,7 +162,7 @@ namespace Helena
 
     private:
         template <typename Event>
-        [[nodiscard]] static decltype(auto) GetCreatePool();
+        [[nodiscard]] static decltype(auto) GetEventPool();
 
         template <typename Event, typename Type>
         static void RemoveEventByKey();
@@ -216,18 +222,6 @@ namespace Helena
     #endif
 
         static void RegisterHandlers();
-    };
-}
-
-namespace entt
-{
-    template <typename Type>
-    struct ENTT_API type_seq<Type>
-    {
-        [[nodiscard]] inline static id_type value() {
-            static const auto value = Helena::Engine::Context::GetInstance().GetSequenceIndex(Helena::Hash::Get<Type>());
-            return value;
-        }
     };
 }
 

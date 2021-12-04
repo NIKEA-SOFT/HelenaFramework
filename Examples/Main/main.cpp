@@ -1,12 +1,18 @@
 ﻿#include <Helena/Engine/Engine.hpp>
 
 #include <Helena/Systems/EntityComponent.hpp>
+#include <Helena/Systems/ResourceManager.hpp>
+#include <Helena/Systems/PluginManager.hpp>
 
 // Component
 struct UserInfo {
     std::string name;
     std::uint32_t age;
 };
+
+// Declaration class from HelenaPlugin;
+// Here should be include...
+class GameApplication;
 
 // Test System
 class TestSystem
@@ -31,8 +37,17 @@ public:
     void OnEvent(const Helena::Events::Engine::Init&) {
         HELENA_MSG_DEBUG("EventInit");
 
-        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto [ecs, pluginManager] = Helena::Engine::GetSystem<Helena::Systems::EntityComponent, Helena::Systems::PluginManager>();
         ecs.CreateEntity(); // Create entity and trigger event CreateEntity
+
+        if(pluginManager.Create("HelenaPlugin.dll")) {
+            HELENA_MSG_DEBUG("Plugin loaded!");
+        }
+
+        // here used reinterpret_cast because i'm not including header for GameApplication
+        // you should include it in your project for using class members and functions!
+        auto& temp = Helena::Engine::GetSystem<GameApplication>();
+        HELENA_MSG_INFO("GameApplication value: {}", *reinterpret_cast<std::uint32_t*>(&temp));
     }
 
     void OnEvent(const Helena::Events::Engine::Config&) {
@@ -43,12 +58,12 @@ public:
         HELENA_MSG_DEBUG("EngineExecute");
     }
 
-    void OnEvent(const Helena::Events::Engine::Tick& tick) {
-        HELENA_MSG_DEBUG("EngineTick: {:.4f}", tick.deltaTime);
+    void OnEvent(const Helena::Events::Engine::Tick& event) {
+        HELENA_MSG_DEBUG("EngineTick: {:.4f}", event.deltaTime);
     }
 
-    void OnEvent(const Helena::Events::Engine::Update& update) {
-        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", update.deltaTime);
+    void OnEvent(const Helena::Events::Engine::Update& event) {
+        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", event.fixedTime);
     }
 
     void OnEvent(const Helena::Events::Engine::Finalize&) {
@@ -84,7 +99,9 @@ int main(int argc, char** argv)
     Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
     {
         // Register all used systems
+        Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>(); // Resource storage System
         Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
+        Helena::Engine::RegisterSystem<Helena::Systems::PluginManager>();   // Plugin manager System
         Helena::Engine::RegisterSystem<TestSystem>();                       // Test System
     });
 

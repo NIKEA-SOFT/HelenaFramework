@@ -5,6 +5,7 @@
 #include <Helena/Types/TimeSpan.hpp>
 #include <Helena/Util/Cast.hpp>
 
+#include <array>
 #include <cmath>
 
 namespace Helena::Types

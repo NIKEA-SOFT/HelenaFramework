@@ -101,23 +101,22 @@ namespace Helena
 #endif
 
     template <typename Event>
-    [[nodiscard]] decltype(auto) Engine::GetCreatePool()
+    [[nodiscard]] decltype(auto) Engine::GetEventPool()
     {
-        using Pool  = EventPool<Event>;
-        auto& ctx   = Context::GetInstance();
+        auto& ctx = Context::GetInstance();
         if(!ctx.m_Events.Has<Event>()) {
-            ctx.m_Events.Create<Event, Pool>();
+            ctx.m_Events.Create<Event, EventPool<Event>>();
         }
 
-        return ctx.m_Events.Get<Event, Pool>();
+        return ctx.m_Events.Get<Event, EventPool<Event>>();
     }
 
     template <typename Event, typename Type>
     void Engine::RemoveEventByKey() 
     {
         constexpr auto id = Hash::Get<Type>();
-        using Key   = EventID<id>;
-        auto& pool  = GetCreatePool<Event>();
+        using Key = EventID<id>;
+        const auto& pool = GetEventPool<Event>();
         if(pool.Has<Key>()) {
             pool.Remove<Key>();
         }
@@ -128,7 +127,7 @@ namespace Helena
     {
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
-        auto& pool = GetCreatePool<Event>();        
+        auto& pool = GetEventPool<Event>();
         if(!pool.Empty()) 
         {
             const auto event = Event{std::forward<Args>(args)...};
@@ -137,9 +136,9 @@ namespace Helena
             };
 
             if constexpr(std::is_same_v<Event, Events::Engine::Tick> || std::is_same_v<Event, Events::Engine::Update>) {
-                pool.Each(cb);
+                pool.Each(cb, false);
             } else {
-                pool.RemoveEach(cb);
+                pool.Each(cb, true);
             }
         }
     }
@@ -201,7 +200,7 @@ namespace Helena
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
                     ctx.m_CountFPS++;
 
-                    SignalBase<Events::Engine::Update>(ctx.m_DeltaTime);
+                    SignalBase<Events::Engine::Update>(ctx.m_Tickrate);
                 }
 
                 if(ctx.m_TimeElapsed < ctx.m_Tickrate) {
@@ -214,6 +213,9 @@ namespace Helena
             {
                 SignalBase<Events::Engine::Finalize>();
                 SignalBase<Events::Engine::Shutdown>();
+
+                ctx.m_Events.Clear();
+                ctx.m_Systems.Clear();
 
                 ctx.m_State = EState::Undefined;
 
@@ -230,6 +232,10 @@ namespace Helena
 
     #if defined(HELENA_PLATFORM_WIN)
         } __except (MiniDumpSEH(GetExceptionInformation())) {
+            if(ctx.m_State == EState::Shutdown) {
+                return false;
+            }
+
             Engine::Shutdown("Unhandled Exception");
         }
     #endif
@@ -295,13 +301,12 @@ namespace Helena
         constexpr auto id = Hash::template Get<decltype(callback)>();
 
         using Key   = EventID<id>;
-        auto& pool  = GetCreatePool<Event>();
+        auto& pool  = GetEventPool<Event>();
         if(!pool.Has<Key>()) {
-            pool.Create<Key>([callback](const Event& event) {
-                callback(event);
-            });
+            pool.Create<Key>(callback);
         }
     }
+
 
     template <typename Event, typename System>
     void Engine::SubscribeEvent(EventCallbackSystem<Event, System> callback) 
@@ -312,7 +317,7 @@ namespace Helena
         constexpr auto id = Hash::template Get<decltype(callback)>();
 
         using Key   = EventID<id>;
-        auto& pool  = GetCreatePool<Event>();
+        auto& pool  = GetEventPool<Event>();
         if(!pool.Has<Key>()) {
             pool.Create<Key>([callback](const Event& event) {
                 if(Engine::HasSystem<System>()) {
@@ -328,7 +333,7 @@ namespace Helena
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
         const auto event = Event{std::forward<Args>(args)...};
-        auto& pool = GetCreatePool<Event>();
+        auto& pool = GetEventPool<Event>();
         pool.Each([&event](const auto& callback) {
             callback(event);
         });

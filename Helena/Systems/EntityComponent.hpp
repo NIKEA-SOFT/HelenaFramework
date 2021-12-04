@@ -3,12 +3,21 @@
 
 #include <Helena/Dependencies/EnTT.hpp>
 
-#include <unordered_map>
-
 namespace Helena::Systems
 {
     class EntityComponent final
     {
+        // EnTT type_seq need overload for using our shared memory indexer
+        template <typename, typename>
+        friend struct ENTT_API entt::type_seq;
+
+        // Support EnTT type_seq across boundary
+        std::unordered_map<std::uint64_t, entt::id_type> m_TypeSequence;
+        entt::id_type GetSequenceIndex(std::uint64_t index) {
+            const auto [it, result] = m_TypeSequence.try_emplace(index, m_TypeSequence.size());
+            return static_cast<entt::id_type>(it->second);
+        }
+
     public:
         static constexpr auto Null = entt::null;
 
@@ -134,6 +143,7 @@ namespace Helena::Systems
         auto ReserveComponent(const std::size_t size) -> void;
 
     private:
+
         entt::registry m_Registry;
     };
 }

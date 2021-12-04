@@ -8,7 +8,7 @@
 
 namespace Helena::Types 
 {
-	template <std::size_t Capacity, auto UUID = []{}>
+	template <typename UniqueKey, std::size_t Capacity>
 	class VectorAny final
 	{
 		using any_type	= Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
@@ -36,7 +36,7 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Has() 
+		[[nodiscard]] bool Has() const
 		{
 			static_assert(sizeof...(T) > 0, "Pack is empty!");
 			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
@@ -50,7 +50,7 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] bool Any() 
+		[[nodiscard]] bool Any() const
 		{
 			static_assert(sizeof...(T) > 1, "Exclusion-only Type are not supported");
 			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
@@ -59,7 +59,7 @@ namespace Helena::Types
 		}
 
 		template <typename... T>
-		[[nodiscard]] decltype(auto) Get()
+		[[nodiscard]] decltype(auto) Get() 
 		{
 			static_assert(sizeof...(T) > 0, "Pack is empty!");
 			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
@@ -72,6 +72,25 @@ namespace Helena::Types
 
 				return AnyCast<T&...>(m_Storage[index]);
 			} else {
+				return std::forward_as_tuple(Get<T>()...);
+			}
+		}
+
+		template <typename... T>
+		[[nodiscard]] decltype(auto) Get() const
+		{
+			static_assert(sizeof...(T) > 0, "Pack is empty!");
+			static_assert(((std::is_same_v<T, Traits::RemoveCVRefPtr<T>>) && ...), "Type is const/ptr/ref");
+
+			if constexpr(sizeof...(T) == 1) {
+				const auto index = m_TypeIndexer.Get<T...>();
+
+				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
+				HELENA_ASSERT(AnyCast<T...>(&m_Storage[index]), "Type: {} type mismatch!", Traits::NameOf<T...>::value);
+
+				return AnyCast<T&...>(m_Storage[index]);
+			}
+			else {
 				return std::forward_as_tuple(Get<T>()...);
 			}
 		}
@@ -92,12 +111,15 @@ namespace Helena::Types
 			}
 		}
 
-		void Clear() noexcept {
-			m_Storage.clear();
+		void Clear() noexcept
+		{
+			for(auto& any : m_Storage) {
+				any.Reset();
+			}
 		}
 
 	private:
-		Types::UniqueIndexer<UUID> m_TypeIndexer;
+		Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
 		std::vector<any_type> m_Storage;
 	};
 }

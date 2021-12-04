@@ -1,6 +1,6 @@
 #ifndef HELENA_DEPENDENCIES_FUNCTION2_HPP
 #define HELENA_DEPENDENCIES_FUNCTION2_HPP
 
-#include <Dependencies/function2/function2.hpp>
+#include <function2/function2.hpp>
 
 #endif // HELENA_DEPENDENCIES_FUNCTION2_HPP
