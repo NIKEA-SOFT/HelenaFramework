@@ -395,8 +395,8 @@ namespace Helena::Types
          * @param rhs A wrapper, either empty or not.
          * @return True if the two wrappers differ in their content, false otherwise.
          */
-        template<std::size_t Len, std::size_t Align>
-        [[nodiscard]] bool operator!=(const Any<Len, Align>& rhs) noexcept {
+        template<std::size_t Length, std::size_t Alignment>
+        [[nodiscard]] bool operator!=(const Any<Length, Alignment>& rhs) noexcept {
             return !(*this == rhs);
         }
 
