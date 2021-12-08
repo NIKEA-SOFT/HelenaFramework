@@ -55,8 +55,8 @@ namespace Helena::Types
 			FillBuffer(data);
 		}
 
-		template <std::size_t Capacity>
-		constexpr FixedBuffer(const Format<Capacity>& other) noexcept {
+		template <std::size_t CapacityOther>
+		constexpr FixedBuffer(const Format<CapacityOther>& other) noexcept {
 			FillBuffer(other.GetData(), other.GetSize());
 		}
 
@@ -76,14 +76,14 @@ namespace Helena::Types
 			return Capacity;
 		}
 
-		template <std::size_t Capacity>
-		[[nodiscard]] constexpr bool IsEqual(const FixedBuffer<Capacity>& other) const noexcept {
+		template <std::size_t CapacityOther>
+		[[nodiscard]] constexpr bool IsEqual(const FixedBuffer<CapacityOther>& other) const noexcept {
 			if(m_Size != other.m_Size) return false;
 			return std::equal(m_Buffer, m_Buffer + m_Size, other.m_Buffer, other.m_Buffer + other.m_Size);
 		}
 
-		template <std::size_t Capacity>
-		[[nodiscard]] constexpr bool IsEqual(const Format<Capacity>& other) const noexcept {
+		template <std::size_t CapacityOther>
+		[[nodiscard]] constexpr bool IsEqual(const Format<CapacityOther>& other) const noexcept {
 			if(m_Size != other.GetSize()) return false;
 			return std::equal(m_Buffer, m_Buffer + m_Size, other.GetData(), other.GetData() + other.GetSize());
 		}
@@ -92,9 +92,9 @@ namespace Helena::Types
 			return !m_Size;
 		}
 
-		[[nodiscard]] constexpr void Clear() noexcept {
-			std::fill_n(m_Buffer, m_Size, '\0');
+		constexpr void Clear() noexcept {
 			m_Size = 0;
+			m_Buffer[m_Size] = '\0';
 		}
 
 		constexpr bool operator==(const FixedBuffer& other) const noexcept {
@@ -120,8 +120,8 @@ namespace Helena::Types
 			return *this;
 		}
 
-		template <std::size_t Capacity>
-		constexpr FixedBuffer& operator=(const Format<Capacity>& other) noexcept  {
+		template <std::size_t CapacityOther>
+		constexpr FixedBuffer& operator=(const Format<CapacityOther>& other) noexcept  {
 			FillBuffer(other.GetData(), other.GetSize());
 			return *this;
 		}
