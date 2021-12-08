@@ -8,22 +8,22 @@ namespace Helena::Log
 {
     enum class Color : std::uint8_t
     {
-        Black = Util::Cast(fmt::terminal_color::black),
-        Red = Util::Cast(fmt::terminal_color::red),
-        Green = Util::Cast(fmt::terminal_color::green),
-        Yellow = Util::Cast(fmt::terminal_color::yellow),
-        Blue = Util::Cast(fmt::terminal_color::blue),
-        Magenta = Util::Cast(fmt::terminal_color::magenta),
-        Cyan = Util::Cast(fmt::terminal_color::cyan),
-        White = Util::Cast(fmt::terminal_color::white),
-        BrightBlack = Util::Cast(fmt::terminal_color::bright_black),
-        BrightRed = Util::Cast(fmt::terminal_color::bright_red),
-        BrightGreen = Util::Cast(fmt::terminal_color::bright_green),
-        BrightYellow = Util::Cast(fmt::terminal_color::bright_yellow),
-        BrightBlue = Util::Cast(fmt::terminal_color::bright_blue),
-        BrightMagenta = Util::Cast(fmt::terminal_color::bright_magenta),
-        BrightCyan = Util::Cast(fmt::terminal_color::bright_cyan),
-        BrightWhite = Util::Cast(fmt::terminal_color::bright_white)
+        Black           = Util::Cast(fmt::terminal_color::black),
+        Red             = Util::Cast(fmt::terminal_color::red),
+        Green           = Util::Cast(fmt::terminal_color::green),
+        Yellow          = Util::Cast(fmt::terminal_color::yellow),
+        Blue            = Util::Cast(fmt::terminal_color::blue),
+        Magenta         = Util::Cast(fmt::terminal_color::magenta),
+        Cyan            = Util::Cast(fmt::terminal_color::cyan),
+        White           = Util::Cast(fmt::terminal_color::white),
+        BrightBlack     = Util::Cast(fmt::terminal_color::bright_black),
+        BrightRed       = Util::Cast(fmt::terminal_color::bright_red),
+        BrightGreen     = Util::Cast(fmt::terminal_color::bright_green),
+        BrightYellow    = Util::Cast(fmt::terminal_color::bright_yellow),
+        BrightBlue      = Util::Cast(fmt::terminal_color::bright_blue),
+        BrightMagenta   = Util::Cast(fmt::terminal_color::bright_magenta),
+        BrightCyan      = Util::Cast(fmt::terminal_color::bright_cyan),
+        BrightWhite     = Util::Cast(fmt::terminal_color::bright_white)
     };
 
 
