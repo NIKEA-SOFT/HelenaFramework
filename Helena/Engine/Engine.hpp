@@ -73,7 +73,7 @@ namespace Helena
 
             template <typename T = Context, typename... Args>
             requires std::is_base_of_v<Context, T>&& std::is_constructible_v<T, Args...>
-            [[nodiscard]] static void Initialize([[maybe_unused]] Args&&... args) {
+            static void Initialize([[maybe_unused]] Args&&... args) {
                 HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
                 m_Context = std::make_shared<T>(std::forward<Args>(args)...);
             }
@@ -112,7 +112,7 @@ namespace Helena
                 ctx.m_Tickrate = 1.f / std::max(tickrate, 1.f);
             }
 
-            static void SetCallback(Callback callback) noexcept {
+            static void SetMain(Callback callback) noexcept {
                 auto& ctx = GetInstance();
                 ctx.m_Callback = std::move(callback);
             }

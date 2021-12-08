@@ -71,6 +71,12 @@ namespace Helena
         SetThreadStackGuarantee(&stackSize);
         SetConsoleCtrlHandler(CtrlHandler, TRUE);
         SetUnhandledExceptionFilter(MiniDumpSEH);
+
+        // Disable X button
+        if(HWND hWnd = GetConsoleWindow(); hWnd) {
+            HMENU hMenu = GetSystemMenu(hWnd, FALSE);
+            EnableMenuItem(hMenu, SC_CLOSE, MF_DISABLED | MF_BYCOMMAND);
+        }
     }
 
     template <typename... Args>
@@ -318,8 +324,8 @@ namespace Helena
 
         using Key   = EventID<id>;
         auto& pool  = GetEventPool<Event>();
-        if(!pool.Has<Key>()) {
-            pool.Create<Key>([callback](const Event& event) {
+        if(!pool.template Has<Key>()) {
+            pool.template Create<Key>([callback](const Event& event) {
                 if(Engine::HasSystem<System>()) {
                     (Engine::GetSystem<System>().*callback)(event);
                 }
