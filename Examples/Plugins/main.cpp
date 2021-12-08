@@ -5,11 +5,12 @@ class GameApplication
 {
 public:
 	GameApplication(std::uint32_t val) : value{val} {
+		HELENA_MSG_INFO("GameApplication ctor");
 		Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&GameApplication::OnEvent);
 		Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&GameApplication::OnEvent);
 	}
 	~GameApplication() {
-		HELENA_MSG_INFO("DTOR gameapplicatio");
+		HELENA_MSG_INFO("GameApplication dtor");
 	}
 
 	void OnEvent(const Helena::Events::Engine::Init&) {
@@ -24,6 +25,7 @@ public:
 };
 
 HELENA_PLUGIN_API void PluginInit(std::shared_ptr<Helena::Engine::Context> ctx) {
+	Helena::Engine::Context::Initialize(ctx);
 	Helena::Engine::Context::Initialize(ctx);
 
 	Helena::Engine::RegisterSystem<GameApplication>(100'000);
