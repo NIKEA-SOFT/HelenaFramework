@@ -20,11 +20,11 @@ class TestSystem
 public:
     TestSystem() {
         // Start listen Engine events
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>    (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>  (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute> (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>    (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>  (&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>(&TestSystem::OnEvent);
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnEvent);
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnEvent);
 
@@ -40,14 +40,6 @@ public:
         auto [ecs, pluginManager] = Helena::Engine::GetSystem<Helena::Systems::EntityComponent, Helena::Systems::PluginManager>();
         ecs.CreateEntity(); // Create entity and trigger event CreateEntity
 
-        if(pluginManager.Create("HelenaPlugin.dll")) {
-            HELENA_MSG_DEBUG("Plugin loaded!");
-        }
-
-        // here used reinterpret_cast because i'm not including header for GameApplication
-        // you should include it in your project for using class members and functions!
-        auto& temp = Helena::Engine::GetSystem<GameApplication>();
-        HELENA_MSG_INFO("GameApplication value: {}", *reinterpret_cast<std::uint32_t*>(&temp));
     }
 
     void OnEvent(const Helena::Events::Engine::Config&) {
@@ -96,7 +88,7 @@ int main(int argc, char** argv)
     Helena::Engine::Context::Initialize();                          // Initialize Context (Context used in Engine)
     Helena::Engine::Context::SetAppName("Test Framework");          // Set application name
     Helena::Engine::Context::SetTickrate(60.f);                     // Set Update tickrate
-    Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
+    Helena::Engine::Context::SetMain([]()                       // Register systems happen in this callback
     {
         // Register all used systems
         Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>(); // Resource storage System
