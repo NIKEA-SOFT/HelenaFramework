@@ -9,7 +9,7 @@ namespace Helena::Systems
     class PluginManager 
     {
     public:
-        using FixedBuffer   = Types::FixedBuffer<30>;
+        using PluginName   = Types::FixedBuffer<30>;
 
     private:
         static constexpr const char* KPluginInit    = "PluginInit";
@@ -24,10 +24,23 @@ namespace Helena::Systems
         };
 
         struct Plugin {
-            FixedBuffer m_Name;
+            Plugin(const PluginName& name, HELENA_MODULE_HANDLE handle, fnPluginInit fnInit, fnPluginEnd fnEnd, std::uint32_t hash, EState state)
+                : m_Name{name}
+                , m_Handle{handle}
+                , m_fnInit{fnInit}
+                , m_fnEnd{fnEnd}
+                , m_Hash{hash}
+                , m_State{state} {}
+            ~Plugin() = default;
+            Plugin(const Plugin&) = default;
+            Plugin(Plugin&&) noexcept = default;
+            Plugin& operator=(const Plugin&) = default;
+            Plugin& operator=(Plugin&&) noexcept = default;
+
+            PluginName m_Name;
             HELENA_MODULE_HANDLE m_Handle;
-            fnPluginInit m_fnPluginInit;
-            fnPluginEnd m_fnPluginEnd;
+            fnPluginInit m_fnInit;
+            fnPluginEnd m_fnEnd;
             std::uint32_t m_Hash;
             EState m_State;
         };
@@ -43,11 +56,11 @@ namespace Helena::Systems
         PluginManager& operator=(const PluginManager&) = delete;
         PluginManager& operator=(PluginManager&&) noexcept = delete;
 
-        [[nodiscard]] bool Load(const std::string_view path, const FixedBuffer& name);
-        [[nodiscard]] bool PluginInit(const FixedBuffer& name);
-        [[nodiscard]] bool PluginEnd(const FixedBuffer& name);
-        [[nodiscard]] bool Has(const FixedBuffer& name) const noexcept;
-        [[nodiscard]] bool IsInitialized(const FixedBuffer& name) const noexcept;
+        [[nodiscard]] bool Load(const std::string_view path, const PluginName& name);
+        [[nodiscard]] bool PluginInit(const PluginName& name);
+        [[nodiscard]] bool PluginEnd(const PluginName& name);
+        [[nodiscard]] bool Has(const PluginName& name) const noexcept;
+        [[nodiscard]] bool IsInitialized(const PluginName& name) const noexcept;
 
         template <typename Func>
         void Each(Func callback) const;
@@ -60,15 +73,15 @@ namespace Helena::Systems
 namespace Helena::Events::PluginManager
 {
     struct Load {
-        const Systems::PluginManager::FixedBuffer& name;
+        const Systems::PluginManager::PluginName& name;
     };
 
     struct PluginInit {
-        const Systems::PluginManager::FixedBuffer& name;
+        const Systems::PluginManager::PluginName& name;
     };
 
     struct PluginEnd {
-        const Systems::PluginManager::FixedBuffer& name;
+        const Systems::PluginManager::PluginName& name;
     };
 }
 

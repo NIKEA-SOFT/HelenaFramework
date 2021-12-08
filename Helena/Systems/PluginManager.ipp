@@ -11,7 +11,7 @@ namespace Helena::Systems
 		for(auto& plugin : m_Plugins) 
 		{
 			if(plugin.m_State == EState::Init) {
-				plugin.m_fnPluginEnd();
+				plugin.m_fnEnd();
 			}
 		}
 
@@ -30,7 +30,7 @@ namespace Helena::Systems
 		});
 	}
 
-	[[nodiscard]] inline bool PluginManager::Load(const std::string_view path, const FixedBuffer& name)
+	[[nodiscard]] inline bool PluginManager::Load(const std::string_view path, const PluginName& name)
 	{
 		constexpr auto PathLength = 256;
 		const auto hash = Hash::Get<std::uint32_t>(name);
@@ -64,7 +64,7 @@ namespace Helena::Systems
 		return true;
 	}
 
-	[[nodiscard]] inline bool PluginManager::PluginInit(const FixedBuffer& name)
+	[[nodiscard]] inline bool PluginManager::PluginInit(const PluginName& name)
 	{
 		const auto hash = Hash::Get<std::uint32_t>(name);
 		const auto it = Find(hash);
@@ -74,14 +74,14 @@ namespace Helena::Systems
 		if(it != m_Plugins.cend() && it->m_State == EState::Loaded) 
 		{
 			it->m_State = EState::Init;
-			it->m_fnPluginInit(Engine::Context::Get());
+			it->m_fnInit(Engine::Context::Get());
 			return true;
 		}
 
 		return false;
 	}
 
-	[[nodiscard]] inline bool PluginManager::PluginEnd(const FixedBuffer& name)
+	[[nodiscard]] inline bool PluginManager::PluginEnd(const PluginName& name)
 	{
 		const auto hash = Hash::Get<std::uint32_t>(name);
 		const auto it = Find(hash);
@@ -91,18 +91,18 @@ namespace Helena::Systems
 		if(it != m_Plugins.cend() && it->m_State == EState::Init)
 		{
 			it->m_State = EState::Loaded;
-			it->m_fnPluginEnd();
+			it->m_fnEnd();
 			return true;
 		}
 
 		return false;
 	}
 
-	[[nodiscard]] inline bool PluginManager::Has(const FixedBuffer& name) const noexcept {
+	[[nodiscard]] inline bool PluginManager::Has(const PluginName& name) const noexcept {
 		return Find(Hash::Get<std::uint32_t>(name)) != m_Plugins.cend();
 	}
 
-	[[nodiscard]] inline bool PluginManager::IsInitialized(const FixedBuffer& name) const noexcept {
+	[[nodiscard]] inline bool PluginManager::IsInitialized(const PluginName& name) const noexcept {
 		const auto it = Find(Hash::Get<std::uint32_t>(name));
 		return it != m_Plugins.cend() && it->m_State == EState::Init;
 	}
