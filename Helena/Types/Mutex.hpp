@@ -22,18 +22,8 @@ namespace Helena::Types
             }
         }
 
-        [[nodiscard]] bool TryLock() noexcept 
-        {
-            if(m_Lock.test_and_set(std::memory_order_acquire)) {
-                m_Lock.wait(true);
-                return true;
-            }
-
-            return false;
-        }
-
         void Unlock() noexcept {
-            m_Lock.clear(std::memory_order_release);
+            m_Lock.clear(std::memory_order_relaxed);
             m_Lock.notify_one();
         }
 
