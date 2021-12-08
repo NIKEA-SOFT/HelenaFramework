@@ -2,7 +2,7 @@
 #define HELENA_ENGINE_LOG_HPP
 
 #include <Helena/Dependencies/Fmt.hpp>
-#include <Helena/Util/SourceLocation.hpp>
+#include <Helena/Types/SourceLocation.hpp>
 
 namespace Helena::Log
 {
@@ -24,14 +24,14 @@ namespace Helena::Log
     [[nodiscard]] inline consteval auto CreateStyle(const Color color, const Color background) noexcept;
 
     template <Details::Prefixable Prefix, typename... Args>
-    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept;
+    void Console(const Types::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept;
 }
 
 #include <Helena/Engine/Log.ipp>
 
 // NOTE MSVC: If you get an error, make sure you add a preprocessor /Zc:preprocessor for support VA_OPT
 // Read it here: https://docs.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-160
-#define HELENA_MSG(prefix, fmt, ...)        Helena::Log::Console<prefix>(Helena::Util::SourceLocation::Create(__FILE__, __LINE__), fmt __VA_OPT__(,) __VA_ARGS__)
+#define HELENA_MSG(prefix, fmt, ...)        Helena::Log::Console<prefix>(Helena::Types::SourceLocation::Create(__FILE__, __LINE__), fmt __VA_OPT__(,) __VA_ARGS__)
 
 #if defined(HELENA_DEBUG)
     #define HELENA_MSG_DEFAULT(fmt, ...)    HELENA_MSG(Helena::Log::Details::Default,   fmt __VA_OPT__(,) __VA_ARGS__)

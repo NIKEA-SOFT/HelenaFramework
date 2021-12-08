@@ -3,8 +3,6 @@
 
 #include <Helena/Engine/Log.hpp>
 #include <Helena/Util/Cast.hpp>
-#include <Helena/Platform/Platform.hpp>
-//#include <Helena/Traits/AnyOf.hpp>
 
 namespace Helena::Log
 {
@@ -140,10 +138,12 @@ namespace Helena::Log
             }
         };
 
-        [[nodiscard]] inline bool MakeColor(fmt::memory_buffer& buffer, const fmt::text_style& style) 
+        template <Details::Prefixable Prefix>
+        [[nodiscard]] bool MakeColor(fmt::memory_buffer& buffer) 
         {
             bool has_style {};
 
+            constexpr auto style = Prefix::GetStyle();
             if (style.has_emphasis()) {
                 has_style = true;
                 const auto emphasis = fmt::detail::make_emphasis<char>(style.get_emphasis());
@@ -171,7 +171,7 @@ namespace Helena::Log
     }
 
     template <Details::Prefixable Prefix, typename... Args>
-    void Console(const Util::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept
+    void Console(const Types::SourceLocation& source, const std::string_view msg, Args&&... args) noexcept
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
         fmt::memory_buffer buffer;
@@ -181,12 +181,9 @@ namespace Helena::Log
             const auto time = fmt::localtime(std::time(nullptr));
             try 
             {
-                constexpr auto style    = Prefix::GetStyle();
-                constexpr auto prefix   = Prefix::GetPrefix();
+                const auto has_style    = Details::MakeColor<Prefix>(buffer);
 
-                const auto has_style = Details::MakeColor(buffer, style);
-
-                fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), prefix));
+                fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Prefix::GetPrefix()));
                 fmt::detail::vformat_to(buffer, fmt::string_view{msg}, fmt::make_format_args(args...));
 
                 if (has_style) {
@@ -194,9 +191,8 @@ namespace Helena::Log
                 }
 
             } catch(const fmt::format_error&) {
-
                 buffer.clear();
-                const auto has_style = Details::MakeColor(buffer, Details::Exception::GetStyle());
+                const auto has_style = Details::MakeColor<Prefix>(buffer);
 
                 fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Details::Exception::GetPrefix()));
                 fmt::detail::vformat_to(buffer, fmt::string_view{
