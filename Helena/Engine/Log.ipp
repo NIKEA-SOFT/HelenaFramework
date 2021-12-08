@@ -192,7 +192,7 @@ namespace Helena::Log
 
             } catch(const fmt::format_error&) {
                 buffer.clear();
-                const auto has_style = Details::MakeColor<Prefix>(buffer);
+                const auto has_style = Details::MakeColor<Details::Exception>(buffer);
 
                 fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Details::Exception::GetPrefix()));
                 fmt::detail::vformat_to(buffer, fmt::string_view{
