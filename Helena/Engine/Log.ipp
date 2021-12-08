@@ -8,22 +8,22 @@ namespace Helena::Log
 {
     enum class Color : std::uint8_t
     {
-        Black           = Util::Cast(fmt::terminal_color::black),
-        Red             = Util::Cast(fmt::terminal_color::red),
-        Green           = Util::Cast(fmt::terminal_color::green),
-        Yellow          = Util::Cast(fmt::terminal_color::yellow),
-        Blue            = Util::Cast(fmt::terminal_color::blue),
-        Magenta         = Util::Cast(fmt::terminal_color::magenta),
-        Cyan            = Util::Cast(fmt::terminal_color::cyan),
-        White           = Util::Cast(fmt::terminal_color::white),
-        BrightBlack     = Util::Cast(fmt::terminal_color::bright_black),
-        BrightRed       = Util::Cast(fmt::terminal_color::bright_red),
-        BrightGreen     = Util::Cast(fmt::terminal_color::bright_green),
-        BrightYellow    = Util::Cast(fmt::terminal_color::bright_yellow),
-        BrightBlue      = Util::Cast(fmt::terminal_color::bright_blue),
-        BrightMagenta   = Util::Cast(fmt::terminal_color::bright_magenta),
-        BrightCyan      = Util::Cast(fmt::terminal_color::bright_cyan),
-        BrightWhite     = Util::Cast(fmt::terminal_color::bright_white)
+        Black = Util::Cast(fmt::terminal_color::black),
+        Red = Util::Cast(fmt::terminal_color::red),
+        Green = Util::Cast(fmt::terminal_color::green),
+        Yellow = Util::Cast(fmt::terminal_color::yellow),
+        Blue = Util::Cast(fmt::terminal_color::blue),
+        Magenta = Util::Cast(fmt::terminal_color::magenta),
+        Cyan = Util::Cast(fmt::terminal_color::cyan),
+        White = Util::Cast(fmt::terminal_color::white),
+        BrightBlack = Util::Cast(fmt::terminal_color::bright_black),
+        BrightRed = Util::Cast(fmt::terminal_color::bright_red),
+        BrightGreen = Util::Cast(fmt::terminal_color::bright_green),
+        BrightYellow = Util::Cast(fmt::terminal_color::bright_yellow),
+        BrightBlue = Util::Cast(fmt::terminal_color::bright_blue),
+        BrightMagenta = Util::Cast(fmt::terminal_color::bright_magenta),
+        BrightCyan = Util::Cast(fmt::terminal_color::bright_cyan),
+        BrightWhite = Util::Cast(fmt::terminal_color::bright_white)
     };
 
 
@@ -40,7 +40,7 @@ namespace Helena::Log
     }
 
 
-    namespace Details 
+    namespace Details
     {
         struct Default {
             //using is_logging = std::false_type;
@@ -139,29 +139,29 @@ namespace Helena::Log
         };
 
         template <Details::Prefixable Prefix>
-        [[nodiscard]] bool MakeColor(fmt::memory_buffer& buffer) 
+        [[nodiscard]] bool MakeColor(fmt::memory_buffer& buffer)
         {
-            bool has_style {};
+            bool has_style{};
 
             constexpr auto style = Prefix::GetStyle();
-            if (style.has_emphasis()) {
+            if(style.has_emphasis()) {
                 has_style = true;
                 const auto emphasis = fmt::detail::make_emphasis<char>(style.get_emphasis());
                 buffer.append(emphasis.begin(), emphasis.end());
             }
 
-            if (style.has_foreground()) {
+            if(style.has_foreground()) {
                 has_style = true;
                 const auto foreground = fmt::detail::make_foreground_color<char>(style.get_foreground());
                 buffer.append(foreground.begin(), foreground.end());
             }
 
-            if (style.has_background()) {
+            if(style.has_background()) {
                 has_style = true;
                 const auto background = fmt::detail::make_background_color<char>(style.get_background());
                 buffer.append(background.begin(), background.end());
             }
-            
+
             return has_style;
         }
 
@@ -175,18 +175,18 @@ namespace Helena::Log
     {
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
         fmt::memory_buffer buffer;
-        
+
         try
         {
             const auto time = fmt::localtime(std::time(nullptr));
-            try 
+            try
             {
-                const auto has_style    = Details::MakeColor<Prefix>(buffer);
+                const auto has_style = Details::MakeColor<Prefix>(buffer);
 
                 fmt::detail::vformat_to(buffer, formatex, fmt::make_format_args(time, source.GetFile(), source.GetLine(), Prefix::GetPrefix()));
                 fmt::detail::vformat_to(buffer, fmt::string_view{msg}, fmt::make_format_args(args...));
 
-                if (has_style) {
+                if(has_style) {
                     Details::EndColor(buffer);
                 }
 
@@ -202,7 +202,7 @@ namespace Helena::Log
                     "\n----------------------------------------"
                     }, fmt::make_format_args(msg));
 
-                if (has_style) {
+                if(has_style) {
                     Details::EndColor(buffer);
                 }
             }
