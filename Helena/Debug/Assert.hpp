@@ -2,6 +2,7 @@
 #define HELENA_DEBUG_ASSERT_HPP
 
 #include <Helena/Platform/Platform.hpp>
+#include <Helena/Platform/Defines.hpp>
 
 //#include <filesystem>
 //#include <fstream>
@@ -36,7 +37,7 @@ namespace Helena {
                 constexpr auto location = Helena::Types::SourceLocation::Create(__FILE__, __LINE__);        \
                 Helena::Log::Console<assert>(location, "Condition: {}", #cond);                             \
                 if constexpr (std::tuple_size_v<tuple> > 0) {                                               \
-                    Helena::Log::Console<assert>(location, "Message: " __VA_OPT__(,) __VA_ARGS__);          \
+                    Helena::Log::Console<assert>(location, "Message: " __VA_ARGS__);                        \
                 }                                                                                           \
                 if(HELENA_DEBUGGING()) {                                                                    \
                     HELENA_BREAKPOINT();                                                                    \
