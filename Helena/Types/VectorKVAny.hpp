@@ -27,7 +27,7 @@ namespace Helena::Types
 			static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
 			static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
 
-			const auto index = m_TypeIndexer.Get<Key>();
+			const auto index = m_TypeIndexer.template Get<Key>();
 			if(index >= m_Storage.size()) {
 				m_Storage.resize(index + 1u);
 			}
@@ -42,7 +42,7 @@ namespace Helena::Types
 			static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
 
 			if constexpr(sizeof...(Key) == 1) {
-				const auto index = m_TypeIndexer.Get<Key...>();
+				const auto index = m_TypeIndexer.template Get<Key...>();
 				return index < m_Storage.size() && m_Storage[index];
 			} else {
 				return (Has<Key>() && ...);
@@ -64,7 +64,7 @@ namespace Helena::Types
 			static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
 			static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
 
-			const auto index = m_TypeIndexer.Get<Key>();
+			const auto index = m_TypeIndexer.template Get<Key>();
 
 			HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {}, Type: {} not exist!", 
 				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
@@ -80,7 +80,7 @@ namespace Helena::Types
 			static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
 			static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
 
-			const auto index = m_TypeIndexer.Get<Key>();
+			const auto index = m_TypeIndexer.template Get<Key>();
 
 			HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {}, Type: {} not exist!",
 				Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
@@ -97,7 +97,7 @@ namespace Helena::Types
 			static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
 
 			if constexpr(sizeof...(Key) == 1) {
-				const auto index = m_TypeIndexer.Get<Key>();
+				const auto index = m_TypeIndexer.template Get<Key>();
 
 				HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key>::value);
 
