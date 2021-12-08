@@ -57,8 +57,9 @@ namespace Helena::Systems
         PluginManager& operator=(PluginManager&&) noexcept = delete;
 
         [[nodiscard]] bool Load(const std::string_view path, const PluginName& name);
-        [[nodiscard]] bool PluginInit(const PluginName& name);
-        [[nodiscard]] bool PluginEnd(const PluginName& name);
+        [[nodiscard]] bool Load(const PluginName& name);
+        [[nodiscard]] bool Init(const PluginName& name);
+        [[nodiscard]] bool End(const PluginName& name);
         [[nodiscard]] bool Has(const PluginName& name) const noexcept;
         [[nodiscard]] bool IsInitialized(const PluginName& name) const noexcept;
 

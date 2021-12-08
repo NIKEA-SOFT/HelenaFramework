@@ -38,7 +38,9 @@ namespace Helena::Systems
 		HELENA_ASSERT(Find(hash) == m_Plugins.cend(), "Plugin: {} already loaded!", name);
 		HELENA_ASSERT((path.size() + name.GetSize() + sizeof(HELENA_SEPARATOR) + sizeof(HELENA_MODULE_EXTENSION)) <= PathLength);
 
-		const auto module = Types::Format<PathLength>("{}{}{}{}", path, HELENA_SEPARATOR, name, HELENA_MODULE_EXTENSION);
+		const auto module = path.empty() ? 
+			Types::Format<PathLength>("{}{}", name, HELENA_MODULE_EXTENSION) :
+			Types::Format<PathLength>("{}{}{}{}", path, HELENA_SEPARATOR, name, HELENA_MODULE_EXTENSION);
 		const auto handle = static_cast<HELENA_MODULE_HANDLE>(HELENA_MODULE_LOAD(module.GetData()));
 		if(!handle) {
 			HELENA_MSG_ERROR("Plugin: {} load failed!", module);
@@ -64,7 +66,11 @@ namespace Helena::Systems
 		return true;
 	}
 
-	[[nodiscard]] inline bool PluginManager::PluginInit(const PluginName& name)
+	[[nodiscard]] inline bool PluginManager::Load(const PluginName& name) {
+		return Load("", name);
+	}
+
+	[[nodiscard]] inline bool PluginManager::Init(const PluginName& name)
 	{
 		const auto hash = Hash::Get<std::uint32_t>(name);
 		const auto it = Find(hash);
@@ -81,7 +87,7 @@ namespace Helena::Systems
 		return false;
 	}
 
-	[[nodiscard]] inline bool PluginManager::PluginEnd(const PluginName& name)
+	[[nodiscard]] inline bool PluginManager::End(const PluginName& name)
 	{
 		const auto hash = Hash::Get<std::uint32_t>(name);
 		const auto it = Find(hash);
