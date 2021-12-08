@@ -40,6 +40,13 @@ public:
         auto [ecs, pluginManager] = Helena::Engine::GetSystem<Helena::Systems::EntityComponent, Helena::Systems::PluginManager>();
         ecs.CreateEntity(); // Create entity and trigger event CreateEntity
 
+        // Example pluginManager
+        if(pluginManager.Load("HelenaPlugin"))          // Load plugin and store in Manager (or overload: Load(path, name))
+        {
+            if(pluginManager.Init("HelenaPlugin")) {    // Call plugin entry point function: PluginInit
+                pluginManager.End("HelenaPlugin");      // Call plugin entry point function: PluginEnd
+            }
+        }
     }
 
     void OnEvent(const Helena::Events::Engine::Config&) {
