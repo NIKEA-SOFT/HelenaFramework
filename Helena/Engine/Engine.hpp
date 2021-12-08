@@ -72,7 +72,7 @@ namespace Helena
             Context& operator=(Context&&) noexcept = delete;
 
             template <typename T = Context, typename... Args>
-            requires std::is_base_of_v<Context, T>&& std::is_constructible_v<T, Args...>
+            requires std::is_base_of_v<Context, T> && std::is_constructible_v<T, Args...>
             static void Initialize([[maybe_unused]] Args&&... args) {
                 HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
                 m_Context = std::make_shared<T>(std::forward<Args>(args)...);
@@ -81,7 +81,8 @@ namespace Helena
             template <typename T = Context>
             requires std::is_base_of_v<Context, T>
             static void Initialize(const std::shared_ptr<T>& ctx) noexcept {
-                HELENA_ASSERT(!m_Context, "Context already initialized!");
+                HELENA_ASSERT(ctx, "Context is empty!");
+                HELENA_ASSERT(!m_Context || m_Context == ctx, "Context already initialized!");
                 m_Context = ctx;
             }
 
