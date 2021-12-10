@@ -8,9 +8,21 @@ namespace Helena::Types
     // TTAS implementation
     class Mutex
     {
+        template <typename Mutex>
+        friend class std::unique_lock;
+
+        template <typename Mutex>
+        friend class std::lock_guard;
+
+        template <typename... Mutex>
+        friend class std::scoped_lock;
+
+        void lock() noexcept { Lock(); }
+        void unlock() noexcept { Unlock(); }
+
     public:
-        Mutex() = default;
-        ~Mutex() = default;
+        Mutex() noexcept = default;
+        ~Mutex() noexcept = default;
         Mutex(const Mutex&) = delete;
         Mutex(Mutex&&) noexcept = delete;
         Mutex& operator=(const Mutex&) = delete;

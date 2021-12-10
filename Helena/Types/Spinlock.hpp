@@ -8,9 +8,21 @@ namespace Helena::Types
 {
     class Spinlock
     {
+        template <typename Mutex>
+        friend class std::unique_lock;
+
+        template <typename Mutex>
+        friend class std::lock_guard;
+
+        template <typename... Mutex>
+        friend class std::scoped_lock;
+
+        void lock() noexcept { Lock(); }
+        void unlock() noexcept { Unlock(); }
+
     public:
-        Spinlock() = default;
-        ~Spinlock() = default;
+        Spinlock() noexcept = default;
+        ~Spinlock() noexcept = default;
         Spinlock(const Spinlock&) = delete;
         Spinlock(Spinlock&&) noexcept = delete;
         Spinlock& operator=(const Spinlock&) = delete;
