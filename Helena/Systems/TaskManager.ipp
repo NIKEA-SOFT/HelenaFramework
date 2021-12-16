@@ -1,6 +1,0 @@
-#ifndef HELENA_SYSTEMS_TASKMANAGER_IPP
-#define HELENA_SYSTEMS_TASKMANAGER_IPP
-
-#include <Helena/Systems/TaskManager.hpp>
-
-#endif // HELENA_SYSTEMS_TASKMANAGER_IPP

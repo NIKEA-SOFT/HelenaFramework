@@ -1,6 +1,0 @@
-#ifndef HELENA_SYSTEMS_JOBMANAGER_IPP
-#define HELENA_SYSTEMS_JOBMANAGER_IPP
-
-#include <Helena/Systems/JobManager.hpp>
-
-#endif // HELENA_SYSTEMS_JOBMANAGER_IPP
