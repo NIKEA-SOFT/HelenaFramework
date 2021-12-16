@@ -1,35 +1,29 @@
 ![HelenaFramework](https://user-images.githubusercontent.com/57288440/116739956-00ca2580-a9fd-11eb-9c5d-367f21606456.png)
 
-`HelenaFramework` is a header-only, tiny and easy to use library 
-for game backend programming and much more written in **modern C++**.<br/>
-
 ---
 
-# Introduction
+# Introduction  
 
-The HelenaFramework is an architectural pattern used mostly in backend development.
+`HelenaFramework` is a header-only, tiny and easy to use library for game backend programming and much more written in **modern C++**
 
-# Features
+# [Systems](https://github.com/NIKEA-SOFT/HelenaSystems)  
 
-* User-friendly interface
-* High performance
-* Modules dll/so with shared memory (across boundary)
+The Systems are classes that implement specific logic.  
+Systems can register and throw signals to interact with other systems.  
+
+# Features  
+
+* Cross-platform  
+* High performance  
+* Friendly API
 * Scalable and flexible
-* Cross-platform
-* Systems and Events dispatchers
 * Header only
 
-## Code Example
+## Code Example  
+Requires systems: [ECSManager](https://github.com/NIKEA-SOFT/HelenaSystems/tree/main/ECSManager)  
 ```cpp
-#include <Helena/Engine/Engine.hpp>
-
-#include <Helena/Systems/EntityComponent.hpp>
-
-// Component
-struct UserInfo {
-    std::string name;
-    std::uint32_t age;
-};
+#include <Helena/Helena.hpp>
+//#include <Test/Systems/ECSManager.hpp>
 
 // Test System
 class TestSystem
@@ -45,16 +39,16 @@ public:
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnEvent);
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnEvent);
 
-        // Start listen events from system EntityComponent
-        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::CreateEntity>(&TestSystem::OnCreateEntity);
-        Helena::Engine::SubscribeEvent<Helena::Events::EntityComponent::RemoveEntity>(&TestSystem::OnRemoveEntity);
+        // Start listen events from system ECSManager
+        Helena::Engine::SubscribeEvent<Helena::Events::ECSManager::CreateEntity>(&TestSystem::OnCreateEntity);
+        Helena::Engine::SubscribeEvent<Helena::Events::ECSManager::RemoveEntity>(&TestSystem::OnRemoveEntity);
     }
     ~TestSystem() = default;
 
     void OnEvent(const Helena::Events::Engine::Init&) {
         HELENA_MSG_DEBUG("EventInit");
 
-        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::ECSManager>();
         ecs.CreateEntity(); // Create entity and trigger event CreateEntity
     }
 
@@ -82,16 +76,16 @@ public:
         HELENA_MSG_DEBUG("EngineShutdown");
     }
 
-    void OnCreateEntity(const Helena::Events::EntityComponent::CreateEntity& event) {
-        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+    void OnCreateEntity(const Helena::Events::ECSManager::CreateEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::ECSManager>();
         auto& userInfo = ecs.AddComponent<UserInfo>(event.Entity, "Helena", 30u);
 
         HELENA_MSG_DEBUG("Entity created, user name: {}, age: {}", userInfo.name, userInfo.age);
         ecs.RemoveEntity(event.Entity); // Removed entity after trigger RemoveEntity event
     }
 
-    void OnRemoveEntity(const Helena::Events::EntityComponent::RemoveEntity& event) {
-        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::EntityComponent>();
+    void OnRemoveEntity(const Helena::Events::ECSManager::RemoveEntity& event) {
+        auto& ecs = Helena::Engine::GetSystem<Helena::Systems::ECSManager>();
         auto& userInfo = ecs.GetComponent<UserInfo>(event.Entity);
 
         HELENA_MSG_DEBUG("Entity: {} removed!", userInfo.name);
@@ -101,14 +95,14 @@ public:
 int main(int argc, char** argv)
 {
     // Engine started from Initialize method
-    Helena::Engine::Context::Initialize();                          // Initialize Context (Context used in Engine)
-    Helena::Engine::Context::SetAppName("Test Framework");          // Set application name
-    Helena::Engine::Context::SetTickrate(60.f);                     // Set Update tickrate
-    Helena::Engine::Context::SetCallback([]()                       // Register systems happen in this callback
+    Helena::Engine::Context::Initialize();          // Initialize Context
+    Helena::Engine::Context::SetAppName("Helena");  // Set application name
+    Helena::Engine::Context::SetTickrate(60.f);     // Set fixed update frequency
+    Helena::Engine::Context::SetMain([]()           // Register systems happen in this callback
     {
         // Register all used systems
-        Helena::Engine::RegisterSystem<Helena::Systems::EntityComponent>(); // Entity Component System
-        Helena::Engine::RegisterSystem<TestSystem>();                       // Test System
+        Helena::Engine::RegisterSystem<Helena::Systems::ECSManager>();  // Entity Component System
+        Helena::Engine::RegisterSystem<TestSystem>();                   // Test System
     });
 
     // Engine loop
