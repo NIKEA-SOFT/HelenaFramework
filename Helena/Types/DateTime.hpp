@@ -1,27 +1,27 @@
-#ifndef HELENA_TYPES_TIMEDATA_HPP
-#define HELENA_TYPES_TIMEDATA_HPP
+#ifndef HELENA_TYPES_DATETIME_HPP
+#define HELENA_TYPES_DATETIME_HPP
 
-#include <Helena/Types/Format.hpp>
-#include <Helena/Types/TimeSpan.hpp>
-#include <Helena/Util/Cast.hpp>
+#include <Helena/Debug/Assert.hpp>
 
 #include <array>
 #include <cmath>
+#include <charconv>
 
 namespace Helena::Types
 {
-    class DateTime 
+    class DateTime
     {
-        static constexpr std::int64_t m_TicksPerMilliseconds    = 10000LL;
-        static constexpr std::int64_t m_TicksPerSeconds         = 1000LL * m_TicksPerMilliseconds;
-        static constexpr std::int64_t m_TicksPerMinutes         = 60LL * m_TicksPerSeconds;
-        static constexpr std::int64_t m_TicksPerHours           = 60LL * m_TicksPerMinutes;
-        static constexpr std::int64_t m_TicksPerDays            = 24LL * m_TicksPerHours;
+        static constexpr std::int64_t m_TicksPerMilliseconds = 10000LL;
+        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMilliseconds;
+        static constexpr std::int64_t m_TicksPerMinutes = 60LL * m_TicksPerSeconds;
+        static constexpr std::int64_t m_TicksPerHours = 60LL * m_TicksPerMinutes;
+        static constexpr std::int64_t m_TicksPerDays = 24LL * m_TicksPerHours;
 
-        static constexpr auto m_DaysPerMonth                    = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
-
+        static constexpr auto DaysPerMonth = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+        static constexpr auto DaysInWeekSize = 7LL;
+        static constexpr auto MonthSize = 12;
     public:
-        enum class EMonths {
+        enum class EMonths : std::uint8_t {
             January = 1,
             February,
             March,
@@ -36,13 +36,13 @@ namespace Helena::Types
             December
         };
 
-        enum class EDaysOfWeek {
-            Monday, 
-            Tuesday, 
-            Wednesday, 
-            Thursday, 
-            Friday, 
-            Saturday, 
+        enum class EDaysOfWeek : std::uint8_t {
+            Monday,
+            Tuesday,
+            Wednesday,
+            Thursday,
+            Friday,
+            Saturday,
             Sunday
         };
 
@@ -51,7 +51,7 @@ namespace Helena::Types
         constexpr DateTime(const DateTime&) noexcept = default;
         constexpr DateTime(DateTime&&) noexcept = default;
         constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
-        constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day, 
+        constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
             std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t ms = 0) {
             m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + ms * m_TicksPerMilliseconds;
         }
@@ -101,13 +101,11 @@ namespace Helena::Types
         // %s - seconds
         // %ms - milliseconds
         // Currently this function not constexpr becaus Util::Cast use from_chars
-        [[nodiscard]] static DateTime FromString(std::string_view format, std::string_view time) noexcept
+        [[nodiscard]] static DateTime FromString(const std::string_view format, const std::string_view time) noexcept
         {
             if(format.empty() || time.empty()) {
                 return DateTime{};
             }
-
-            bool hasError{};
 
             std::int32_t day{};
             std::int32_t month{};
@@ -120,88 +118,107 @@ namespace Helena::Types
             std::size_t offsetFormat{};
             std::size_t offsetTime{};
 
-            const auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool 
+            const auto fnNextChar = [](const std::string_view format, std::size_t& offset) -> char {
+                return offset < format.size() ? format[offset++] : char{};
+            };
+
+            const auto fnParse = [](const std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool
             {
+                if(out) {
+                    return false;
+                }
+
                 // Take string with fixed size length from buffer
                 const auto data = buffer.substr(offset, read_length);
 
                 // Buffer can be small, need compare for check
-                if(data.size() == read_length) {
+                HELENA_ASSERT(data.size() == read_length, "Parse data: \"{}\" failed, data size less than read_length", data);
+                if(data.size() == read_length) 
+                {
                     // Cast string to int
-                    const auto value = Util::Cast<std::int32_t>(data);
+                    const auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
+                    HELENA_ASSERT(err == std::errc{}, "Cast data: \"{}\" failed", data);
 
                     // Check cast result
-                    if(value.has_value()) {
-                        // Write casted value to out variable
-                        out = value.value();
-
+                    if(err == std::errc{}) {
                         // Add size to offset for parse other data in next time
                         offset += data.size();
-
-                        return false;
+                        return true;
                     }
-
-                    HELENA_MSG_EXCEPTION("Cast data: \"{}\" failed", data);
-                } else
-                    HELENA_MSG_EXCEPTION("Parse data: \"{}\" failed, data size less than read_length", data);
-
-                return true;
+                }
+                return false;
             };
 
-            while(true) 
+            const auto fnCompare = [&]() 
             {
-                if(offsetFormat >= format.size()) {
-                    break;
-                }
-
-                if(format[offsetFormat++] == '%') 
+                char key = fnNextChar(format, offsetFormat);
+                switch(key)
                 {
-                    if(offsetFormat >= format.size()) {
-                        hasError = true;
-                        continue;
+                    case 'D': {
+                        HELENA_ASSERT(!day);
+                        return fnParse(time, offsetTime, 2uLL, day);
                     }
 
-                    if(offsetTime >= time.size()) {
-                        hasError = true;
-                        continue;
+                    case 'M': {
+                        HELENA_ASSERT(!month);
+                        return fnParse(time, offsetTime, 2uLL, month);
                     }
 
-                    switch(format[offsetFormat]) 
+                    case 'Y': {
+                        HELENA_ASSERT(!year);
+                        return fnParse(time, offsetTime, 4uLL, year);
+                    }
+
+                    case 'h': {
+                        HELENA_ASSERT(!hour);
+                        return fnParse(time, offsetTime, 2uLL, hour);
+                    }
+
+                    case 'm':
                     {
-                        case 'D': hasError = fnParse(time, offsetTime, 2uLL, day); break;
-                        case 'M': hasError = fnParse(time, offsetTime, 2uLL, month); break;
-                        case 'Y': hasError = fnParse(time, offsetTime, 4uLL, year); break;
-                        case 'h': hasError = fnParse(time, offsetTime, 2uLL, hour); break;
-                        case 'm':
-                            if(format[offsetFormat + 1] == 's') {
-                                ++offsetFormat;
-                                hasError = fnParse(time, offsetTime, 3uLL, milliseconds);
-                            } else {
-                                hasError = fnParse(time, offsetTime, 2uLL, minutes);
-                            }
-                            break;
-                        case 's': hasError = fnParse(time, offsetTime, 2uLL, seconds); break;
+                        if((offsetFormat + 1) < format.size()) {
+                            key = format[offsetFormat + 1];
+                        }
 
-                        default: {
-                            HELENA_ASSERT(false, "Format: \"{}\" incorrect, time: \"{}\"", format, time);
-                            hasError = true;
+                        if(key == 's') {
+                            HELENA_ASSERT(!milliseconds);
+                            offsetFormat++;
+                            return fnParse(time, offsetTime, 3uLL, milliseconds);
+                        } else {
+                            HELENA_ASSERT(!minutes);
+                            return fnParse(time, offsetTime, 2uLL, minutes);
                         }
                     }
 
-                    ++offsetFormat;
-                } else {
-                    ++offsetTime;
+                    case 's': {
+                        HELENA_ASSERT(!seconds);
+                        return fnParse(time, offsetTime, 2uLL, seconds);
+                    }
+
+                    default: break;
                 }
 
-                if(hasError) {
-                    return DateTime{};
+                return false;
+            };
+
+            while(true)
+            {
+                char keyFormat = fnNextChar(format, offsetFormat);
+                if(!keyFormat) {
+                    return DateTime{DateToTicks(year, month, day) + TimeToTicks(hour, minutes, seconds, milliseconds)};
+                }
+                
+                if(keyFormat == '%') 
+                {
+                    if(!fnCompare()) {
+                        break;
+                    }
+                } else if(keyFormat != fnNextChar(time, offsetTime)) {
+                    break;
                 }
             }
 
-
-
-            const auto ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minutes, seconds, milliseconds);
-            return DateTime{ticks};
+            return DateTime{};
         }
 
         [[nodiscard]] constexpr bool IsNull() const noexcept {
@@ -259,7 +276,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr EDaysOfWeek GetDayOfWeek() const noexcept {
-            return static_cast<EDaysOfWeek>((m_Ticks / m_TicksPerDays) % 7);
+            return static_cast<EDaysOfWeek>((m_Ticks / m_TicksPerDays) % DaysInWeekSize);
         }
 
         [[nodiscard]] constexpr DateTime GetDate() const noexcept {
@@ -281,8 +298,8 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInMonth(std::int32_t year, std::int32_t month) noexcept {
-            HELENA_ASSERT(month >= 1 && month <= 12);
-            return m_DaysPerMonth[month] - m_DaysPerMonth[month - 1LL] - (IsLeapYear(year) ? 1 : 0);
+            HELENA_ASSERT(month >= 1 && month <= MonthSize);
+            return DaysPerMonth[month] - DaysPerMonth[month - 1LL] - (IsLeapYear(year) ? 1 : 0);
         }
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInYear(std::int32_t year) noexcept {
@@ -299,7 +316,8 @@ namespace Helena::Types
             HELENA_ASSERT(day >= 1 && day <= GetDaysInMonth(year, month));
             --year;
             --month;
-            return (year * 365LL + year / 4LL - year / 100LL + year / 400LL + m_DaysPerMonth[month] + static_cast<std::int32_t>(IsLeapYear(year)) + day - 1LL) * m_TicksPerDays;
+            return (year * 365LL + year / 4LL - year / 100LL + year / 400LL + DaysPerMonth[month] + 
+                static_cast<std::int32_t>(IsLeapYear(year)) + day - 1LL) * m_TicksPerDays;
         }
 
         [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute, std::int32_t second, std::int32_t millisecond = 0) noexcept {
@@ -330,8 +348,8 @@ namespace Helena::Types
         [[nodiscard]] constexpr auto operator<=>(const DateTime&) const noexcept = default;
 
     private:
-        std::int64_t m_Ticks {};
+        std::int64_t m_Ticks{};
     };
 }
 
-#endif // HELENA_TYPES_TIMESPAN_HPP
+#endif // HELENA_TYPES_DATETIME_HPP

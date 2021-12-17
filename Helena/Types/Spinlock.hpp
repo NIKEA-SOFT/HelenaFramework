@@ -1,8 +1,10 @@
 #ifndef HELENA_TYPES_SPINLOCK_HPP
 #define HELENA_TYPES_SPINLOCK_HPP
 
-#include <atomic>
 #include <Helena/Platform/Defines.hpp>
+
+#include <mutex>
+#include <atomic>
 
 namespace Helena::Types
 {

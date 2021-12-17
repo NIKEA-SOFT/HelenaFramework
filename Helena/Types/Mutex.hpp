@@ -1,11 +1,11 @@
 #ifndef HELENA_TYPES_MUTEX_HPP
 #define HELENA_TYPES_MUTEX_HPP
 
+#include <mutex>
 #include <atomic>
 
 namespace Helena::Types
 {
-    // TTAS implementation
     class Mutex
     {
         template <typename Mutex>

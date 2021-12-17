@@ -2,22 +2,16 @@
 #define HELENA_TYPES_TIMESPAN_HPP
 
 #include <Helena/Debug/Assert.hpp>
-#include <Helena/Util/Cast.hpp>
-
-#include <array>
-#include <stdexcept>
 
 namespace Helena::Types
 {
     class TimeSpan
     {
-        static constexpr std::int64_t m_TicksPerMilliseconds    = 10000LL;
-        static constexpr std::int64_t m_TicksPerSeconds         = 1000LL * m_TicksPerMilliseconds;
-        static constexpr std::int64_t m_TicksPerMinutes         = 60LL * m_TicksPerSeconds;
-        static constexpr std::int64_t m_TicksPerHours           = 60LL * m_TicksPerMinutes;
-        static constexpr std::int64_t m_TicksPerDays            = 24LL * m_TicksPerHours;
-
-        static constexpr auto m_DaysPerMonth                    = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+        static constexpr std::int64_t m_TicksPerMilliseconds = 10000LL;
+        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMilliseconds;
+        static constexpr std::int64_t m_TicksPerMinutes = 60LL * m_TicksPerSeconds;
+        static constexpr std::int64_t m_TicksPerHours = 60LL * m_TicksPerMinutes;
+        static constexpr std::int64_t m_TicksPerDays = 24LL * m_TicksPerHours;
 
     public:
         explicit constexpr TimeSpan() noexcept : m_Ticks{} {};
@@ -28,27 +22,27 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static constexpr TimeSpan FromSeconds(double seconds) noexcept {
-            return TimeSpan{ static_cast<std::int64_t>(seconds * static_cast<double>(m_TicksPerSeconds)) };
+            return TimeSpan{static_cast<std::int64_t>(seconds * static_cast<double>(m_TicksPerSeconds))};
         }
 
         [[nodiscard]] static constexpr TimeSpan FromMinutes(double minutes) noexcept {
-            return TimeSpan{ static_cast<std::int64_t>(minutes * static_cast<double>(m_TicksPerMinutes)) };
+            return TimeSpan{static_cast<std::int64_t>(minutes * static_cast<double>(m_TicksPerMinutes))};
         }
 
         [[nodiscard]] static constexpr TimeSpan FromHours(double hours) noexcept {
-            return TimeSpan{ static_cast<std::int64_t>(hours * static_cast<double>(m_TicksPerHours)) };
+            return TimeSpan{static_cast<std::int64_t>(hours * static_cast<double>(m_TicksPerHours))};
         }
 
         [[nodiscard]] static constexpr TimeSpan FromDays(double days) noexcept {
-            return TimeSpan{ static_cast<std::int64_t>(days * static_cast<double>(m_TicksPerDays)) };
+            return TimeSpan{static_cast<std::int64_t>(days * static_cast<double>(m_TicksPerDays))};
         }
 
         [[nodiscard]] static constexpr TimeSpan FromMin() noexcept {
-            return TimeSpan{ std::numeric_limits<std::int64_t>::min() };
+            return TimeSpan{std::numeric_limits<std::int64_t>::min()};
         }
 
         [[nodiscard]] static constexpr TimeSpan FromMax() noexcept {
-            return TimeSpan{ std::numeric_limits<std::int64_t>::max() };
+            return TimeSpan{std::numeric_limits<std::int64_t>::max()};
         }
 
         [[nodiscard]] constexpr std::int64_t GetTicks() const noexcept {

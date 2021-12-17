@@ -8,7 +8,6 @@
 
 namespace Helena::Types
 {
-    // UniqueIndexer cannot be used in storage where used multiple object with same type
     template <typename UniqueKey>
     class UniqueIndexer
     {
@@ -31,7 +30,7 @@ namespace Helena::Types
             return TypeIndexer<T>::GetIndex(m_Indexes);
         }
 
-        std::size_t Size() const noexcept {
+        [[nodiscard]] std::size_t GetSize() const noexcept {
             return m_Indexes.size();
         }
 

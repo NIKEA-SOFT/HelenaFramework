@@ -38,7 +38,7 @@ namespace Helena
             NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
         if(!hFile || hFile == INVALID_HANDLE_VALUE) {
-            HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", GetLastError());
+            Log::Console<Log::Exception>("Create file for dump failed, error: {}", GetLastError());
             return EXCEPTION_EXECUTE_HANDLER;
         }
 
@@ -53,10 +53,10 @@ namespace Helena
 
         const BOOL result = MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, NULL, NULL);
         if(!result) {
-            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", GetLastError());
+            Log::Console<Log::Exception>("Create dump failed, error: {}", GetLastError());
             DeleteFileA(dumpName.c_str());
         } else {
-            HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName.c_str());
+            Log::Console<Log::Exception>("SEH Handler Dump: \"{}\" created!", dumpName.c_str());
         }
 
         CloseHandle(hFile);
@@ -80,8 +80,8 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::ConsoleInfo(std::string_view msg, Args&&... args) {
-        const auto buffer = Types::Format<MAX_PATH>(msg, std::forward<Args>(args)...);
+    void Engine::ConsoleInfo(std::string_view msg, [[maybe_unused]] Args&&... args) {
+        const auto buffer = Types::Format<32>(msg, std::forward<Args>(args)...);
         SetConsoleTitleA(buffer.GetData());
     }
 
@@ -129,7 +129,7 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    void Engine::SignalBase(Args&&... args) 
+    void Engine::SignalBase([[maybe_unused]] Args&&... args)
     {
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
@@ -188,11 +188,14 @@ namespace Helena
                 ctx.m_TimeElapsed += ctx.m_DeltaTime;
 
             #if defined(HELENA_PLATFORM_WIN)
-                const auto timeElapsedFPS = std::chrono::duration<float>{ctx.m_TimeNow - ctx.m_TimeStart}.count();
-                if(timeElapsedFPS > ctx.m_TimeLeftFPS) {
-                    ctx.m_TimeLeftFPS = timeElapsedFPS + 1.f;
-                    ConsoleInfo("App: {} | FPS: {}", ctx.GetAppName(), ctx.m_CountFPS);
-                    ctx.m_CountFPS = 0;
+                static std::uint32_t countFPS = 0;
+                static float timeFPS = 0.f; 
+
+                timeFPS += ctx.m_DeltaTime;
+                if(timeFPS > 1.f) {
+                    timeFPS -= 1.f;
+                    ConsoleInfo("App: {} | FPS: {}{}", ctx.GetAppName(), countFPS, '\0');
+                    countFPS = 0;
                 }
             #endif
 
@@ -204,7 +207,10 @@ namespace Helena
 
                 if(ctx.m_TimeElapsed >= ctx.m_Tickrate) {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    ctx.m_CountFPS++;
+
+                #if defined(HELENA_PLATFORM_WIN)
+                    countFPS++;
+                #endif
 
                     SignalBase<Events::Engine::Update>(ctx.m_Tickrate);
                 }
@@ -258,7 +264,7 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const std::string_view format, Args&&... args)
+    void Engine::Shutdown(const std::string_view format, [[maybe_unused]] Args&&... args)
     {
         auto& ctx = Context::GetInstance();
         const std::lock_guard lock{ctx.m_ShutdownMutex};
@@ -270,7 +276,7 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
-    void Engine::RegisterSystem(Args&&... args) {
+    void Engine::RegisterSystem([[maybe_unused]] Args&&... args) {
         auto& ctx = Context::GetInstance();
         ctx.m_Systems.Create<T>(std::forward<Args>(args)...);
     }
@@ -334,7 +340,7 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    void Engine::SignalEvent(Args&&... args) 
+    void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 

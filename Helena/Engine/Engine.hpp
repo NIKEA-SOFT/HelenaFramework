@@ -16,12 +16,15 @@ namespace Helena
         struct Init {};
         struct Config {};
         struct Execute {};
+
         struct Tick {
             float deltaTime;
         };
+
         struct Update {
             float fixedTime;
         };
+
         struct Finalize {};
         struct Shutdown {};
     }
@@ -61,7 +64,7 @@ namespace Helena
 
         public:
 
-            Context() noexcept : m_Tickrate{ 1.f / 30.f }, m_DeltaTime{}, m_TimeElapsed{}, m_TimeLeftFPS{}, m_CountFPS{}, m_State{ EState::Undefined } {}
+            Context() noexcept : m_Tickrate{ 1.f / 30.f }, m_DeltaTime{}, m_TimeElapsed{}, m_State{ EState::Undefined } {}
             virtual ~Context() {
                 m_Events.Clear();
                 m_Systems.Clear();
@@ -74,7 +77,7 @@ namespace Helena
             template <typename T = Context, typename... Args>
             requires std::is_base_of_v<Context, T> && std::is_constructible_v<T, Args...>
             static void Initialize([[maybe_unused]] Args&&... args) {
-                HELENA_ASSERT(!m_Context, "EngineContext already initialized!");
+                HELENA_ASSERT(!m_Context, "Context already initialized!");
                 m_Context = std::make_shared<T>(std::forward<Args>(args)...);
             }
 
@@ -86,10 +89,6 @@ namespace Helena
                 m_Context = ctx;
             }
 
-            static void Finalize() noexcept {
-                m_Context.reset();
-            }
-
             template <typename T = Context>
             requires std::is_base_of_v<Context, T>
             [[nodiscard]] static std::shared_ptr<T> Get() noexcept {
@@ -97,15 +96,9 @@ namespace Helena
                 return std::static_pointer_cast<T>(m_Context);
             }
 
-            template <typename... Args>
             static void SetAppName(std::string name) noexcept {
                 auto& ctx = GetInstance();
                 ctx.m_ApplicationName = std::move(name);
-            }
-
-            static const std::string& GetAppName() noexcept {
-                const auto& ctx = GetInstance();
-                return ctx.m_ApplicationName;
             }
 
             static void SetTickrate(float tickrate) noexcept {
@@ -116,6 +109,11 @@ namespace Helena
             static void SetMain(Callback callback) noexcept {
                 auto& ctx = GetInstance();
                 ctx.m_Callback = std::move(callback);
+            }
+
+            static const std::string& GetAppName() noexcept {
+                const auto& ctx = GetInstance();
+                return ctx.m_ApplicationName;
             }
 
             [[nodiscard]] static float GetTickrate() noexcept {
@@ -135,15 +133,11 @@ namespace Helena
 
             float m_Tickrate;
             float m_DeltaTime;
-
             float m_TimeElapsed;
-            float m_TimeLeftFPS;
 
             std::chrono::steady_clock::time_point m_TimeStart;
             std::chrono::steady_clock::time_point m_TimeNow;
             std::chrono::steady_clock::time_point m_TimePrev;
-
-            std::uint32_t m_CountFPS;
 
             EState m_State;
 
@@ -169,7 +163,7 @@ namespace Helena
         static void RemoveEventByKey();
 
         template <typename Event, typename... Args>
-        static void SignalBase(Args&&... args);
+        static void SignalBase([[maybe_unused]] Args&&... args);
 
     public:
         [[nodiscard]] static bool Heartbeat();
@@ -177,11 +171,11 @@ namespace Helena
         [[nodiscard]] static EState GetState() noexcept;
 
         template <typename... Args>
-        static void Shutdown(const std::string_view format = {}, Args&&... args);
+        static void Shutdown(const std::string_view format = {}, [[maybe_unused]] Args&&... args);
 
     public:
         template <typename T, typename... Args>
-        static void RegisterSystem(Args&&... args);
+        static void RegisterSystem([[maybe_unused]] Args&&... args);
 
         template <typename... T>
         [[nodiscard]] static bool HasSystem();
@@ -203,7 +197,7 @@ namespace Helena
         static void SubscribeEvent(EventCallbackSystem<Event, System> callback);
 
         template <typename Event, typename... Args>
-        static void SignalEvent(Args&&... args);
+        static void SignalEvent([[maybe_unused]] Args&&... args);
 
         template <typename Event>
         static void RemoveEvent(EventCallback<Event> callback);
@@ -217,7 +211,7 @@ namespace Helena
         static LONG WINAPI MiniDumpSEH(EXCEPTION_POINTERS* pException);
 
         template <typename... Args>
-        static void ConsoleInfo(std::string_view msg, Args&&... args);
+        static void ConsoleInfo(std::string_view msg, [[maybe_unused]] Args&&... args);
     #elif defined(HELENA_PLATFORM_LINUX)
         static auto SigHandler(int signal) -> void;
     #endif

@@ -1,4 +1,4 @@
-﻿#include <Helena/Systems/PluginManager.hpp>
+﻿#include <Helena/Helena.hpp>
 
 
 class GameApplication

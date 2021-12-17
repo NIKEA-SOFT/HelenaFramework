@@ -1,144 +1,154 @@
 #ifndef HELENA_TYPES_FIXEDBUFFER_HPP
 #define HELENA_TYPES_FIXEDBUFFER_HPP
 
-#include <Helena/Types/Format.hpp>
 #include <Helena/Util/Length.hpp>
 
 namespace Helena::Types
 {
-	template <std::size_t Capacity, typename Char = char, Util::ELengthPolicy Policy = Util::ELengthPolicy::Fixed>
-	struct FixedBuffer
-	{
-		static constexpr std::size_t max_size = std::numeric_limits<std::size_t>::max();
+    template <std::size_t Capacity>
+    class Format;
 
-		constexpr void FillBuffer(const Char* data, std::size_t size = max_size) noexcept 
-		{
-			if(!data && size) {
-				Clear();
-				return;
-			}
+    template <std::size_t Capacity, Util::ELengthPolicy Policy = Util::ELengthPolicy::Fixed>
+    struct FixedBuffer
+    {
+        constexpr void FillBuffer(const char* const data, std::size_t size = std::numeric_limits<std::size_t>::max()) noexcept
+        {
+            if(data)
+            {
+                if(size > Capacity)
+                {
+                    if(size == std::numeric_limits<std::size_t>::max()) {
+                        size = Util::Length(Policy, data, Capacity);
+                    }
+                    else
+                    {
+                        switch(Policy)
+                        {
+                            case Util::ELengthPolicy::Truncate: {
+                                size = Capacity;
+                            } break;
+                            case Util::ELengthPolicy::Fixed: {
+                                size = 0;
+                            } break;
+                        }
+                    }
+                }
 
-			if(size == max_size) {
-				size = Util::Length(Policy, data, Capacity);
-			} 
-			else if(size > Capacity) 
-			{
-				if constexpr(Policy == Util::ELengthPolicy::Truncate) {
-					size = Capacity;
-				} else if constexpr(Policy == Util::ELengthPolicy::Fixed) {
-					Clear();
-					return;
-				}
-			}
+                *std::copy_n(data, size, m_Buffer) = '\0';
+                m_Size = static_cast<size_type>(size);
+                return;
+            }
 
-			std::memcpy(m_Buffer, data, size);
-			m_Buffer[size] = '\0';
-			m_Size = static_cast<size_type>(size);
-		}
+            Clear();
+        }
 
-		using size_type	 =	std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
-							std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
-							std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
+        using size_type	 =	std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
+                            std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
+                            std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
 
-		constexpr FixedBuffer() = default;
-		constexpr ~FixedBuffer() = default;
+        constexpr FixedBuffer() = default;
+        constexpr ~FixedBuffer() = default;
 
-		constexpr FixedBuffer(const FixedBuffer& other) noexcept {
-			FillBuffer(other.m_Buffer, other.m_Size);
-		}
+        constexpr FixedBuffer(const FixedBuffer& other) noexcept {
+            FillBuffer(other.m_Buffer, other.m_Size);
+        }
 
-		constexpr FixedBuffer(FixedBuffer&& other) noexcept {
-			FillBuffer(other.m_Buffer, other.m_Size);
-		}
+        constexpr FixedBuffer(FixedBuffer&& other) noexcept {
+            FillBuffer(other.m_Buffer, other.m_Size);
+        }
 
-		constexpr FixedBuffer(const Char* data) noexcept {
-			FillBuffer(data);
-		}
+        constexpr FixedBuffer(const char* data) noexcept {
+            FillBuffer(data);
+        }
 
-		template <std::size_t CapacityOther>
-		constexpr FixedBuffer(const Format<CapacityOther>& other) noexcept {
-			FillBuffer(other.GetData(), other.GetSize());
-		}
+        constexpr FixedBuffer(const char* data, const std::size_t size) noexcept {
+            FillBuffer(data, size);
+        }
 
-		constexpr void SetData(const Char* data) noexcept {
-			FillBuffer(data);
-		}
+        template <std::size_t CapacityOther>
+        FixedBuffer(const Format<CapacityOther>& other) noexcept {
+            FillBuffer(other.GetData(), other.GetSize());
+        }
 
-		[[nodiscard]] constexpr const Char* GetData() const noexcept {
-			return m_Buffer;
-		}
+        constexpr void SetData(const char* data) noexcept {
+            FillBuffer(data);
+        }
 
-		[[nodiscard]] constexpr std::size_t GetSize() const noexcept {
-			return m_Size;
-		}
+        [[nodiscard]] constexpr const char* GetData() const noexcept {
+            return m_Buffer;
+        }
 
-		[[nodiscard]] static constexpr std::size_t GetCapacity() noexcept {
-			return Capacity;
-		}
+        [[nodiscard]] constexpr std::size_t GetSize() const noexcept {
+            return m_Size;
+        }
 
-		template <std::size_t CapacityOther>
-		[[nodiscard]] constexpr bool IsEqual(const FixedBuffer<CapacityOther>& other) const noexcept {
-			if(m_Size != other.m_Size) return false;
-			return std::equal(m_Buffer, m_Buffer + m_Size, other.m_Buffer, other.m_Buffer + other.m_Size);
-		}
+        [[nodiscard]] static constexpr std::size_t GetCapacity() noexcept {
+            return Capacity;
+        }
 
-		template <std::size_t CapacityOther>
-		[[nodiscard]] constexpr bool IsEqual(const Format<CapacityOther>& other) const noexcept {
-			if(m_Size != other.GetSize()) return false;
-			return std::equal(m_Buffer, m_Buffer + m_Size, other.GetData(), other.GetData() + other.GetSize());
-		}
+        template <std::size_t CapacityOther>
+        [[nodiscard]] constexpr bool IsEqual(const FixedBuffer<CapacityOther>& other) const noexcept {
+            if(m_Size != other.m_Size) return false;
+            return std::equal(m_Buffer, m_Buffer + m_Size, other.m_Buffer, other.m_Buffer + other.m_Size);
+        }
 
-		[[nodiscard]] constexpr bool IsEmpty() const noexcept {
-			return !m_Size;
-		}
+        template <std::size_t CapacityOther>
+        [[nodiscard]] constexpr bool IsEqual(const Format<CapacityOther>& other) const noexcept {
+            if(m_Size != other.GetSize()) return false;
+            return std::equal(m_Buffer, m_Buffer + m_Size, other.GetData(), other.GetData() + other.GetSize());
+        }
 
-		constexpr void Clear() noexcept {
-			m_Size = 0;
-			m_Buffer[m_Size] = '\0';
-		}
+        [[nodiscard]] constexpr bool IsEmpty() const noexcept {
+            return !m_Size;
+        }
 
-		constexpr bool operator==(const FixedBuffer& other) const noexcept {
-			return IsEqual(other);
-		}
+        constexpr void Clear() noexcept {
+            m_Size = 0;
+            m_Buffer[m_Size] = '\0';
+        }
 
-		constexpr bool operator!=(const FixedBuffer& other) const noexcept {
-			return !IsEqual(other);
-		}
+        [[nodiscard]] constexpr bool operator==(const FixedBuffer& other) const noexcept {
+            return IsEqual(other);
+        }
 
-		constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
-			FillBuffer(other.m_Buffer, other.m_Size);
-			return *this;
-		}
+        [[nodiscard]] constexpr bool operator!=(const FixedBuffer& other) const noexcept {
+            return !IsEqual(other);
+        }
 
-		constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
-			FillBuffer(other.m_Buffer, other.m_Size);
-			return *this;
-		}
+        constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
+            FillBuffer(other.m_Buffer, other.m_Size);
+            return *this;
+        }
 
-		constexpr FixedBuffer& operator=(const Char* data) noexcept {
-			FillBuffer(data);
-			return *this;
-		}
+        constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
+            FillBuffer(other.m_Buffer, other.m_Size);
+            return *this;
+        }
 
-		template <std::size_t CapacityOther>
-		constexpr FixedBuffer& operator=(const Format<CapacityOther>& other) noexcept  {
-			FillBuffer(other.GetData(), other.GetSize());
-			return *this;
-		}
+        constexpr FixedBuffer& operator=(const char* data) noexcept {
+            FillBuffer(data);
+            return *this;
+        }
 
-		[[nodiscard]] constexpr operator std::basic_string_view<Char>() const noexcept {
-			return {m_Buffer, m_Size};
-		}
+        template <std::size_t CapacityOther>
+        constexpr FixedBuffer& operator=(const Format<CapacityOther>& other) noexcept  {
+            FillBuffer(other.GetData(), other.GetSize());
+            return *this;
+        }
 
-		Char m_Buffer[Capacity + 1] {};
-		size_type m_Size {};
-	};
+        [[nodiscard]] constexpr operator std::string_view() const noexcept {
+            return {m_Buffer, m_Size};
+        }
 
-	template <std::size_t Capacity>
-	FixedBuffer(Format<Capacity>&&) -> FixedBuffer<Capacity, char>;
+        char m_Buffer[Capacity + 1] {};
+        size_type m_Size {};
+    };
 
-	template <std::size_t Capacity, typename Char = char>
-	FixedBuffer(const Char (&array)[Capacity]) -> FixedBuffer<Capacity, Char>;
+    template <std::size_t Capacity>
+    FixedBuffer(Format<Capacity>&&) -> FixedBuffer<Capacity>;
+
+    template <std::size_t Capacity>
+    FixedBuffer(const char (&)[Capacity]) -> FixedBuffer<Capacity>;
 }
 
 #endif // HELENA_TYPES_FIXEDBUFFER_HPP
