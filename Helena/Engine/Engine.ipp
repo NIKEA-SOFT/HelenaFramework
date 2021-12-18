@@ -228,14 +228,12 @@ namespace Helena
 
                 ctx.m_Events.Clear();
                 ctx.m_Systems.Clear();
-
                 ctx.m_State = EState::Undefined;
 
-                const auto reason = static_cast<std::string_view>(ctx.m_ShutdownReason);
-                if(!reason.empty()) {
-                    HELENA_MSG_FATAL("Shutdown Engine with reason: {}", reason);
-                } else {
-                    HELENA_MSG_WARNING("Shutdown Engine");
+                if(!ctx.m_ShutdownMessage.m_Message.empty()) {
+                    const auto format = Types::BasicLogger::Formater<Log::Fatal>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
+                    Log::Console(format);
+                    ctx.m_ShutdownMessage.m_Message.clear();
                 }
 
                 return false;
@@ -264,14 +262,20 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const std::string_view format, [[maybe_unused]] Args&&... args)
+    void Engine::Shutdown(const std::string_view msg, [[maybe_unused]] Args&&... args, const Types::SourceLocation location)
     {
         auto& ctx = Context::GetInstance();
-        const std::lock_guard lock{ctx.m_ShutdownMutex};
+        const std::lock_guard lock{ctx.m_ShutdownMessage.m_Mutex};
 
         if(ctx.m_State != EState::Shutdown) {
             ctx.m_State = EState::Shutdown;
-            ctx.m_ShutdownReason = Util::Format(format, std::forward<Args>(args)...);
+
+            ctx.m_ShutdownMessage.m_Location = location;
+            ctx.m_ShutdownMessage.m_Message = "Shutdown Engine";
+
+            if(!msg.empty()) {
+                ctx.m_ShutdownMessage.m_Message = " with reason: " + Util::Format(msg, std::forward<Args>(args)...);
+            }
         }
     }
 

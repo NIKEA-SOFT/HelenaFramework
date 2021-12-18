@@ -4,9 +4,9 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
-#include <Helena/Types/Delegate.hpp>
+#include <Helena/Types/LocationString.hpp>
+#include <Helena/Types/Mutex.hpp>
 
-#include <mutex>
 #include <functional>
 
 namespace Helena
@@ -52,6 +52,12 @@ namespace Helena
         class Context
         {
             friend class Engine;
+
+            struct ShutdownMessage {
+                std::string m_Message;
+                Types::SourceLocation m_Location;
+                Types::Mutex m_Mutex;
+            };
 
         protected:
             using Callback = std::function<void()>;
@@ -111,7 +117,7 @@ namespace Helena
                 ctx.m_Callback = std::move(callback);
             }
 
-            static const std::string& GetAppName() noexcept {
+            [[nodiscard]] static const std::string& GetAppName() noexcept {
                 const auto& ctx = GetInstance();
                 return ctx.m_ApplicationName;
             }
@@ -127,8 +133,7 @@ namespace Helena
 
             Callback m_Callback;
 
-            std::mutex  m_ShutdownMutex;
-            std::string m_ShutdownReason;
+            ShutdownMessage m_ShutdownMessage;
             std::string m_ApplicationName;
 
             float m_Tickrate;
@@ -171,7 +176,7 @@ namespace Helena
         [[nodiscard]] static EState GetState() noexcept;
 
         template <typename... Args>
-        static void Shutdown(const std::string_view format = {}, [[maybe_unused]] Args&&... args);
+        static void Shutdown(const std::string_view msg = {}, [[maybe_unused]] Args&&... args, const Types::SourceLocation location = Types::SourceLocation::Create());
 
     public:
         template <typename T, typename... Args>
