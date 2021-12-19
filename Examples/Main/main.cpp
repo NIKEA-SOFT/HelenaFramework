@@ -2,11 +2,6 @@
 
 int main(int argc, char** argv)
 {
-    const auto wtf = Helena::Types::DateTime::FromString("%D/%M/%Y %h:%m:%s:%ms", "12/12/2024 24:12:7055");
-    if(wtf.IsNull()) {
-        HELENA_MSG_ERROR("Parse datetime failed");
-    }
-
     //Engine started from Initialize method
     Helena::Engine::Context::Initialize();                  // Initialize Context (Context used in Engine)
     Helena::Engine::Context::SetAppName("Helena");          // Set application name
