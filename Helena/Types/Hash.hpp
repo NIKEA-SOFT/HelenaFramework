@@ -25,9 +25,9 @@ namespace Helena::Hash
         return value;
     }
 
-    template <typename T>
+    template <typename T, typename P = std::uint64_t>
     [[nodiscard]] constexpr auto Get() noexcept {
-        return Get(Helena::Traits::NameOf<T>::value);
+        return Get<P>(Helena::Traits::NameOf<T>::value);
     }
 }
 
