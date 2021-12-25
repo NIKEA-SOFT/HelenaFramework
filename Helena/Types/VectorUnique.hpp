@@ -92,18 +92,12 @@ namespace Helena::Types
         }
 
         template <typename Callback>
-        void Each(Callback func, bool reset = false)
+        void Each(Callback func)
         {
             for(std::size_t i = 0; i < m_Storage.size(); ++i)
             {
-                if(auto& data = m_Storage[i])
-                {
+                if(auto& data = m_Storage[i]) {
                     func(data.value());
-
-                    if(reset) {
-                        m_Storage[i].reset();
-                        m_Size--;
-                    }
                 }
             }
         }

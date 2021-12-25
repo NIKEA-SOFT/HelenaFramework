@@ -9,7 +9,7 @@
 
 namespace Helena::Types
 {
-    template <typename UniqueKey, std::size_t Capacity>
+    template <typename UniqueKey, std::size_t Capacity = sizeof(double)>
     class VectorAny final
     {
         using any_type = Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
