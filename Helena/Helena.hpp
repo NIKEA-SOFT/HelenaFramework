@@ -42,12 +42,12 @@
 #include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Types/Format.hpp>
 #include <Helena/Types/Hash.hpp>
-#include <Helena/Types/LockFreeQueue.hpp>
 #include <Helena/Types/Monostate.hpp>
 #include <Helena/Types/Mutex.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Types/Spinlock.hpp>
 #include <Helena/Types/TimeSpan.hpp>
+#include <Helena/Types/TSVector.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
