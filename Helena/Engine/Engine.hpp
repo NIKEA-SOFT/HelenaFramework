@@ -1,6 +1,7 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
+#include <Helena/Platform/Platform.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
@@ -67,6 +68,8 @@ namespace Helena
                 Types::Mutex m_Mutex;
             };
 
+            static constexpr auto DefaultTickrate = 1.f / 30.f;
+
         protected:
             using Callback = std::function<void ()>;
 
@@ -78,8 +81,8 @@ namespace Helena
 
         public:
 
-            Context() noexcept : m_Tickrate{ 1.f / 30.f }, m_DeltaTime{}, m_TimeElapsed{}, m_State{ EState::Undefined } {}
-            virtual ~Context() {
+            Context() noexcept : m_Tickrate{DefaultTickrate}, m_DeltaTime{}, m_TimeElapsed{}, m_State{ EState::Undefined } {}
+            ~Context() {
                 m_Events.Clear();
                 m_Systems.Clear();
             }
@@ -99,7 +102,7 @@ namespace Helena
             requires std::is_base_of_v<Context, T>
             static void Initialize(const std::shared_ptr<T>& ctx) noexcept {
                 HELENA_ASSERT(ctx, "Context is empty!");
-                HELENA_ASSERT(!m_Context || m_Context == ctx, "Context already initialized!");
+                HELENA_ASSERT(!m_Context || ctx && m_Context == ctx, "Context already initialized!");
                 m_Context = ctx;
             }
 
@@ -188,7 +191,7 @@ namespace Helena
         [[nodiscard]] static EState GetState() noexcept;
 
         template <typename... Args>
-        static void Shutdown(const std::string_view msg = {}, [[maybe_unused]] Args&&... args, const Types::SourceLocation location = Types::SourceLocation::Create());
+        static void Shutdown(std::string_view msg = {}, [[maybe_unused]] Args&&... args, Types::SourceLocation location = Types::SourceLocation::Create());
 
         template <typename T, typename... Args>
         static void RegisterSystem([[maybe_unused]] Args&&... args);

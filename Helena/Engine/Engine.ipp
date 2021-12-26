@@ -178,8 +178,7 @@ namespace Helena
 
                     SignalEvent<Events::Engine::Update>(ctx.m_Tickrate);
 
-                    if(accumulator >= accumulatorMax) [[unlikely]] {
-                        HELENA_MSG_WARNING("Your game loop is time consuming!", ctx.m_TimeElapsed); 
+                    if(accumulator >= accumulatorMax) {
                         break;
                     }
 
@@ -235,7 +234,7 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const std::string_view msg, [[maybe_unused]] Args&&... args, const Types::SourceLocation location)
+    void Engine::Shutdown(std::string_view msg, [[maybe_unused]] Args&&... args, Types::SourceLocation location)
     {
         auto& ctx = Context::GetInstance();
         const std::lock_guard lock{ctx.m_ShutdownMessage.m_Mutex};
@@ -296,7 +295,7 @@ namespace Helena
     void Engine::RegisterEvent(std::uintptr_t id, Callback&& callback) 
     {
         auto& pool = GetEventPool<Event>();
-        const auto empty = FindEvent(pool.cbegin(), pool.cend(), id);
+        const auto empty = FindEvent(pool.cbegin(), pool.cend(), id) == pool.cend();
         HELENA_ASSERT(empty, "Listener already registered!");
         if(empty){
             pool.emplace_back(id, std::forward<Callback>(callback));
