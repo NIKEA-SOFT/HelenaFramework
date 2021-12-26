@@ -21,6 +21,7 @@
     #include <timeapi.h>
     #include <Dbghelp.h>
     #include <exception>
+    #include <cstdio>
 
     #pragma comment(lib, "winmm.lib")
     #pragma comment(lib, "dbghelp.lib")
@@ -40,9 +41,11 @@
         __declspec(dllexport) inline int AmdPowerXpressRequestHighPerformance = 1;
     }
 
-    inline auto ENABLE_SUPPORT_GAMES = []() noexcept {
-        return NvOptimusEnablement && AmdPowerXpressRequestHighPerformance;
-    }();
+    #if !defined(_WINDLL)
+        inline auto ENABLE_SUPPORT_GAMES = []() noexcept {
+            return NvOptimusEnablement && AmdPowerXpressRequestHighPerformance;
+        }();
+    #endif
 
     inline auto ENABLE_TIME_BEGIN_PERIOD_1MS = []() noexcept  {
         timeBeginPeriod(1);
@@ -50,6 +53,11 @@
     }();
 
     inline auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() noexcept {
+
+        if(!GetConsoleWindow()) {
+            return 0;
+        }
+
         // Set UTF-8
         SetConsoleCP(65001);
         SetConsoleOutputCP(65001);
@@ -57,7 +65,7 @@
         // Fix Windows fmt.print, enable virtual terminal processing
         if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE)
         {
-            DWORD mode {};
+            DWORD mode{};
             if(!GetConsoleMode(hStdOut, &mode)) {
                 MessageBoxA(NULL, "Get console mode failed!", "Error", MB_OK);
                 std::terminate();
