@@ -1,11 +1,11 @@
 #ifndef HELENA_TYPES_MONOSTATE_HPP
 #define HELENA_TYPES_MONOSTATE_HPP
 
-#include <Helena/Types/FixedString.hpp>
+#include <Helena/Types/FixedBuffer.hpp>
 
 namespace Helena::Types
 {
-    template <Types::FixedString Key>
+    template <Types::FixedBuffer Key>
     struct Monostate
     {
         template <typename Type>

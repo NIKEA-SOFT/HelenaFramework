@@ -8,7 +8,6 @@
 
 namespace Helena::Types
 {
-    // UniqueIndexer cannot be used in storage where used multiple object with same type
     template <typename UniqueKey>
     class UniqueIndexer
     {
@@ -31,7 +30,7 @@ namespace Helena::Types
             return TypeIndexer<T>::GetIndex(m_Indexes);
         }
 
-        std::size_t Size() const noexcept {
+        [[nodiscard]] std::size_t GetSize() const noexcept {
             return m_Indexes.size();
         }
 
@@ -39,9 +38,13 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
+            [[nodiscard]] static constexpr auto GetKey() noexcept {
+                return Hash::Get<T, std::uint64_t>();
+            }
+
             [[nodiscard]] static auto GetIndex(storage_type& storage) {
                 // Get a name of type T and generate a hash to use as a key for a hash map
-                static const auto index = GetIndexByKey(storage, Hash::Get<T>());
+                static const auto index = GetIndexByKey(storage, GetKey());
                 HELENA_ASSERT(index < storage.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
                 return index;
             }

@@ -39,12 +39,6 @@ namespace Helena::Traits
 
     template <typename Default, template <typename...> typename Expression, typename... Args>
     using DetectedOrType = typename Details::Detector<Default, void, Expression, Args...>::storage_type;   
-
-    template <template <typename...> typename Expression, typename... Args>
-    concept Detected = IsDetected<Expression>::value;
-
-    template <typename Default, template <typename...> typename Expression, typename... Args>
-    concept DetectedOr = IsDetectedOr<Default, void, Expression, Args...>::value;
 }
 
 

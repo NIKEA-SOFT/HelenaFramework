@@ -128,9 +128,9 @@ namespace Helena::Types {
             using type = Type;
         };
 
-        template<typename... Class, typename Ret, typename... Args>
-        [[nodiscard]] constexpr auto index_sequence_for(Ret (*)(Args...)) {
-            return std::index_sequence_for<Class..., Args...>{};
+        template<typename... Class, typename Ret_, typename... Args_>
+        [[nodiscard]] constexpr auto index_sequence_for(Ret_(*)(Args_...)) {
+            return std::index_sequence_for<Class..., Args_...>{};
         }
 
         /**
@@ -361,8 +361,8 @@ namespace Helena::Types {
         * @param rhs A valid delegate object.
         * @return True if the two contents differ, false otherwise.
         */
-        template<typename Ret, typename... Args>
-        [[nodiscard]] bool operator!=(const Delegate<Ret(Args...)> &rhs) noexcept {
+        template<typename Ret_, typename... Args_>
+        [[nodiscard]] bool operator!=(const Delegate<Ret_(Args_...)> &rhs) noexcept {
             return !(*this == rhs);
         }
 
