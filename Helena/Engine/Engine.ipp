@@ -86,7 +86,7 @@ namespace Helena
 
     template <typename... Args>
     void Engine::ConsoleInfo(std::string_view msg, [[maybe_unused]] Args&&... args) {
-        const auto buffer = Types::Format<32>(msg, std::forward<Args>(args)...);
+        const auto buffer = Types::Format<30>(msg, std::forward<Args>(args)...);
         SetConsoleTitleA(buffer.GetData());
     }
 
@@ -115,6 +115,24 @@ namespace Helena
     {
         auto& ctx = Context::GetInstance();
         const auto state = ctx.m_State.load(std::memory_order_relaxed);
+        auto fnGetTimeMS = []() noexcept {
+            std::uint64_t ms {};
+        #if defined(HELENA_PLATFORM_WIN)
+            static LARGE_INTEGER s_frequency;
+            static BOOL s_use_qpc = QueryPerformanceFrequency(&s_frequency);
+            LARGE_INTEGER now;
+            if(s_use_qpc && QueryPerformanceCounter(&now)) {
+                ms = (1000LL * now.QuadPart) / s_frequency.QuadPart;
+            } else {
+                ms = GetTickCount64();
+            }
+        #else
+            struct timeval te;
+            gettimeofday(&te, NULL);
+            ms = te.tv_sec * 1000LL + te.tv_usec / 1000;
+        #endif
+            return ms;
+        };
 
     #if defined(HELENA_PLATFORM_WIN)
         __try {
@@ -126,7 +144,7 @@ namespace Helena
                 RegisterHandlers();
 
                 ctx.m_State     = EState::Init;
-                ctx.m_TimeStart = std::chrono::steady_clock::now();
+                ctx.m_TimeStart = fnGetTimeMS();
                 ctx.m_TimeNow   = ctx.m_TimeStart;
                 ctx.m_TimePrev  = ctx.m_TimeStart;
 
@@ -143,8 +161,8 @@ namespace Helena
             case EState::Init: [[likely]] 
             {
                 ctx.m_TimePrev  = ctx.m_TimeNow;
-                ctx.m_TimeNow   = std::chrono::steady_clock::now();
-                ctx.m_DeltaTime = std::chrono::duration<float>{ctx.m_TimeNow - ctx.m_TimePrev}.count();
+                ctx.m_TimeNow   = fnGetTimeMS();
+                ctx.m_DeltaTime = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.f;
 
                 ctx.m_TimeElapsed += ctx.m_DeltaTime;
 
@@ -156,8 +174,8 @@ namespace Helena
 
                 timeFPS += ctx.m_DeltaTime;
                 if(timeFPS > 1.f) {
-                    timeFPS -= 1.f;
-                    ConsoleInfo("App: {} | FPS: {}{}", ctx.GetAppName(), countFPS, '\0');
+                    timeFPS = 0.f;
+                    ConsoleInfo("App: {} | FPS: {}", ctx.GetAppName(), countFPS);
                     countFPS = 0;
                 }
             #endif
@@ -320,9 +338,9 @@ namespace Helena
                 callback();
             } else {
                 static_assert(sizeof...(Args) == 1, "Args incorrect");
-                static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Args...>>, "Args type incorrect");
+                static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
 
-                callback(static_cast<Args...>(*static_cast<Event*>(event)));
+                callback(static_cast<std::tuple_element_t<0, std::tuple<Args...>>>(*static_cast<Event*>(event)));
             }
         });
     }
@@ -332,7 +350,8 @@ namespace Helena
     {
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
-        RegisterEvent<Event>(Hash::Get<decltype(callback)>(), [callback]([[maybe_unused]] void* event) 
+        constexpr auto id = Hash::Get<decltype(callback), std::uint64_t>();
+        RegisterEvent<Event>(id, [callback]([[maybe_unused]] void* event) 
         {
             if constexpr(std::is_empty_v<Event>) {
                 static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
@@ -342,10 +361,10 @@ namespace Helena
                 }
             } else {
                 static_assert(sizeof...(Args) == 1, "Args incorrect");
-                static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Args...>>, "Args type incorrect");
+                static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
 
                 if(HasSystem<System>()) {
-                    (GetSystem<System>().*callback)(static_cast<Args...>(*static_cast<Event*>(event)));
+                    (GetSystem<System>().*callback)(static_cast<std::tuple_element_t<0, std::tuple<Args...>>>(*static_cast<Event*>(event)));
                 }
             }
         });
@@ -370,14 +389,14 @@ namespace Helena
             Events::Engine::Execute,
             Events::Engine::Finalize,
             Events::Engine::Shutdown>::value) {
-            pool.clear();
+                pool.clear();
         }
     }
 
     template <typename Event>
     void Engine::RemoveEvent(std::uintptr_t id) noexcept
     {
-        const auto& pool = GetEventPool<Event>();
+        auto& pool = GetEventPool<Event>();
         if(const auto it = FindEvent(pool.cbegin(), pool.cend(), id); it != pool.cend()) {
             pool.erase(it);
         }
@@ -394,7 +413,8 @@ namespace Helena
     void Engine::UnsubscribeEvent(void (System::* callback)(Args...)) {
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
 
-        RemoveEvent<Event>(Hash::Get<decltype(callback)>());
+        constexpr auto id = Hash::Get<decltype(callback), std::uint64_t>();
+        RemoveEvent<Event>(id);
     }
 }
 

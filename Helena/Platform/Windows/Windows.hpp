@@ -14,20 +14,22 @@
         #define WIN32_LEAN_AND_MEAN
     #endif
 
-    #include <Windows.h>
-    #include <WinSock2.h>
+    #include <windows.h>
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
     #include <iphlpapi.h>
+    #include <fcntl.h>
     #include <userenv.h>
     #include <timeapi.h>
-    #include <Dbghelp.h>
+    #include <dbghelp.h>
     #include <exception>
     #include <cstdio>
 
     #pragma comment(lib, "winmm.lib")
     #pragma comment(lib, "dbghelp.lib")
-    #pragma comment(lib, "WS2_32.lib")
-    #pragma comment(lib, "Iphlpapi.lib")
-    #pragma comment(lib, "Userenv.lib")
+    #pragma comment(lib, "ws2_32.lib")
+    #pragma comment(lib, "iphlpapi.lib")
+    #pragma comment(lib, "userenv.lib")
 
     #if defined(HELENA_COMPILER_MSVC)
         #if _MSC_VER >= 1910

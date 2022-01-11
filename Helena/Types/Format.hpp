@@ -3,18 +3,22 @@
 
 #include <Helena/Debug/Assert.hpp>
 
+#include <string_view>
+#include <concepts>
+
 namespace Helena::Types
 {
     template <std::size_t Capacity>
     class Format
     {
-        using memory_buffer = fmt::basic_memory_buffer<char, Capacity>;
+        using memory_buffer = fmt::basic_memory_buffer<char, Capacity + 1>;
 
         void Formatting(std::string_view msg, fmt::format_args args) noexcept 
         {
             try {
                 Clear();
                 fmt::detail::vformat_to(m_Buffer, fmt::string_view{msg.data(), msg.size()}, args);
+                m_Buffer.push_back('\0');
             } catch(const fmt::format_error&) {
                 Clear();
                 Log::Console<Log::Exception>(
@@ -70,7 +74,7 @@ namespace Helena::Types
             return m_Buffer.size();
         }
 
-        [[nodiscard]] std::size_t IsEmpty() const noexcept {
+        [[nodiscard]] std::size_t Empty() const noexcept {
             return !GetSize();
         }
 

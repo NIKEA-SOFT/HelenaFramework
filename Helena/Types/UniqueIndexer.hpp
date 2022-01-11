@@ -38,9 +38,13 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
+            [[nodiscard]] static constexpr auto GetKey() noexcept {
+                return Hash::Get<T, std::uint64_t>();
+            }
+
             [[nodiscard]] static auto GetIndex(storage_type& storage) {
                 // Get a name of type T and generate a hash to use as a key for a hash map
-                static const auto index = GetIndexByKey(storage, Hash::Get<T>());
+                static const auto index = GetIndexByKey(storage, GetKey());
                 HELENA_ASSERT(index < storage.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
                 return index;
             }

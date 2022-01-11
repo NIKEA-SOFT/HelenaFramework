@@ -12,7 +12,7 @@ namespace Helena::Hash
     template <typename>
     struct Equaler;
 
-    template <typename T = std::uint64_t, typename = std::enable_if<std::is_integral_v<T>>>
+    template <typename T, typename = std::enable_if<std::is_integral_v<T>>>
     [[nodiscard]] constexpr auto Get(const std::string_view str) noexcept 
     {
         using Hash = Traits::FNV1a<T>;
@@ -25,7 +25,7 @@ namespace Helena::Hash
         return value;
     }
 
-    template <typename T, typename P = std::uint64_t>
+    template <typename T, typename P>
     [[nodiscard]] constexpr auto Get() noexcept {
         return Get<P>(Helena::Traits::NameOf<T>::value);
     }

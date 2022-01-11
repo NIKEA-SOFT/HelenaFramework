@@ -4,6 +4,8 @@
 #include <Helena/Dependencies/Fmt.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 
+#include <concepts>
+
 namespace Helena::Traits 
 {
     template <typename T>
@@ -99,7 +101,7 @@ namespace Helena::Types
 
     public:
         template <typename Logger, typename... Args>
-        BasicLogger(const Formater<Logger> format, Args&&... args) {
+        BasicLogger(const Formater<Logger>& format, Args&&... args) {
             PrintConsole<Logger>(format, std::forward<Args>(args)...);
         }
 

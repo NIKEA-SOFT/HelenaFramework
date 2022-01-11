@@ -2,6 +2,7 @@
 #define HELENA_ENGINE_ENGINE_HPP
 
 #include <Helena/Platform/Platform.hpp>
+#include <Helena/Engine/Events.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
@@ -12,28 +13,6 @@
 
 namespace Helena
 {
-    namespace Events::Engine
-    {
-        struct Init {};
-        struct Config {};
-        struct Execute {};
-
-        struct Tick {
-            float deltaTime;
-        };
-
-        struct Update {
-            float fixedTime;
-        };
-
-        struct Render {
-            float deltaTime;
-        };
-
-        struct Finalize {};
-        struct Shutdown {};
-    }
-
     class Engine final
     {
         template <std::size_t Value> 
@@ -44,8 +23,17 @@ namespace Helena
         using UKSystems         = IUniqueKey<2>;
 
         struct EventData {
+            using Callback = std::function<void(void*)>;
+
+            EventData(std::uintptr_t key, Callback&& cb) : m_Key{key}, m_Callback{std::move(cb)} {}
+            ~EventData() = default;
+            EventData(const EventData&) = default;
+            EventData(EventData&&) noexcept = default;
+            EventData& operator=(const EventData&) = default;
+            EventData& operator=(EventData&&) noexcept = default;
+
             std::uintptr_t m_Key;
-            std::function<void (void*)> m_Callback;
+            Callback m_Callback;
         };
 
         using EventPool = std::vector<EventData>;
@@ -80,8 +68,14 @@ namespace Helena
             }
 
         public:
-
-            Context() noexcept : m_Tickrate{DefaultTickrate}, m_DeltaTime{}, m_TimeElapsed{}, m_State{ EState::Undefined } {}
+            Context() noexcept
+                : m_Tickrate{DefaultTickrate}
+                , m_DeltaTime{}
+                , m_TimeElapsed{}
+                , m_TimeStart{}
+                , m_TimeNow{}
+                , m_TimePrev{}
+                , m_State{EState::Undefined} {}
             ~Context() {
                 m_Events.Clear();
                 m_Systems.Clear();
@@ -151,9 +145,9 @@ namespace Helena
             float m_DeltaTime;
             float m_TimeElapsed;
 
-            std::chrono::steady_clock::time_point m_TimeStart;
-            std::chrono::steady_clock::time_point m_TimeNow;
-            std::chrono::steady_clock::time_point m_TimePrev;
+            std::uint64_t m_TimeStart;
+            std::uint64_t m_TimeNow;
+            std::uint64_t m_TimePrev;
 
             std::atomic<EState> m_State;
 

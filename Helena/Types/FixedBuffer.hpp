@@ -3,6 +3,9 @@
 
 #include <Helena/Util/Length.hpp>
 
+#include <algorithm>
+#include <string_view>
+
 namespace Helena::Types
 {
     template <std::size_t Capacity>
@@ -87,18 +90,18 @@ namespace Helena::Types
         }
 
         template <std::size_t CapacityOther>
-        [[nodiscard]] constexpr bool IsEqual(const FixedBuffer<CapacityOther>& other) const noexcept {
+        [[nodiscard]] constexpr bool Equal(const FixedBuffer<CapacityOther>& other) const noexcept {
             if(m_Size != other.m_Size) return false;
             return std::equal(m_Buffer, m_Buffer + m_Size, other.m_Buffer, other.m_Buffer + other.m_Size);
         }
 
         template <std::size_t CapacityOther>
-        [[nodiscard]] constexpr bool IsEqual(const Format<CapacityOther>& other) const noexcept {
+        [[nodiscard]] constexpr bool Equal(const Format<CapacityOther>& other) const noexcept {
             if(m_Size != other.GetSize()) return false;
             return std::equal(m_Buffer, m_Buffer + m_Size, other.GetData(), other.GetData() + other.GetSize());
         }
 
-        [[nodiscard]] constexpr bool IsEmpty() const noexcept {
+        [[nodiscard]] constexpr bool Empty() const noexcept {
             return !m_Size;
         }
 
@@ -108,11 +111,11 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr bool operator==(const FixedBuffer& other) const noexcept {
-            return IsEqual(other);
+            return Equal(other);
         }
 
         [[nodiscard]] constexpr bool operator!=(const FixedBuffer& other) const noexcept {
-            return !IsEqual(other);
+            return !Equal(other);
         }
 
         constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {

@@ -87,7 +87,6 @@ namespace Helena::Types
 
         using storage_type = std::aligned_storage_t<Len + !Len, Align>;
         using vtable_type = const void* (const operation, const Any&, void*);
-        using hash_type = Traits::FNV1a<std::uint64_t>::value_type;
 
         template<typename Type>
         static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type)
@@ -166,7 +165,7 @@ namespace Helena::Types
                     } [[fallthrough]];
                     case operation::CADDR: return instance;
                     case operation::TYPE: { 
-                        *static_cast<hash_type*>(to) = Hash::Get<Type>(); 
+                        *static_cast<std::uint64_t*>(to) = Hash::Get<Type, std::uint64_t>();
                     } break;
                 }
             }
@@ -308,8 +307,8 @@ namespace Helena::Types
          * @brief Returns the type hash of the contained object.
          * @return The type hash of the contained object, if any.
          */
-        [[nodiscard]] hash_type type_hash() const noexcept {
-            hash_type info{};
+        [[nodiscard]] std::uint64_t type_hash() const noexcept {
+            std::uint64_t info{};
             vtable(operation::TYPE, *this, &info);
             return info;
         }
@@ -443,7 +442,7 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     [[nodiscard]] const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        return (data->type_hash() == Hash::Get<Type>() ? static_cast<const Type*>(data->data()) : nullptr);
+        return (data->type_hash() == Hash::Get<Type, std::uint64_t>() ? static_cast<const Type*>(data->data()) : nullptr);
     }
 
 
@@ -451,7 +450,7 @@ namespace Helena::Types
     template<typename Type, std::size_t Len, std::size_t Align>
     [[nodiscard]] Type* AnyCast(Any<Len, Align>* data) noexcept {
         // last attempt to make wrappers for const references return their values
-        return (data->type_hash() == Hash::Get<Type>() ?
+        return (data->type_hash() == Hash::Get<Type, std::uint64_t>() ?
             static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->data()) : nullptr);
     }
 
