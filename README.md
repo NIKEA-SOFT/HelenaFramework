@@ -31,13 +31,14 @@ class TestSystem
 public:
     TestSystem() {
         // Start listen Engine events
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>    (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>  (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute> (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>    (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>  (&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnEvent);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnEvent);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>    (&TestSystem::OnInit);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>  (&TestSystem::OnConfig);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute> (&TestSystem::OnExecute);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>    (&TestSystem::OnTick);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>  (&TestSystem::OnUpdate);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render>  (&TestSystem::OnRender);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystem::OnFinalize);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystem::OnShutdown);
 
         // Start listen events from system ECSManager
         Helena::Engine::SubscribeEvent<Helena::Events::ECSManager::CreateEntity>(&TestSystem::OnCreateEntity);
@@ -45,34 +46,39 @@ public:
     }
     ~TestSystem() = default;
 
-    void OnEvent(const Helena::Events::Engine::Init&) {
+    // if event type is empty we can ignore argument in callback
+    void OnInit() {
         HELENA_MSG_DEBUG("EventInit");
 
         auto& ecs = Helena::Engine::GetSystem<Helena::Systems::ECSManager>();
         ecs.CreateEntity(); // Create entity and trigger event CreateEntity
     }
 
-    void OnEvent(const Helena::Events::Engine::Config&) {
+    void OnConfig() {
         HELENA_MSG_DEBUG("EngineConfig");
     }
 
-    void OnEvent(const Helena::Events::Engine::Execute&) {
+    void OnExecute() {
         HELENA_MSG_DEBUG("EngineExecute");
     }
 
-    void OnEvent(const Helena::Events::Engine::Tick& tick) {
-        HELENA_MSG_DEBUG("EngineTick: {:.4f}", tick.deltaTime);
+    void OnTick(const Helena::Events::Engine::Tick event) {
+        HELENA_MSG_DEBUG("EngineTick: {:.4f}", event.deltaTime);
     }
 
-    void OnEvent(const Helena::Events::Engine::Update& update) {
-        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", update.deltaTime);
+    void OnUpdate(const Helena::Events::Engine::Update event) {
+        HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", event.fixedTime);
     }
 
-    void OnEvent(const Helena::Events::Engine::Finalize&) {
+    void OnRender(const Helena::Events::Engine::Render event) {
+        HELENA_MSG_DEBUG("EngineRender: {:.4f}", event.deltaTime);
+    }
+
+    void OnFinalize() {
         HELENA_MSG_DEBUG("EngineFinalize");
     }
 
-    void OnEvent(const Helena::Events::Engine::Shutdown&) {
+    void OnShutdown() {
         HELENA_MSG_DEBUG("EngineShutdown");
     }
 
