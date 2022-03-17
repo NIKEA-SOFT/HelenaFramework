@@ -38,7 +38,7 @@ namespace Helena::Types
         }
 
         template <typename... Key>
-        [[nodiscard]] bool Has() const noexcept
+        [[nodiscard]] bool Has() const
         {
             static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
 
@@ -51,7 +51,7 @@ namespace Helena::Types
         }
 
         template <typename... Key>
-        [[nodiscard]] bool Any() const noexcept
+        [[nodiscard]] bool Any() const
         {
             static_assert(sizeof...(Key) > 1, "Exclusion-only Type are not supported");
             static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
@@ -60,7 +60,7 @@ namespace Helena::Types
         }
 
         template <typename Key, typename T>
-        [[nodiscard]] decltype(auto) Get() noexcept
+        [[nodiscard]] decltype(auto) Get()
         {
             static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
             static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
@@ -76,7 +76,7 @@ namespace Helena::Types
         }
 
         template <typename Key, typename T>
-        [[nodiscard]] decltype(auto) Get() const noexcept
+        [[nodiscard]] decltype(auto) Get() const
         {
             static_assert(std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>, "Type is const/ptr/ref");
             static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
@@ -85,10 +85,10 @@ namespace Helena::Types
 
             HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {}, Type: {} not exist!",
                 Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
-            HELENA_ASSERT(AnyCast<T>(&m_Storage[index]), "Key: {}, Type: {} type mismatch!",
+            HELENA_ASSERT(AnyCast<std::add_const_t<T>>(&m_Storage[index]), "Key: {}, Type: {} type mismatch!",
                 Traits::NameOf<Key>::value, Traits::NameOf<T>::value);
 
-            return AnyCast<T&>(m_Storage[index]);
+            return AnyCast<std::add_const_t<T>&>(m_Storage[index]);
         }
 
         template <typename... Key>
