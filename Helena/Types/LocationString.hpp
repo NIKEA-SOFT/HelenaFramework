@@ -3,13 +3,18 @@
 
 #include <Helena/Types/SourceLocation.hpp>
 
+#include <concepts>
+
 namespace Helena::Types
 {
-    struct LocationString {
+    struct LocationString
+    {
+        HELENA_CONSTEVAL LocationString(const SourceLocation location = SourceLocation::Create()) noexcept
+            : m_Location{location}, m_Msg{} {}
+
         template <std::convertible_to<std::string_view> T>
-        constexpr LocationString(T&& msg, const SourceLocation location = SourceLocation::Create()) noexcept
-            : m_Location{location}
-            , m_Msg{msg} {}
+        HELENA_CONSTEVAL LocationString(T&& msg, const SourceLocation location = SourceLocation::Create()) noexcept
+            : m_Location{location}, m_Msg{msg} {}
 
         Types::SourceLocation m_Location;
         std::string_view m_Msg;
