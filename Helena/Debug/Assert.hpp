@@ -26,7 +26,7 @@
     #define HELENA_ASSERT(cond, ...)                                                    \
         do {                                                                            \
             if(!(cond)) {                                                               \
-                Helena::Log::Console<Helena::Log::Assert>("Condition: {}", #cond);      \
+                Helena::Log::Console<Helena::Log::Assert>("Condition: " #cond);         \
                                                                                         \
                 using tuple = decltype(std::forward_as_tuple(__VA_ARGS__));             \
                 if constexpr (std::tuple_size_v<tuple> > 0) {                           \
