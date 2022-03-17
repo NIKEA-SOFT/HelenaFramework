@@ -152,9 +152,9 @@ namespace Helena
                     ctx.m_Callback();
                 }
 
-                SignalEvent<Events::Engine::Init>();
-                SignalEvent<Events::Engine::Config>();
-                SignalEvent<Events::Engine::Execute>();
+                if(Running()) SignalEvent<Events::Engine::Init>();
+                if(Running()) SignalEvent<Events::Engine::Config>();
+                if(Running()) SignalEvent<Events::Engine::Execute>();
 
             } break;
 
@@ -252,7 +252,7 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(std::string_view msg, [[maybe_unused]] Args&&... args, Types::SourceLocation location)
+    void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
     {
         auto& ctx = Context::GetInstance();
         const std::lock_guard lock{ctx.m_ShutdownMessage.m_Mutex};
@@ -260,11 +260,11 @@ namespace Helena
         if(ctx.m_State != EState::Shutdown) {
             ctx.m_State = EState::Shutdown;
 
-            ctx.m_ShutdownMessage.m_Location = location;
+            ctx.m_ShutdownMessage.m_Location = msg.m_Location;
             ctx.m_ShutdownMessage.m_Message = "Shutdown Engine";
 
-            if(!msg.empty()) {
-                ctx.m_ShutdownMessage.m_Message += " with reason: " + Util::Format(msg, std::forward<Args>(args)...);
+            if(!msg.m_Msg.empty()) {
+                ctx.m_ShutdownMessage.m_Message += " with reason: " + Util::Format(msg.m_Msg, std::forward<Args>(args)...);
             }
         }
     }

@@ -9,6 +9,7 @@
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Mutex.hpp>
 
+#include <algorithm>
 #include <functional>
 
 namespace Helena
@@ -114,7 +115,7 @@ namespace Helena
 
             static void SetTickrate(float tickrate) noexcept {
                 auto& ctx = GetInstance();
-                ctx.m_Tickrate = 1.f / std::max(tickrate, 1.f);
+                ctx.m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
             }
 
             static void SetMain(Callback callback) noexcept {
@@ -122,7 +123,7 @@ namespace Helena
                 ctx.m_Callback = std::move(callback);
             }
 
-            static const std::string& GetAppName() noexcept {
+            static std::string_view GetAppName() noexcept {
                 const auto& ctx = GetInstance();
                 return ctx.m_ApplicationName;
             }
@@ -185,7 +186,7 @@ namespace Helena
         [[nodiscard]] static EState GetState() noexcept;
 
         template <typename... Args>
-        static void Shutdown(std::string_view msg = {}, [[maybe_unused]] Args&&... args, Types::SourceLocation location = Types::SourceLocation::Create());
+        static void Shutdown(const Types::LocationString& msg = {}, [[maybe_unused]] Args&&... args);
 
         template <typename T, typename... Args>
         static void RegisterSystem([[maybe_unused]] Args&&... args);
