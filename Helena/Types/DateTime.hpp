@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <charconv>
+#include <chrono>
 
 namespace Helena::Types
 {
@@ -37,7 +38,7 @@ namespace Helena::Types
         };
 
         enum class EDaysOfWeek : std::uint8_t {
-            Monday,
+            Monday = 0,
             Tuesday,
             Wednesday,
             Thursday,
@@ -46,13 +47,16 @@ namespace Helena::Types
             Sunday
         };
 
-        constexpr DateTime() noexcept = default;
-        constexpr ~DateTime() = default;
+        constexpr DateTime() = default;
+        ~DateTime() = default;
         constexpr DateTime(const DateTime&) noexcept = default;
         constexpr DateTime(DateTime&&) noexcept = default;
-        constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
-        constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
+        explicit constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
+        explicit constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
             std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t ms = 0) {
+            HELENA_ASSERT(year >= 1 && year <= 9999);
+            HELENA_ASSERT(month >= 1 && month <= MonthSize);
+            HELENA_ASSERT(day >= 1 && day <= GetDaysInMonth(year, month));
             m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + ms * m_TicksPerMilliseconds;
         }
 
@@ -254,19 +258,25 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr std::int32_t GetDay() const noexcept {
-            std::int32_t year, month, day;
+            std::int32_t year{};
+            std::int32_t month{};
+            std::int32_t day{};
             GetDate(year, month, day);
             return day;
         }
 
         [[nodiscard]] constexpr std::int32_t GetMonth() const noexcept {
-            std::int32_t year, month, day;
+            std::int32_t year{};
+            std::int32_t month{};
+            std::int32_t day{};
             GetDate(year, month, day);
             return month;
         }
 
         [[nodiscard]] constexpr std::int32_t GetYear() const noexcept {
-            std::int32_t year, month, day;
+            std::int32_t year{};
+            std::int32_t month{};
+            std::int32_t day{};
             GetDate(year, month, day);
             return year;
         }
@@ -313,6 +323,8 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static constexpr std::int64_t DateToTicks(std::int32_t year, std::int32_t month, std::int32_t day) noexcept {
+            HELENA_ASSERT(year >= 1 && year <= 9999);
+            HELENA_ASSERT(month >= 1 && month <= MonthSize);
             HELENA_ASSERT(day >= 1 && day <= GetDaysInMonth(year, month));
             --year;
             --month;
@@ -327,20 +339,20 @@ namespace Helena::Types
             return (hour * 3600LL + minute * 60LL + second) * m_TicksPerSeconds + millisecond * m_TicksPerMilliseconds;
         }
 
-        constexpr DateTime operator-(const DateTime& other) const noexcept {
+        constexpr DateTime operator-(const DateTime other) const noexcept {
             return DateTime(m_Ticks - other.m_Ticks);
         }
 
-        constexpr DateTime operator+(const DateTime& other) const noexcept {
+        constexpr DateTime operator+(const DateTime other) const noexcept {
             return DateTime(m_Ticks - other.m_Ticks);
         }
 
-        DateTime& operator-=(const DateTime& other) noexcept {
+        DateTime operator-=(const DateTime other) noexcept {
             m_Ticks -= other.m_Ticks;
             return *this;
         }
 
-        DateTime& operator+=(const DateTime& other) noexcept {
+        DateTime operator+=(const DateTime other) noexcept {
             m_Ticks += other.m_Ticks;
             return *this;
         }
