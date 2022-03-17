@@ -1,6 +1,7 @@
 #ifndef HELENA_TYPES_UNIQUEINDEXER_HPP
 #define HELENA_TYPES_UNIQUEINDEXER_HPP
 
+#include <Helena/Debug/Assert.hpp>
 #include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Types/Hash.hpp>
 
