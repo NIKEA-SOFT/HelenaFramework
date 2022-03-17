@@ -9,7 +9,6 @@
         #pragma warning(disable:4068)
     #endif
 
-    #define NOMINMAX
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -24,6 +23,14 @@
     #include <dbghelp.h>
     #include <exception>
     #include <cstdio>
+    
+    #if defined min
+        #undef min      // piece of shit in global space
+    #endif
+
+    #if defined max
+        #undef max      // piece of shit in global space
+    #endif
 
     #pragma comment(lib, "winmm.lib")
     #pragma comment(lib, "dbghelp.lib")
