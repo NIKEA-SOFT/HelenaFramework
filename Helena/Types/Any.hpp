@@ -7,6 +7,7 @@
 #include <Helena/Debug/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Traits/Constness.hpp>
+#include <Helena/Traits/CVRefPtr.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -442,7 +443,8 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     [[nodiscard]] const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        return (data->type_hash() == Hash::Get<Type, std::uint64_t>() ? static_cast<const Type*>(data->data()) : nullptr);
+        return (data->type_hash() == Hash::Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>() ? 
+            static_cast<const Type*>(data->data()) : nullptr);
     }
 
 

@@ -14,6 +14,10 @@ namespace Helena::Types
     template <std::size_t Capacity, Util::ELengthPolicy Policy = Util::ELengthPolicy::Fixed>
     struct FixedBuffer
     {
+        using size_type = std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
+            std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
+            std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
+
         constexpr void FillBuffer(const char* const data, std::size_t size = std::numeric_limits<std::size_t>::max()) noexcept
         {
             if(data)
@@ -44,10 +48,6 @@ namespace Helena::Types
 
             Clear();
         }
-
-        using size_type	 =	std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
-                            std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
-                            std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
 
         constexpr FixedBuffer() = default;
         constexpr ~FixedBuffer() = default;
@@ -81,11 +81,11 @@ namespace Helena::Types
             return m_Buffer;
         }
 
-        [[nodiscard]] constexpr std::size_t GetSize() const noexcept {
+        [[nodiscard]] constexpr size_type GetSize() const noexcept {
             return m_Size;
         }
 
-        [[nodiscard]] static constexpr std::size_t GetCapacity() noexcept {
+        [[nodiscard]] static constexpr size_type GetCapacity() noexcept {
             return Capacity;
         }
 
