@@ -1,11 +1,11 @@
 #ifndef HELENA_TYPES_UNIQUEINDEXER_HPP
 #define HELENA_TYPES_UNIQUEINDEXER_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Types/Hash.hpp>
 
-#include <unordered_map>
+#include <vector>
 
 namespace Helena::Types
 {
@@ -28,7 +28,8 @@ namespace Helena::Types
         template <typename T>
         [[nodiscard]] index_type Get() const {
             static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
-            return TypeIndexer<T>::GetIndex(m_Indexes);
+            static auto index = TypeIndexer<T>::GetIndex(m_Indexes);
+            return index;
         }
 
         [[nodiscard]] std::size_t GetSize() const noexcept {
@@ -39,13 +40,11 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] static constexpr auto GetKey() noexcept {
-                return Hash::Get<T, std::uint64_t>();
-            }
+            static constexpr auto m_Key = Types::Hash::template Get<T, std::uint64_t>();
 
             [[nodiscard]] static auto GetIndex(storage_type& storage) {
                 // Get a name of type T and generate a hash to use as a key for a hash map
-                static const auto index = GetIndexByKey(storage, GetKey());
+                const auto index = GetIndexByKey(storage, m_Key);
                 HELENA_ASSERT(index < storage.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
                 return index;
             }
