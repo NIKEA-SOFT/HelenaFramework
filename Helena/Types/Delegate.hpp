@@ -3,7 +3,7 @@
 #ifndef HELENA_TYPES_DELEGATE_HPP
 #define HELENA_TYPES_DELEGATE_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 
 #include <tuple>
 #include <cstddef>

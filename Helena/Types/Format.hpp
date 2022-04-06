@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_FORMAT_HPP
 #define HELENA_TYPES_FORMAT_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 
 #include <string_view>
 #include <concepts>

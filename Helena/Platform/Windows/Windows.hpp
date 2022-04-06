@@ -76,17 +76,17 @@
         {
             DWORD mode{};
             if(!GetConsoleMode(hStdOut, &mode)) {
-                MessageBoxA(NULL, "Get console mode failed!", "Error", MB_OK);
+                MessageBoxA(nullptr, "Get console mode failed!", "Error", MB_OK | MB_ICONERROR);
                 std::terminate();
             }
 
             if(!SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-                MessageBoxA(NULL, "Set console handle virtual terminal processing failed!", "Error", MB_OK);
+                MessageBoxA(nullptr, "Set console handle virtual terminal processing failed!", "Error", MB_OK | MB_ICONERROR);
                 std::terminate();
             }
 
         } else {
-            MessageBoxA(NULL, "Get console handle failed!", "Error", MB_OK);
+            MessageBoxA(nullptr, "Get console handle failed!", "Error", MB_OK | MB_ICONERROR);
             std::terminate();
         }
 

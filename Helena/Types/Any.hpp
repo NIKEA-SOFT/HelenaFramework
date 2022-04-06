@@ -1,10 +1,10 @@
-// Modification of basic_any, taked from:
+// Modification of Any, taked from:
 // https://github.com/skypjack/entt
 
 #ifndef HELENA_TYPES_ANY_HPP
 #define HELENA_TYPES_ANY_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Traits/Constness.hpp>
 #include <Helena/Traits/CVRefPtr.hpp>
@@ -15,6 +15,22 @@
 
 namespace Helena::Types
 {
+    namespace Internal {
+        /**
+         * @brief Utility class to disambiguate overloaded functions.
+         * @tparam N Number of choices available.
+         */
+        template<std::size_t N>
+        struct choice_t
+            // Unfortunately, doxygen cannot parse such a construct.
+            : /*! @cond TURN_OFF_DOXYGEN */ choice_t<N - 1> /*! @endcond */
+        {};
+
+        /*! @copybrief choice_t */
+        template<>
+        struct choice_t<0> {};
+    }
+
     template<std::size_t Len = sizeof(double[2]), std::size_t = alignof(typename std::aligned_storage_t<Len + !Len>)>
     class Any;
 
@@ -24,150 +40,193 @@ namespace Helena::Types
      * @tparam Align Optional alignment requirement.
      */
     template<std::size_t Len, std::size_t Align>
-    class Any {
-        /**
-         * @brief Provides the member constant `value` to true if a given type is an
-         * iterator, false otherwise.
-         * @tparam Type The type to test.
-         */
+    class Any 
+    {
+        enum class operation : std::uint8_t {
+            copy,
+            move,
+            transfer,
+            assign,
+            destroy,
+            compare,
+            get
+        };
+
+        enum class policy : std::uint8_t {
+            owner,
+            ref,
+            cref
+        };
+
+        template<typename, typename = void>
+        struct has_iterator_category: std::false_type {};
+
+        template<typename Type>
+        struct has_iterator_category<Type, std::void_t<typename std::iterator_traits<Type>::iterator_category>>: std::true_type {};
+
+         /**
+          * @brief Provides the member constant `value` to true if a given type is an
+          * iterator, false otherwise.
+          * @tparam Type The type to test.
+          */
         template<typename Type, typename = void>
         struct is_iterator : std::false_type {};
 
-
         /*! @copydoc is_iterator */
-        template<typename Type>
-        struct is_iterator<Type, std::void_t<typename std::iterator_traits<Type>::iterator_category>>
-            : std::true_type
-        {};
+        template <typename Type>
+        struct is_iterator<Type, std::enable_if_t<!std::is_same_v<std::remove_const_t<std::remove_pointer_t<Type>>, void>>>
+            : has_iterator_category<Type> {};
 
         /**
          * @brief Helper variable template.
          * @tparam Type The type to test.
          */
         template<typename Type>
-        static constexpr bool is_iterator_v = is_iterator<Type>::value;
+        static inline constexpr bool is_iterator_v = is_iterator<Type>::value;
 
+        /**
+         * @brief Provides the member constant `value` to true if a given type is
+         * complete, false otherwise.
+         * @tparam Type The type to test.
+         */
+        template<typename Type, typename = void>
+        struct is_complete : std::false_type {};
+
+        /*! @copydoc is_complete */
+        template<typename Type>
+        struct is_complete<Type, std::void_t<decltype(sizeof(Type))>> : std::true_type {};
+
+        /**
+         * @brief Helper variable template.
+         * @tparam Type The type to test.
+         */
+        template<typename Type>
+        static inline constexpr bool is_complete_v = is_complete<Type>::value;
+
+        /**
+        * @brief Variable template for the choice trick.
+        * @tparam N Number of choices available.
+        */
         template<std::size_t N>
-        struct choice_t : choice_t<N - 1> {};
+        static inline constexpr Internal::choice_t<N> choice{};
 
-        template<>
-        struct choice_t<0> {};
-
-        template <std::size_t N>
-        static constexpr choice_t<N> choice{};
-
-        template<typename>
-        [[nodiscard]] static constexpr bool is_equality_comparable(...) { return false; }
+        template<typename, typename = void>
+        struct has_tuple_size_value : std::false_type {};
 
         template<typename Type>
-        [[nodiscard]] static constexpr auto is_equality_comparable(choice_t<0>)
-            -> decltype(std::declval<Type>() == std::declval<Type>()) {
+        struct has_tuple_size_value<Type, std::void_t<decltype(std::tuple_size<const Type>::value)>> : std::true_type {};
+
+        /**
+         * @brief Provides the member constant `value` to true if a given type is
+         * equality comparable, false otherwise.
+         * @tparam Type The type to test.
+         */
+        template<typename Type, typename = void>
+        struct is_equality_comparable : std::false_type {};
+
+        template<typename>
+        [[nodiscard]] static constexpr bool maybe_equality_comparable(Internal::choice_t<0>) {
             return true;
         }
 
         template<typename Type>
-        [[nodiscard]] static constexpr auto is_equality_comparable(choice_t<1>)
-            -> decltype(std::declval<typename Type::value_type>(), std::declval<Type>() == std::declval<Type>()) {
+        [[nodiscard]] constexpr auto maybe_equality_comparable(Internal::choice_t<1>) -> decltype(std::declval<typename Type::value_type>(), bool{}) {
             if constexpr(is_iterator_v<Type>) {
                 return true;
             } else if constexpr(std::is_same_v<typename Type::value_type, Type>) {
-                return is_equality_comparable<Type>(choice<0>);
+                return maybe_equality_comparable<Type>(choice<0>);
             } else {
-                return is_equality_comparable<typename Type::value_type>(choice<2>);
+                return is_equality_comparable<typename Type::value_type>::value;
             }
         }
 
         template<typename Type>
-        [[nodiscard]] static constexpr auto is_equality_comparable(choice_t<2>)
-            -> decltype(std::declval<typename Type::mapped_type>(), std::declval<Type>() == std::declval<Type>()) {
-            return is_equality_comparable<typename Type::key_type>(choice<2>) && is_equality_comparable<typename Type::mapped_type>(choice<2>);
+        [[nodiscard]] constexpr std::enable_if_t<is_complete_v<std::tuple_size<std::remove_const_t<Type>>>, bool> maybe_equality_comparable(Internal::choice_t<2>) {
+            if constexpr(has_tuple_size_value<Type>::value) {
+                return unpack_maybe_equality_comparable<Type>(std::make_index_sequence<std::tuple_size<Type>::value>{});
+            } else {
+                return maybe_equality_comparable<Type>(choice<1>);
+            }
         }
 
-        enum class operation : std::uint8_t { COPY, MOVE, DTOR, COMP, ADDR, CADDR, TYPE };
-        enum class policy : std::uint8_t { OWNER, REF, CREF };
+        /*! @copydoc is_equality_comparable */
+        template<typename Type>
+        struct is_equality_comparable<Type, std::void_t<decltype(std::declval<Type>() == std::declval<Type>())>>
+            : std::bool_constant<maybe_equality_comparable<Type>(choice<2>)> {};
+
+        /**
+         * @brief Helper variable template.
+         * @tparam Type The type to test.
+         */
+        template<typename Type>
+        static inline constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
 
         using storage_type = std::aligned_storage_t<Len + !Len, Align>;
-        using vtable_type = const void* (const operation, const Any&, void*);
+        using vtable_type = const void* (const operation, const Any&, const void*);
+        using hash_type = std::uint64_t;
 
         template<typename Type>
-        static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type)
-            && sizeof(Type) <= sizeof(storage_type) && std::is_nothrow_move_constructible_v<Type>;
+        static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type) && sizeof(Type) <= sizeof(storage_type) && std::is_nothrow_move_constructible_v<Type>;
 
         template<typename Type>
-        [[nodiscard]] static constexpr policy type_to_policy()
+        static const void* basic_vtable([[maybe_unused]] const operation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other) 
         {
-            if constexpr(std::is_lvalue_reference_v<Type>)
-            {
-                if constexpr(std::is_const_v<std::remove_reference_t<Type>>) {
-                    return policy::CREF;
-                } else {
-                    return policy::REF;
-                }
+            static_assert(!std::is_same_v<Type, void> && std::is_same_v<std::remove_reference_t<std::remove_const_t<Type>>, Type>, "Invalid type");
+            const Type* element = nullptr;
+
+            if constexpr(in_situ<Type>) {
+                element = value.Owner() ? reinterpret_cast<const Type*>(&value.storage) : static_cast<const Type*>(value.instance);
             } else {
-                return policy::OWNER;
+                element = static_cast<const Type*>(value.instance);
             }
-        }
 
-        template<typename Type>
-        [[nodiscard]] static bool compare(const void* lhs, const void* rhs) {
-            if constexpr(!std::is_function_v<Type> && is_equality_comparable<Type>(choice<2>)) {
-                return *static_cast<const Type*>(lhs) == *static_cast<const Type*>(rhs);
-            } else {
-                return lhs == rhs;
-            }
-        }
-
-        template<typename Type>
-        [[nodiscard]] static const void* basic_vtable([[maybe_unused]] const operation op, [[maybe_unused]] const Any& from, [[maybe_unused]] void* to) 
-        {
-            static_assert(std::is_same_v<std::remove_reference_t<std::remove_const_t<Type>>, Type>, "Invalid type");
-
-            if constexpr(!std::is_void_v<Type>) 
+            switch(op) 
             {
-                const Type* instance = (in_situ<Type> && from.mode == policy::OWNER)
-                    ? std::launder(reinterpret_cast<const Type*>(&from.storage))
-                    : static_cast<const Type*>(from.instance);
-
-                switch(op) 
-                {
-                    case operation::COPY: {
-                        if constexpr(std::is_copy_constructible_v<Type>) {
-                            static_cast<Any*>(to)->Create<Type>(*instance);
-                        }
-                    } break;
-                    case operation::MOVE: 
-                    {
-                        if constexpr(in_situ<Type>) {
-                            if(from.mode == policy::OWNER) {
-                                return new (&static_cast<Any*>(to)->storage) Type{std::move(*const_cast<Type*>(instance))};
-                            }
-                        }
-
-                        return (static_cast<Any*>(to)->instance = std::exchange(const_cast<Any&>(from).instance, nullptr));
+                case operation::copy: {
+                    if constexpr(std::is_copy_constructible_v<Type>) {
+                        static_cast<Any*>(const_cast<void*>(other))->Initialize<Type>(*element);
                     }
-                    case operation::DTOR:
-                    {
-                        if(from.mode == policy::OWNER) 
-                        {
-                            if constexpr(in_situ<Type>) {
-                                instance->~Type();
-                            } else if constexpr(std::is_array_v<Type>) {
-                                delete[] instance;
-                            } else {
-                                delete instance;
-                            }
+                } break;
+                case operation::move: 
+                {
+                    if constexpr(in_situ<Type>) {
+                        if(value.Owner()) {
+                            return new(&static_cast<Any*>(const_cast<void*>(other))->storage) Type{std::move(*const_cast<Type*>(element))};
                         }
-                    } break;
-                    case operation::COMP: return compare<Type>(instance, (*static_cast<const Any**>(to))->data()) ? to : nullptr;
-                    case operation::ADDR: {
-                        if(from.mode == policy::CREF) {
-                            return nullptr;
-                        }
-                    } [[fallthrough]];
-                    case operation::CADDR: return instance;
-                    case operation::TYPE: { 
-                        *static_cast<std::uint64_t*>(to) = Hash::Get<Type, std::uint64_t>();
-                    } break;
+                    }
+
+                    return (static_cast<Any*>(const_cast<void*>(other))->instance = std::exchange(const_cast<Any&>(value).instance, nullptr));
+                }
+                case operation::transfer: {
+                    if constexpr(std::is_move_assignable_v<Type>) {
+                        *const_cast<Type*>(element) = std::move(*static_cast<Type*>(const_cast<void*>(other)));
+                        return other;
+                    }
+                } [[fallthrough]];
+                case operation::assign: {
+                    if constexpr(std::is_copy_assignable_v<Type>) {
+                        *const_cast<Type*>(element) = *static_cast<const Type*>(other);
+                        return other;
+                    }
+                } break;
+                case operation::destroy: {
+                    if constexpr(in_situ<Type>) {
+                        element->~Type();
+                    } else if constexpr(std::is_array_v<Type>) {
+                        delete[] element;
+                    } else {
+                        delete element;
+                    }
+                } break;
+                case operation::compare: {
+                    if constexpr(!std::is_function_v<Type> && !std::is_array_v<Type> && is_equality_comparable_v<Type>) {
+                        return *static_cast<const Type*>(element) == *static_cast<const Type*>(other) ? other : nullptr;
+                    } else {
+                        return (element == other) ? other : nullptr;
+                    }
+                } break;
+                case operation::get: {
+                    return element;
                 }
             }
 
@@ -175,24 +234,24 @@ namespace Helena::Types
         }
 
         template<typename Type, typename... Args>
-        void initialize([[maybe_unused]] Args &&... args) 
+        void Initialize([[maybe_unused]] Args &&...args) 
         {
             if constexpr(!std::is_void_v<Type>) 
             {
+                vtable = basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>;
+                key = Types::Hash::template Get<Type, std::uint64_t>();
+
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
+                    mode = std::is_const_v<std::remove_reference_t<Type>> ? policy::cref : policy::ref;
                     instance = (std::addressof(args), ...);
-                } 
-                else if constexpr(in_situ<Type>) 
-                {
+                } else if constexpr(in_situ<Type>) {
                     if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<Type>) {
-                        new (&storage) Type{std::forward<Args>(args)...};
+                        new(&storage) Type{std::forward<Args>(args)...};
                     } else {
-                        new (&storage) Type(std::forward<Args>(args)...);
+                        new(&storage) Type(std::forward<Args>(args)...);
                     }
-                } 
-                else 
-                {
+                } else {
                     if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<Type>) {
                         instance = new Type{std::forward<Args>(args)...};
                     } else {
@@ -202,7 +261,11 @@ namespace Helena::Types
             }
         }
 
-        Any(const Any& other, const policy pol) noexcept : instance{other.data()}, vtable{other.vtable}, mode{pol} {}
+        Any(const Any& other, const policy pol) noexcept
+            : instance{other.data()}
+            , key{other.key}
+            , vtable{other.vtable}
+            , mode{pol} {}
 
     public:
         /*! @brief Size of the internal storage. */
@@ -211,7 +274,11 @@ namespace Helena::Types
         static constexpr auto alignment = Align;
 
         /*! @brief Default constructor. */
-        Any() noexcept : instance{}, vtable{&basic_vtable<void>}, mode{policy::OWNER} {}
+        constexpr Any() noexcept
+            : instance{}
+            , key{Types::Hash::template Get<void, std::uint64_t>()}
+            , vtable{}
+            , mode{policy::owner} {}
 
         /**
          * @brief Constructs a wrapper by directly initializing the new object.
@@ -220,22 +287,8 @@ namespace Helena::Types
          * @param args Parameters to use to construct the instance.
          */
         template<typename Type, typename... Args>
-        explicit Any(std::in_place_type_t<Type>, Args &&... args) 
-            : instance{}
-            , vtable{&basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>}
-            , mode{type_to_policy<Type>()} {
-            initialize<Type>(std::forward<Args>(args)...);
-        }
-
-        /**
-         * @brief Constructs a wrapper that holds an unmanaged object.
-         * @tparam Type Type of object to use to initialize the wrapper.
-         * @param value An instance of an object to use to initialize the wrapper.
-         */
-        template<typename Type>
-        Any(std::reference_wrapper<Type> value) noexcept : Any{} {
-            // invokes deprecated assignment operator (and avoids issues with vs2017)
-            *this = value;
+        explicit Any(std::in_place_type_t<Type>, Args &&...args) : Any{} {
+            Initialize<Type>(std::forward<Args>(args)...);
         }
 
         /**
@@ -244,29 +297,35 @@ namespace Helena::Types
          * @param value An instance of an object to use to initialize the wrapper.
          */
         template<typename Type, typename = std::enable_if_t<!std::is_same_v<std::decay_t<Type>, Any>>>
-        Any(Type&& value) : instance{}, vtable{&basic_vtable<std::decay_t<Type>>}, mode{policy::OWNER} {
-            initialize<std::decay_t<Type>>(std::forward<Type>(value));
+        Any(Type&& value) : Any{} {
+            Initialize<std::decay_t<Type>>(std::forward<Type>(value));
         }
 
         /**
          * @brief Copy constructor.
          * @param other The instance to copy from.
          */
-        Any(const Any& other) : instance{}, vtable{&basic_vtable<void>}, mode{policy::OWNER} {
-            other.vtable(operation::COPY, other, this);
+        Any(const Any& other) : Any{} {
+            if(other.vtable) {
+                other.vtable(operation::copy, other, this);
+            }
         }
 
         /**
          * @brief Move constructor.
          * @param other The instance to move from.
          */
-        Any(Any&& other) noexcept : instance{}, vtable{other.vtable}, mode{other.mode} {
-            vtable(operation::MOVE, other, this);
+        Any(Any&& other) noexcept : instance{}, key{other.key}, vtable{other.vtable}, mode{other.mode} {
+            if(other.vtable) {
+                other.vtable(operation::move, other, this);
+            }
         }
 
         /*! @brief Frees the internal storage, whatever it means. */
         ~Any() {
-            vtable(operation::DTOR, *this, nullptr);
+            if(vtable && Owner()) {
+                vtable(operation::destroy, *this, nullptr);
+            }
         }
 
         /**
@@ -276,7 +335,11 @@ namespace Helena::Types
          */
         Any& operator=(const Any& other) {
             Reset();
-            other.vtable(operation::COPY, other, this);
+
+            if(other.vtable) {
+                other.vtable(operation::copy, other, this);
+            }
+
             return *this;
         }
 
@@ -286,9 +349,15 @@ namespace Helena::Types
          * @return This any object.
          */
         Any& operator=(Any&& other) noexcept {
-            std::exchange(vtable, other.vtable)(operation::DTOR, *this, nullptr);
-            other.vtable(operation::MOVE, other, this);
-            mode = other.mode;
+            Reset();
+
+            if(other.vtable) {
+                other.vtable(operation::move, other, this);
+                key = other.key;
+                vtable = other.vtable;
+                mode = other.mode;
+            }
+
             return *this;
         }
 
@@ -305,26 +374,45 @@ namespace Helena::Types
         }
 
         /**
-         * @brief Returns the type hash of the contained object.
-         * @return The type hash of the contained object, if any.
+         * @brief Returns the object type if any, `Hash::Get<void, std::uint64_t>()` otherwise.
+         * @return The object type if any, `Hash::Get<void, std::uint64_t>()` otherwise.
          */
-        [[nodiscard]] std::uint64_t type_hash() const noexcept {
-            std::uint64_t info{};
-            vtable(operation::TYPE, *this, &info);
-            return info;
+        [[nodiscard]] hash_type Hash() const noexcept {
+            return key;
         }
 
         /**
          * @brief Returns an opaque pointer to the contained instance.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] const void* data() const noexcept {
-            return vtable(operation::CADDR, *this, nullptr);
+        [[nodiscard]] const void* Data() const noexcept {
+            return vtable ? vtable(operation::get, *this, nullptr) : nullptr;
         }
 
-        /*! @copydoc data */
-        [[nodiscard]] void* data() noexcept {
-            return const_cast<void*>(vtable(operation::ADDR, *this, nullptr));
+        /**
+         * @brief Returns an opaque pointer to the contained instance.
+         * @param hash Expected type.
+         * @return An opaque pointer the contained instance, if any.
+         */
+        [[nodiscard]] const void* Data(std::uint64_t hash) const noexcept {
+            return this->key == hash ? Data() : nullptr;
+        }
+
+        /**
+         * @brief Returns an opaque pointer to the contained instance.
+         * @return An opaque pointer the contained instance, if any.
+         */
+        [[nodiscard]] void* Data() noexcept {
+            return (!vtable || mode == policy::cref) ? nullptr : const_cast<void*>(vtable(operation::get, *this, nullptr));
+        }
+
+        /**
+         * @brief Returns an opaque pointer to the contained instance.
+         * @param hash Expected type.
+         * @return An opaque pointer the contained instance, if any.
+         */
+        [[nodiscard]] void* Data(std::uint64_t hash) noexcept {
+            return this->key == hash ? Data() : nullptr;
         }
 
         /**
@@ -334,16 +422,47 @@ namespace Helena::Types
          * @param args Parameters to use to construct the instance.
          */
         template<typename Type, typename... Args>
-        void Create(Args &&... args) {
-            std::exchange(vtable, &basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>)(operation::DTOR, *this, nullptr);
-            mode = type_to_policy<Type>();
-            initialize<Type>(std::forward<Args>(args)...);
+        void Create(Args &&...args) {
+            Reset();
+            Initialize<Type>(std::forward<Args>(args)...);
+        }
+
+        /**
+         * @brief Assigns a value to the contained object without replacing it.
+         * @param other The value to assign to the contained object.
+         * @return True in case of success, false otherwise.
+         */
+        bool Assign(const Any& other) {
+            if(vtable && mode != policy::cref && key == other.key) {
+                return (vtable(operation::assign, *this, other.Data()) != nullptr);
+            }
+
+            return false;
+        }
+
+        /*! @copydoc assign */
+        bool Assign(Any&& other) {
+            if(vtable && mode != policy::cref && key == other.key) {
+                if(auto* val = other.Data(); val) {
+                    return (vtable(operation::transfer, *this, val) != nullptr);
+                } else {
+                    return (vtable(operation::assign, *this, std::as_const(other).Data()) != nullptr);
+                }
+            }
+
+            return false;
         }
 
         /*! @brief Destroys contained object */
-        void Reset() {
-            std::exchange(vtable, &basic_vtable<void>)(operation::DTOR, *this, nullptr);
-            mode = policy::OWNER;
+        void Reset() 
+        {
+            if(vtable && Owner()) {
+                vtable(operation::destroy, *this, nullptr);
+            }
+
+            key = Types::Hash::template Get<void, std::uint64_t>();
+            vtable = nullptr;
+            mode = policy::owner;
         }
 
         /**
@@ -351,7 +470,7 @@ namespace Helena::Types
          * @return False if the wrapper is empty, true otherwise.
          */
         [[nodiscard]] explicit operator bool() const noexcept {
-            return !(vtable(operation::CADDR, *this, nullptr) == nullptr);
+            return vtable != nullptr;
         }
 
         /**
@@ -359,22 +478,12 @@ namespace Helena::Types
          * @param other Wrapper with which to compare.
          * @return False if the two objects differ in their content, true otherwise.
          */
-        [[nodiscard]] bool operator==(const Any& other) const noexcept {
-            const Any* trampoline = &other;
-            return type_hash() == other.type_hash() && (vtable(operation::COMP, *this, &trampoline) || !other.data());
-        }
+        bool operator==(const Any& other) const noexcept {
+            if(vtable && key == other.key) {
+                return (vtable(operation::compare, *this, other.Data()) != nullptr);
+            }
 
-        /**
-         * @brief Checks if two wrappers differ in their content.
-         * @tparam Len Size of the storage reserved for the small buffer optimization.
-         * @tparam Align Alignment requirement.
-         * @param lhs A wrapper, either empty or not.
-         * @param rhs A wrapper, either empty or not.
-         * @return True if the two wrappers differ in their content, false otherwise.
-         */
-        template<std::size_t Length, std::size_t Alignment>
-        [[nodiscard]] bool operator!=(const Any<Length, Alignment>& rhs) noexcept {
-            return !(*this == rhs);
+            return (!vtable && !other.vtable);
         }
 
         /**
@@ -382,27 +491,44 @@ namespace Helena::Types
          * @return A wrapper that shares a reference to an unmanaged object.
          */
         [[nodiscard]] Any AsRef() noexcept {
-            return Any{*this, (mode == policy::CREF ? policy::CREF : policy::REF)};
+            return Any{*this, (mode == policy::cref ? policy::cref : policy::ref)};
         }
 
         /*! @copydoc as_ref */
         [[nodiscard]] Any AsRef() const noexcept {
-            return Any{*this, policy::CREF};
+            return Any{*this, policy::cref};
         }
 
         /**
          * @brief Returns true if a wrapper owns its object, false otherwise.
          * @return True if the wrapper owns its object, false otherwise.
          */
-        [[nodiscard]] bool IsOwner() const noexcept {
-            return (mode == policy::OWNER);
+        [[nodiscard]] bool Owner() const noexcept {
+            return (mode == policy::owner);
         }
 
     private:
-        union { const void* instance; storage_type storage; };
+        union {
+            const void* instance;
+            storage_type storage;
+        };
+        hash_type key;
         vtable_type* vtable;
         policy mode;
     };
+
+    /**
+     * @brief Checks if two wrappers differ in their content.
+     * @tparam Len Size of the storage reserved for the small buffer optimization.
+     * @tparam Align Alignment requirement.
+     * @param lhs A wrapper, either empty or not.
+     * @param rhs A wrapper, either empty or not.
+     * @return True if the two wrappers differ in their content, false otherwise.
+     */
+    template<std::size_t Len, std::size_t Align>
+    [[nodiscard]] inline bool operator!=(const Any<Len, Align>& lhs, const Any<Len, Align>& rhs) noexcept {
+        return !(lhs == rhs);
+    }
 
     /**
      * @brief Performs type-safe access to the contained object.
@@ -413,49 +539,51 @@ namespace Helena::Types
      * @return The element converted to the requested type.
      */
     template<typename Type, std::size_t Len, std::size_t Align>
-    [[nodiscard]] Type AnyCast(const Any<Len, Align>& data) noexcept {
+    Type AnyCast(const Any<Len, Align>& data) noexcept {
         const auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data);
         HELENA_ASSERT(instance, "Invalid instance");
         return static_cast<Type>(*instance);
     }
 
-
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
-    [[nodiscard]] Type AnyCast(Any<Len, Align>& data) noexcept {
+    Type AnyCast(Any<Len, Align>& data) noexcept {
         // forces const on non-reference types to make them work also with wrappers for const references
         auto* const instance = AnyCast<std::remove_reference_t<const Type>>(&data);
         HELENA_ASSERT(instance, "Invalid instance");
         return static_cast<Type>(*instance);
     }
 
-
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
-    [[nodiscard]] Type AnyCast(Any<Len, Align>&& data) noexcept {
-        // forces const on non-reference types to make them work also with wrappers for const references
-        auto* const instance = AnyCast<std::remove_reference_t<const Type>>(&data);
-        HELENA_ASSERT(instance, "Invalid instance");
-        return static_cast<Type>(std::move(*instance));
+    Type AnyCast(Any<Len, Align>&& data) noexcept {
+        if constexpr(std::is_copy_constructible_v<std::remove_const_t<std::remove_reference_t<Type>>>) {
+            if(auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data); instance) {
+                return static_cast<Type>(std::move(*instance));
+            } else {
+                return AnyCast<Type>(data);
+            }
+        } else {
+            auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data);
+            HELENA_ASSERT(instance, "Invalid instance");
+            return static_cast<Type>(std::move(*instance));
+        }
     }
 
-
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
-    [[nodiscard]] const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        return (data->type_hash() == Hash::Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>() ? 
-            static_cast<const Type*>(data->data()) : nullptr);
+    const Type* AnyCast(const Any<Len, Align>* data) noexcept {
+        constexpr auto key = Types::Hash::template Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>();
+        return static_cast<const Type*>(data->Data(key));
     }
 
-
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
-    [[nodiscard]] Type* AnyCast(Any<Len, Align>* data) noexcept {
+    Type* AnyCast(Any<Len, Align>* data) noexcept {
+        constexpr auto key = Types::Hash::template Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>();
         // last attempt to make wrappers for const references return their values
-        return (data->type_hash() == Hash::Get<Type, std::uint64_t>() ?
-            static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->data()) : nullptr);
+        return static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->Data(key));
     }
-
 
     /**
      * @brief Constructs a wrapper from a given type, passing it all arguments.
@@ -467,10 +595,9 @@ namespace Helena::Types
      * @return A properly initialized wrapper for an object of the given type.
      */
     template<typename Type, std::size_t Len = Any<>::length, std::size_t Align = Any<Len>::alignment, typename... Args>
-    [[nodiscard]] Any<Len, Align> AnyCreate(Args &&... args) {
+    Any<Len, Align> AnyCreate(Args &&...args) {
         return Any<Len, Align>{std::in_place_type<Type>, std::forward<Args>(args)...};
     }
-
 
     /**
      * @brief Forwards its argument and avoids copies for lvalue references.
@@ -481,9 +608,8 @@ namespace Helena::Types
      * @return A properly initialized and not necessarily owning wrapper.
      */
     template<std::size_t Len = Any<>::length, std::size_t Align = Any<Len>::alignment, typename Type>
-    [[nodiscard]] Any<Len, Align> AnyForward(Type&& value) {
-        return Any<Len, Align>{std::in_place_type<std::conditional_t<std::is_rvalue_reference_v<Type>,
-            std::decay_t<Type>, Type>>, std::forward<Type>(value)};
+    Any<Len, Align> AnyForward(Type&& value) {
+        return Any<Len, Align>{std::in_place_type<std::conditional_t<std::is_rvalue_reference_v<Type>, std::decay_t<Type>, Type>>, std::forward<Type>(value)};
     }
 }
 

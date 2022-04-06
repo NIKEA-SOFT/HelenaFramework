@@ -1,10 +1,11 @@
 #ifndef HELENA_TYPES_DATETIME_HPP
 #define HELENA_TYPES_DATETIME_HPP
 
-#include <Helena/Debug/Assert.hpp>
-
+#include <Helena/Platform/Assert.hpp>
+#include <Helena/Platform/Platform.hpp>
 #include <array>
 #include <cmath>
+#include <ctime>
 #include <charconv>
 #include <chrono>
 
@@ -79,14 +80,18 @@ namespace Helena::Types
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
 
-        [[nodiscard]] static DateTime FromUTCTime() {
-            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_sys_time().time_since_epoch()).count());
+        [[nodiscard]] static DateTime FromGMTTime() {
+            auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto tm = std::gmtime(&time_now);
+            time_now = std::mktime(tm);
+            return FromTimeStamp(time_now);
         }
 
         [[nodiscard]] static DateTime FromLocalTime() {
-            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_local_time().time_since_epoch()).count());
+            auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto tm = std::localtime(&time_now);
+            time_now = std::mktime(tm);
+            return FromTimeStamp(time_now);
         }
 
         [[nodiscard]] static constexpr DateTime FromTimeStamp(std::int64_t seconds) noexcept {

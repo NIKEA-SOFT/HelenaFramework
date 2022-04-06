@@ -3,8 +3,9 @@
 
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/FNV1a.hpp>
+#include <concepts>
 
-namespace Helena::Hash
+namespace Helena::Types
 {
     template <typename>
     struct Hasher;
@@ -12,23 +13,34 @@ namespace Helena::Hash
     template <typename>
     struct Equaler;
 
-    template <typename T, typename = std::enable_if<std::is_integral_v<T>>>
-    [[nodiscard]] constexpr auto Get(const std::string_view str) noexcept 
+    class Hash 
     {
-        using Hash = Traits::FNV1a<T>;
+    public:
+        Hash() = delete;
+        Hash(const Hash&) = delete;
+        Hash(Hash&&) noexcept = delete;
+        Hash& operator=(const Hash&) = delete;
+        Hash& operator=(Hash&&) noexcept = delete;
 
-        auto value { Hash::Offset };
-        for(std::size_t i = 0; i < str.size(); ++i) {
-            value = (value ^ static_cast<T>(str[i])) * Hash::Prime;
+        template <typename T>
+        requires std::is_integral_v<T>
+        [[nodiscard]] static  constexpr auto Get(const std::string_view str) noexcept
+        {
+            using Hash = Traits::FNV1a<T>;
+
+            auto value{Hash::Offset};
+            for(std::size_t i = 0; i < str.size(); ++i) {
+                value = (value ^ static_cast<T>(str[i])) * Hash::Prime;
+            }
+
+            return value;
         }
 
-        return value;
-    }
-
-    template <typename T, typename P>
-    [[nodiscard]] constexpr auto Get() noexcept {
-        return Get<P>(Helena::Traits::NameOf<T>::value);
-    }
+        template <typename T, typename P>
+        [[nodiscard]] static constexpr auto Get() noexcept {
+            return Get<P>(Helena::Traits::template NameOf<T>::value);
+        }
+    };
 }
 
 #endif // HELENA_TYPES_HASH_HPP

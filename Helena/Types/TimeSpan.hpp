@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_TIMESPAN_HPP
 #define HELENA_TYPES_TIMESPAN_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 
 namespace Helena::Types
 {

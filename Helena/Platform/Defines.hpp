@@ -113,11 +113,11 @@
 //    #define HELENA_NODISCARD_MSG(msg)   [[nodiscard(msg)]]
 //#endif
 
-#if defined(HELENA_COMPILER_MSVC)
-    #define HELENA_CONSTEVAL                consteval
-#elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-    #define HELENA_CONSTEVAL                constexpr
-#endif
+//#if defined(HELENA_COMPILER_MSVC)
+//    #define HELENA_CONSTEVAL                consteval
+//#elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+//    #define HELENA_CONSTEVAL                constexpr
+//#endif
 
 #if defined(HELENA_COMPILER_MSVC)
     #include <immintrin.h>

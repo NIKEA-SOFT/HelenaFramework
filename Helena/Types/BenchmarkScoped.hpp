@@ -10,16 +10,15 @@ namespace Helena::Types
 {
     class BenchmarkScoped
     {
-        using Timer     = std::chrono::steady_clock;
-        using Logger    = Types::BasicLogger;
+        using Timer = std::chrono::steady_clock;
 
         struct Benchmark {
-            [[nodiscard]] static consteval auto GetPrefix() noexcept {
-                return Logger::CreatePrefix("[Benchmark:");
+            [[nodiscard]] static constexpr auto GetPrefix() noexcept {
+                return Log::CreatePrefix("[Benchmark:");
             }
 
-            [[nodiscard]] static consteval auto GetStyle() noexcept {
-                return Logger::CreateStyle(Logger::Color::BrightMagenta);
+            [[nodiscard]] static constexpr auto GetStyle() noexcept {
+                return Log::CreateStyle(Log::Color::BrightMagenta);
             }
         };
 

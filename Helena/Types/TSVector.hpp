@@ -30,6 +30,20 @@ namespace Helena::Types
             m_Container.emplace_back(std::forward<Args>(args)...);
         }
 
+        auto Pop() const 
+        {
+            std::vector<Type> container;
+            
+            {
+                std::lock_guard lock{m_Lock};
+                if(!m_Container.empty()) {
+                    std::swap(m_Container, container);
+                }
+            }
+
+            return container;
+        }
+
         template <typename Callback>
         void Each(Callback&& func)
         {
@@ -37,11 +51,9 @@ namespace Helena::Types
 
             {
                 std::lock_guard lock{m_Lock};
-                if(m_Container.empty()) {
-                    return;
+                if(!m_Container.empty()) {
+                    std::swap(m_Container, container);
                 }
-
-                std::swap(m_Container, container);
             }
 
             for(auto& instance : container) {

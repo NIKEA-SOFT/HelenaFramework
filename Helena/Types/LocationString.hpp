@@ -7,13 +7,14 @@
 
 namespace Helena::Types
 {
+    // TODO: MSVC bad optimize source location, need trick
     struct LocationString
     {
-        HELENA_CONSTEVAL LocationString(const SourceLocation location = SourceLocation::Create()) noexcept
+        constexpr LocationString(const SourceLocation location = SourceLocation::Create()) noexcept
             : m_Location{location}, m_Msg{} {}
 
         template <std::convertible_to<std::string_view> T>
-        HELENA_CONSTEVAL LocationString(T&& msg, const SourceLocation location = SourceLocation::Create()) noexcept
+        constexpr LocationString(T&& msg, const SourceLocation location = SourceLocation::Create()) noexcept
             : m_Location{location}, m_Msg{msg} {}
 
         Types::SourceLocation m_Location;
