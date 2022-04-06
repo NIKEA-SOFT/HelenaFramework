@@ -64,7 +64,7 @@ namespace Example01
 				return;
 			}
 
-			ctx.m_WindowHWND = ::CreateWindow(ctx.m_WindowClassEx.lpszClassName, ctx.GetAppName().c_str(), 
+			ctx.m_WindowHWND = ::CreateWindow(ctx.m_WindowClassEx.lpszClassName, ctx.GetAppName().data(),
 				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, ctx.m_WindowWidth, ctx.m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
 
 			if(!ctx.m_WindowHWND) {

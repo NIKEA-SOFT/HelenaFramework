@@ -35,12 +35,9 @@ source_group("Headers" FILES ${HELENA_APP_HEADERS})
 source_group("Systems" FILES ${HELENA_APP_SYSTEMS})
 
 if(WIN32)
-    set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
+    set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /SUBSYSTEM:WINDOWS /PDBSTRIPPED:${HELENA_APP}.pdb")
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")  # Use /Zc:preprocessor for support VA_OPT in MSVC
     endif()
-
-elseif(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread")
 endif()

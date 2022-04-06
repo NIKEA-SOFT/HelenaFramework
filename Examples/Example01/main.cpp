@@ -1,4 +1,14 @@
-﻿#include "Application.h"
+﻿#include <Helena/Helena.hpp>
+
+#if defined(HELENA_PLATFORM_LINUX)
+int main(int argc, char** argv) {
+    HELENA_MSG_ERROR("Sorry, this example only for Windows platform :(");
+    return 0;
+}
+#endif
+
+#if defined(HELENA_PLATFORM_WIN)
+#include "Application.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
@@ -17,3 +27,4 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     return 0;
 }
+#endif
