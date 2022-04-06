@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_VECTORUNIQUE_HPP
 #define HELENA_TYPES_VECTORUNIQUE_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Traits/NameOf.hpp>
 
