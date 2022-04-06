@@ -2,6 +2,7 @@
 #define HELENA_TRAITS_NAMEOF_HPP
 
 #include <Helena/Platform/Defines.hpp>
+#include <array>
 #include <string_view>
 
 namespace Helena::Traits 
