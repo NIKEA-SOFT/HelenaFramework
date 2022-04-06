@@ -1,7 +1,7 @@
 #|--------------------------------
 #| HF Application Project
 #|--------------------------------
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.20)
 
 set(HELENA_APP HelenaPlugin)
 
@@ -14,6 +14,8 @@ add_library(${HELENA_APP} SHARED ${HELENA_APP_SOURCE} ${HELENA_APP_HEADERS})
 
 source_group("Source" FILES ${HELENA_APP_SOURCE})
 source_group("Headers" FILES ${HELENA_APP_HEADERS})
+
+target_compile_features(${HELENA_APP} PRIVATE cxx_std_20)
 
 if(WIN32)
     set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
