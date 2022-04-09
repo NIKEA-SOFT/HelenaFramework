@@ -115,7 +115,7 @@ namespace Helena
     {
         auto& ctx = Engine::Context::GetInstance();
         const auto state = ctx.m_State.load(std::memory_order_relaxed);
-        auto fnGetTimeMS = []() noexcept {
+        const auto fnGetTimeMS = []() noexcept {
             std::uint64_t ms {};
         #if defined(HELENA_PLATFORM_WIN)
             static LARGE_INTEGER s_frequency;
@@ -180,11 +180,11 @@ namespace Helena
                 SignalEvent<Events::Engine::Execute>();
                 SignalEvent<Events::Engine::Tick>(ctx.m_DeltaTime);
 
-                accumulator = 0;
                 while(ctx.m_TimeElapsed >= ctx.m_Tickrate) 
                 {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    if(accumulator++ >= accumulatorMax) {
+                    if(accumulatorMax < accumulator++) {
+                        accumulator = 0;
                         break;
                     }
 
@@ -289,22 +289,23 @@ namespace Helena
             ctx.m_Events.template Create<Event>();
         }
 
-        auto& pool = ctx.m_Events.template Get<Event>();
-        const auto id = reinterpret_cast<std::uintptr_t>(callback);
-        const auto empty = pool.cend() == std::find_if(pool.begin(), pool.end(), [id](const auto& data) { return data.m_Key == id; });
+        auto& eventPool = ctx.m_Events.template Get<Event>();
+        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
+            return storage == callback; 
+        });
         HELENA_ASSERT(empty, "Listener already registered!");
+
         if(empty) 
         {
-            pool.emplace_back(id, [callback]([[maybe_unused]] void* event) {
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage storage, void* data) {
                 if constexpr(std::is_empty_v<Event>) {
                     static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
-
-                    callback();
+                    storage.m_Callback();
                 } else {
                     static_assert(sizeof...(Args) == 1, "Args incorrect");
                     static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-
-                    callback(static_cast<std::tuple_element_t<0, std::tuple<Args...>>>(*static_cast<Event*>(event)));
+                    using To = std::tuple_element_t<0, std::tuple<Args...>>;
+                    std::bit_cast<decltype(callback)>(storage.m_Callback)(*static_cast<To*>(data));
                 }
             });
         }
@@ -320,26 +321,28 @@ namespace Helena
             ctx.m_Events.template Create<Event>();
         }
 
-        auto& pool = ctx.m_Events.template Get<Event>();
-        constexpr auto id = Types::Hash::template Get<decltype(callback), std::uint64_t>();
-        const auto empty = pool.cend() == std::find_if(pool.begin(), pool.end(), [id](const auto& data) { return data.m_Key == id; });
+        auto& eventPool = ctx.m_Events.template Get<Event>();
+        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
+            return storage == callback;
+        });
         HELENA_ASSERT(empty, "Listener already registered!");
+
         if(empty)
         {
-            pool.emplace_back(id, [callback]([[maybe_unused]] void* event) {
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage storage, void* data) {
+                if(!HasSystem<System>()) [[unlikely]] {
+                    UnsubscribeEvent<Event>(std::bit_cast<decltype(callback)>(storage.m_CallbackMember));
+                    return;
+                }
+
                 if constexpr(std::is_empty_v<Event>) {
                     static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
-
-                    if(HasSystem<System>()) {
-                        (GetSystem<System>().*callback)();
-                    }
+                    (GetSystem<System>().*std::bit_cast<decltype(callback)>(storage.m_CallbackMember))();
                 } else {
                     static_assert(sizeof...(Args) == 1, "Args incorrect");
                     static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-
-                    if(HasSystem<System>()) {
-                        (GetSystem<System>().*callback)(static_cast<std::tuple_element_t<0, std::tuple<Args...>>>(*static_cast<Event*>(event)));
-                    }
+                    using To = std::tuple_element_t<0, std::tuple<Args...>>;
+                    (GetSystem<System>().*std::bit_cast<decltype(callback)>(storage.m_CallbackMember))(*static_cast<To*>(data));
                 }
             });
         }
@@ -353,12 +356,15 @@ namespace Helena
         auto& ctx = Engine::Context::GetInstance();
         if(ctx.m_Events.template Has<Event>()) 
         {
-            [[maybe_unused]] Event event{std::forward<Args>(args)...};
-            void* data = Util::ConstexprIf<std::is_empty_v<Event>>(nullptr, &event);
-            auto& pool = ctx.m_Events.template Get<Event>();
-
-            for(std::size_t pos = pool.size(); pos; --pos) {
-                pool[pos - 1].m_Callback(data);
+            auto& eventPool = ctx.m_Events.template Get<Event>();
+            for(std::size_t pos = eventPool.size(); pos; --pos)
+            {
+                if constexpr(std::is_empty_v<Event>) {
+                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
+                } else {
+                    auto event = Util::ConstexprIf<std::is_aggregate_v<Event>>(Event{std::forward<Args>(args)...}, Event(std::forward<Args>(args)...));
+                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
+                }
             }
 
             if constexpr(Traits::IsAnyOf<Event,
@@ -367,7 +373,7 @@ namespace Helena
                 Events::Engine::Execute,
                 Events::Engine::Finalize,
                 Events::Engine::Shutdown>::value) {
-                pool.clear();
+                eventPool.clear();
             }
         }
     }
@@ -377,19 +383,17 @@ namespace Helena
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
         
         auto& ctx = Engine::Context::GetInstance();
-        HELENA_ASSERT(ctx.m_Events.template Has<Event>(), "Event pool not exist");
         if(!ctx.m_Events.template Has<Event>()) {
             return;
         }
 
-        auto& pool = ctx.m_Events.template Get<Event>();
-        const auto id = reinterpret_cast<std::uintptr_t>(callback);
-        const auto it = std::find_if(pool.cbegin(), pool.cend(), [id](const auto& data) noexcept {
-            return data.m_Key == id;
+        auto& eventPool = ctx.m_Events.template Get<Event>();
+        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+            return storage == callback;
         });
 
-        if(it != pool.cend()) {
-            pool.erase(it);
+        if(it != eventPool.cend()) {
+            eventPool.erase(it);
         }
     }
 
@@ -398,19 +402,17 @@ namespace Helena
         static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
         
         auto& ctx = Engine::Context::GetInstance();
-        HELENA_ASSERT(ctx.m_Events.template Has<Event>(), "Event pool not exist");
         if(!ctx.m_Events.template Has<Event>()) {
             return;
         }
 
-        auto& pool = ctx.m_Events.template Get<Event>();
-        constexpr auto id = Types::Hash::template Get<decltype(callback), std::uint64_t>();
-        const auto it = std::find_if(pool.cbegin(), pool.cend(), [id](const auto& data) noexcept {
-            return data.m_Key == id;
+        auto& eventPool = ctx.m_Events.template Get<Event>();
+        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+            return storage == callback;
         });
 
-        if(it != pool.cend()) {
-            pool.erase(it);
+        if(it != eventPool.cend()) {
+            eventPool.erase(it);
         }
     }
 }

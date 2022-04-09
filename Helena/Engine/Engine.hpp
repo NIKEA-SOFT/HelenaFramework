@@ -9,6 +9,7 @@
 #include <Helena/Types/Mutex.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <functional>
 
 namespace Helena
@@ -25,21 +26,71 @@ namespace Helena
         //! Unique key for storage systems type index
         using UKSystems = IUniqueKey<1>;
 
-        //! Storage event callbacks
-        struct EventData {
-            using Callback = std::function<void(void*)>;
+        //! Event callback storage with type erasure
+        struct CallbackStorage
+        {
+            using Function = void (*)();
+            using MemberFunction = void (CallbackStorage::*)();
+            union Storage {
+                Function m_Callback;
+                MemberFunction m_CallbackMember;
+            };
+            using Callback = void (*)(Storage storage, void* data);
 
-            EventData(std::uintptr_t key, Callback&& cb) : m_Key{key}, m_Callback{std::move(cb)} {}
-            ~EventData() = default;
-            EventData(const EventData&) = default;
-            EventData(EventData&&) noexcept = default;
-            EventData& operator=(const EventData&) = default;
-            EventData& operator=(EventData&&) noexcept = default;
 
-            std::uintptr_t m_Key;
+            template <typename Ret, typename... Args>
+            CallbackStorage(Ret (*callback)(Args...), Callback&& cb) : m_Callback{std::forward<Callback>(cb)} {
+                new (&m_Storage) decltype(callback){callback};
+            }
+
+            template <typename Ret, typename T, typename... Args>
+            CallbackStorage(Ret (T::*callback)(Args...), Callback&& cb) : m_Callback{std::forward<Callback>(cb)} {
+                new (&m_Storage) decltype(callback){callback};
+            }
+
+            CallbackStorage() = default;
+            ~CallbackStorage() = default;
+            CallbackStorage(const CallbackStorage&) = default;
+            CallbackStorage(CallbackStorage&&) noexcept = default;
+            CallbackStorage& operator=(const CallbackStorage&) = default;
+            CallbackStorage& operator=(CallbackStorage&&) noexcept = default;
+
+            template <typename Ret, typename... Args>
+            CallbackStorage& operator=(Ret (*callback)(Args...)) noexcept {
+                new (&m_Storage) decltype(callback){callback};
+                return *this;
+            }
+
+            template <typename Ret, typename T, typename... Args>
+            CallbackStorage& operator=(Ret (T::*callback)(Args...)) noexcept {
+                new (&m_Storage) decltype(callback){callback};
+                return *this;
+            }
+
+            template <typename Ret, typename... Args>
+            [[nodiscard]] bool operator==(Ret (*callback)(Args...)) const noexcept {
+                return std::bit_cast<decltype(callback)>(m_Storage.m_Callback) == callback;
+            }
+
+            template <typename Ret, typename T, typename... Args>
+            [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
+                return std::bit_cast<decltype(callback)>(m_Storage.m_CallbackMember) == callback;
+            }
+
+            template <typename Ret, typename... Args>
+            [[nodiscard]] bool operator!=(Ret (*callback)(Args...)) const noexcept {
+                return std::bit_cast<decltype(callback)>(m_Storage.m_Callback) != callback;
+            }
+
+            template <typename Ret, typename T, typename... Args>
+            [[nodiscard]] bool operator!=(Ret (T::*callback)(Args...)) const noexcept {
+                return std::bit_cast<decltype(callback)>(m_Storage.m_CallbackMember) != callback;
+            }
+
+            Storage m_Storage;
             Callback m_Callback;
         };
-
+        
     public:
         //! Engine states
         enum class EState : std::uint8_t
@@ -186,7 +237,7 @@ namespace Helena
 
         private:
             Types::VectorAny<UKSystems> m_Systems;
-            Types::VectorUnique<UKEventStorage, std::vector<EventData>> m_Events;
+            Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
 
             Callback m_Callback;
 
