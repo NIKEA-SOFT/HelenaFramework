@@ -9,8 +9,6 @@
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
 
-#include <execution>
-
 namespace Helena
 {
 #if defined(HELENA_PLATFORM_WIN)
@@ -29,15 +27,14 @@ namespace Helena
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
-        std::optional<std::string_view> appName;
-        const auto context = Engine::Context::Get();
-        if(!context->GetAppName().empty()) {
-            appName = std::make_optional<std::string_view>(context->GetAppName());
+        std::string_view appName = Engine::Context::GetInstance().GetAppName();
+        if(appName.empty()) {
+            appName = "Helena";
         }
 
         const auto dateTime = Types::DateTime::FromLocalTime();
         const auto dumpName = Util::Format("{}_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp", 
-            appName.value_or("Helena"),
+            appName,
             dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
             dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
@@ -70,7 +67,8 @@ namespace Helena
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
-    inline void Engine::RegisterHandlers() {
+    inline void Engine::RegisterHandlers() 
+    {
         static ULONG stackSize = 64 * 1024;
 
         SetThreadStackGuarantee(&stackSize);
@@ -82,12 +80,6 @@ namespace Helena
             HMENU hMenu = GetSystemMenu(hWnd, FALSE);
             EnableMenuItem(hMenu, SC_CLOSE, MF_DISABLED | MF_BYCOMMAND);
         }
-    }
-
-    template <typename... Args>
-    void Engine::ConsoleInfo(std::string_view msg, [[maybe_unused]] Args&&... args) {
-        const auto buffer = Types::Format<30>(msg, std::forward<Args>(args)...);
-        SetConsoleTitleA(buffer.GetData());
     }
 
 #elif defined(HELENA_PLATFORM_LINUX)
@@ -361,8 +353,11 @@ namespace Helena
             {
                 if constexpr(std::is_empty_v<Event>) {
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
+                } else if constexpr(std::is_aggregate_v<Event>) {
+                    auto event = Event{std::forward<Args>(args)...};
+                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 } else {
-                    auto event = Util::ConstexprIf<std::is_aggregate_v<Event>>(Event{std::forward<Args>(args)...}, Event(std::forward<Args>(args)...));
+                    auto event = Event(std::forward<Args>(args)...);
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 }
             }

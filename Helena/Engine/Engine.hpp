@@ -117,7 +117,7 @@ namespace Helena
             using Callback = std::function<void ()>;
 
             template <typename T = Context>
-            [[nodiscard]] static T& GetInstance() noexcept {
+            static T& GetInstance() noexcept {
                 HELENA_ASSERT(m_Context, "Context not initilized");
                 return *static_cast<T*>(m_Context.get());
             }
@@ -221,7 +221,7 @@ namespace Helena
             * @brief Return the application name
             * @return String view object to the application name
             */
-            static std::string_view GetAppName() noexcept {
+            [[nodiscard]] static std::string_view GetAppName() noexcept {
                 const auto& ctx = GetInstance();
                 return ctx.m_ApplicationName;
             }
@@ -262,8 +262,6 @@ namespace Helena
         static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
         static LONG WINAPI MiniDumpSEH(EXCEPTION_POINTERS* pException);
 
-        template <typename... Args>
-        static void ConsoleInfo(std::string_view msg, [[maybe_unused]] Args&&... args);
     #elif defined(HELENA_PLATFORM_LINUX)
         static auto SigHandler(int signal) -> void;
     #endif
