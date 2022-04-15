@@ -80,6 +80,8 @@ namespace Helena::Types
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
 
+        // Linux C++20 chrono is not fully supported
+        // TODO: replace to time zone
         [[nodiscard]] static DateTime FromGMTTime() {
             auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             const auto tm = std::gmtime(&time_now);
@@ -87,6 +89,8 @@ namespace Helena::Types
             return FromTimeStamp(time_now);
         }
 
+        // Linux C++20 chrono is not fully supported
+        // TODO: replace to time zone
         [[nodiscard]] static DateTime FromLocalTime() {
             auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             const auto tm = std::localtime(&time_now);
@@ -145,7 +149,7 @@ namespace Helena::Types
                 if(data.size() == read_length) 
                 {
                     // Cast string to int
-                    const auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
+                    auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
                     HELENA_ASSERT(err == std::errc{}, "Cast data: \"{}\" failed", data);
 
                     // Check cast result
@@ -223,6 +227,9 @@ namespace Helena::Types
                         break;
                     }
                 } else if(keyFormat != fnNextChar(time, offsetTime)) {
+                    HELENA_ASSERT(keyFormat == fnNextChar(time, offsetTime), 
+                        "Format: \"{}\" and Time: \"{}\" separators do not match!", 
+                        keyFormat, fnNextChar(time, offsetTime));
                     break;
                 }
             }
@@ -337,10 +344,12 @@ namespace Helena::Types
                 static_cast<std::int32_t>(IsLeapYear(year)) + day - 1LL) * m_TicksPerDays;
         }
 
-        [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute, std::int32_t second, std::int32_t millisecond = 0) noexcept {
+        [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute = 0, 
+                                                                std::int32_t second = 0, std::int32_t millisecond = 0) noexcept {
             HELENA_ASSERT(hour >= 0 && hour <= 23);
             HELENA_ASSERT(minute >= 0 && minute <= 59);
             HELENA_ASSERT(second >= 0 && second <= 59);
+            HELENA_ASSERT(millisecond >= 0 && millisecond <= 999);
             return (hour * 3600LL + minute * 60LL + second) * m_TicksPerSeconds + millisecond * m_TicksPerMilliseconds;
         }
 
