@@ -2,13 +2,6 @@
 #define HELENA_OS_WINDOWS_HPP
 
 #if defined(HELENA_PLATFORM_WIN)
-
-    #if defined(HELENA_COMPILER_MSVC)
-        #pragma warning(disable:4091)
-        #pragma warning(disable:4251)
-        #pragma warning(disable:4068)
-    #endif
-
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -23,7 +16,7 @@
     #include <dbghelp.h>
     #include <exception>
     #include <cstdio>
-    
+
     #if defined min
         #undef min      // piece of shit in global space
     #endif
@@ -44,8 +37,8 @@
         #endif // _MSC_VER >= 1910
     #endif
 
-    extern "C" 
-    {                                                              
+    extern "C"
+    {
         __declspec(dllexport) inline DWORD NvOptimusEnablement = 0x00000001;
         __declspec(dllexport) inline int AmdPowerXpressRequestHighPerformance = 1;
     }
