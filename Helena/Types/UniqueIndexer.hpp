@@ -28,7 +28,7 @@ namespace Helena::Types
         template <typename T>
         [[nodiscard]] index_type Get() const {
             static_assert(std::is_same_v<T, Traits::RemoveCVRefPtr<T>>, "Type is const/ptr/ref");
-            static auto index = TypeIndexer<T>::GetIndex(m_Indexes);
+            static const auto index = TypeIndexer<T>::GetIndex(m_Indexes);
             return index;
         }
 

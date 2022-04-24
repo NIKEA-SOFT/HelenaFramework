@@ -31,29 +31,26 @@ namespace Helena
         {
             using Function = void (*)();
             using MemberFunction = void (CallbackStorage::*)();
-            union Storage {
+            union alignas(16) Storage {
                 Function m_Callback;
                 MemberFunction m_CallbackMember;
             };
-            using Callback = void (*)(Storage storage, void* data);
-
+            using Callback = void (*)(Storage&, void*);
 
             template <typename Ret, typename... Args>
-            CallbackStorage(Ret (*callback)(Args...), Callback&& cb) : m_Callback{std::forward<Callback>(cb)} {
+            CallbackStorage(Ret (*callback)(Args...), Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
             template <typename Ret, typename T, typename... Args>
-            CallbackStorage(Ret (T::*callback)(Args...), Callback&& cb) : m_Callback{std::forward<Callback>(cb)} {
+            CallbackStorage(Ret (T::*callback)(Args...), Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
-            CallbackStorage() = default;
-            ~CallbackStorage() = default;
-            CallbackStorage(const CallbackStorage&) = default;
-            CallbackStorage(CallbackStorage&&) noexcept = default;
-            CallbackStorage& operator=(const CallbackStorage&) = default;
-            CallbackStorage& operator=(CallbackStorage&&) noexcept = default;
+            CallbackStorage(const CallbackStorage& rhs) = default;
+            CallbackStorage(CallbackStorage&& rhs) noexcept = default;
+            CallbackStorage& operator=(const CallbackStorage& rhs) = default;
+            CallbackStorage& operator=(CallbackStorage&& rhs) noexcept = default;
 
             template <typename Ret, typename... Args>
             CallbackStorage& operator=(Ret (*callback)(Args...)) noexcept {
@@ -69,22 +66,24 @@ namespace Helena
 
             template <typename Ret, typename... Args>
             [[nodiscard]] bool operator==(Ret (*callback)(Args...)) const noexcept {
-                return std::bit_cast<decltype(callback)>(m_Storage.m_Callback) == callback;
+                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
+                return fn == callback;
             }
 
             template <typename Ret, typename T, typename... Args>
             [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
-                return std::bit_cast<decltype(callback)>(m_Storage.m_CallbackMember) == callback;
+                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
+                return fn == callback;
             }
 
             template <typename Ret, typename... Args>
             [[nodiscard]] bool operator!=(Ret (*callback)(Args...)) const noexcept {
-                return std::bit_cast<decltype(callback)>(m_Storage.m_Callback) != callback;
+                return !(*this == callback);
             }
 
             template <typename Ret, typename T, typename... Args>
             [[nodiscard]] bool operator!=(Ret (T::*callback)(Args...)) const noexcept {
-                return std::bit_cast<decltype(callback)>(m_Storage.m_CallbackMember) != callback;
+                return !(*this == callback);
             }
 
             Storage m_Storage;

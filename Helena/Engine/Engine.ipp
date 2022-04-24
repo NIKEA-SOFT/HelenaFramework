@@ -289,15 +289,16 @@ namespace Helena
 
         if(empty) 
         {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage storage, void* data) {
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) {
                 if constexpr(std::is_empty_v<Event>) {
                     static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
                     storage.m_Callback();
                 } else {
                     static_assert(sizeof...(Args) == 1, "Args incorrect");
                     static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-                    using To = std::tuple_element_t<0, std::tuple<Args...>>;
-                    std::bit_cast<decltype(callback)>(storage.m_Callback)(*static_cast<To*>(data));
+                    using To = std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>;
+                    decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
+                    fn(*static_cast<To*>(data));
                 }
             });
         }
@@ -319,22 +320,26 @@ namespace Helena
         });
         HELENA_ASSERT(empty, "Listener already registered!");
 
-        if(empty)
+        if(empty) 
         {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage storage, void* data) {
-                if(!HasSystem<System>()) [[unlikely]] {
-                    UnsubscribeEvent<Event>(std::bit_cast<decltype(callback)>(storage.m_CallbackMember));
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) {
+                auto& ctx = Engine::Context::GetInstance();
+                if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
+                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
+                    UnsubscribeEvent<Event>(fn);
                     return;
                 }
 
                 if constexpr(std::is_empty_v<Event>) {
                     static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
-                    (GetSystem<System>().*std::bit_cast<decltype(callback)>(storage.m_CallbackMember))();
+                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
+                    (ctx.m_Systems.template Get<System>().*fn)();
                 } else {
                     static_assert(sizeof...(Args) == 1, "Args incorrect");
                     static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-                    using To = std::tuple_element_t<0, std::tuple<Args...>>;
-                    (GetSystem<System>().*std::bit_cast<decltype(callback)>(storage.m_CallbackMember))(*static_cast<To*>(data));
+                    using To = std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>;
+                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
+                    (ctx.m_Systems.template Get<System>().*fn)(*static_cast<To*>(data));
                 }
             });
         }
