@@ -130,7 +130,7 @@ namespace Helena::Types
         }
 
         template<typename Type>
-        [[nodiscard]] constexpr auto maybe_equality_comparable(Internal::choice_t<1>) -> decltype(std::declval<typename Type::value_type>(), bool{}) {
+        [[nodiscard]] static constexpr auto maybe_equality_comparable(Internal::choice_t<1>) -> decltype(std::declval<typename Type::value_type>(), bool{}) {
             if constexpr(is_iterator_v<Type>) {
                 return true;
             } else if constexpr(std::is_same_v<typename Type::value_type, Type>) {
