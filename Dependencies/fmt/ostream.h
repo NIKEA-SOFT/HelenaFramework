@@ -8,6 +8,7 @@
 #ifndef FMT_OSTREAM_H_
 #define FMT_OSTREAM_H_
 
+#include <fstream>
 #include <ostream>
 
 #include "format.h"
@@ -50,10 +51,52 @@ struct is_streamable<
         (std::is_convertible<T, int>::value && !std::is_enum<T>::value)>>
     : std::false_type {};
 
+template <typename Char> FILE* get_file(std::basic_filebuf<Char>&) {
+  return nullptr;
+}
+
+struct dummy_filebuf {
+  FILE* _Myfile;
+};
+template <typename T, typename U = int> struct ms_filebuf {
+  using type = dummy_filebuf;
+};
+template <typename T> struct ms_filebuf<T, decltype(T::_Myfile, 0)> {
+  using type = T;
+};
+using filebuf_type = ms_filebuf<std::filebuf>::type;
+
+FILE* get_file(filebuf_type& buf);
+
+// Generate a unique explicit instantion in every translation unit using a tag
+// type in an anonymous namespace.
+namespace {
+struct filebuf_access_tag {};
+}  // namespace
+template <typename Tag, typename FileMemberPtr, FileMemberPtr file>
+class filebuf_access {
+  friend FILE* get_file(filebuf_type& buf) { return buf.*file; }
+};
+template class filebuf_access<filebuf_access_tag,
+                              decltype(&filebuf_type::_Myfile),
+                              &filebuf_type::_Myfile>;
+
+inline bool write(std::filebuf& buf, fmt::string_view data) {
+  print(get_file(buf), data);
+  return true;
+}
+inline bool write(std::wfilebuf&, fmt::basic_string_view<wchar_t>) {
+  return false;
+}
+
 // Write the content of buf to os.
 // It is a separate function rather than a part of vprint to simplify testing.
 template <typename Char>
 void write_buffer(std::basic_ostream<Char>& os, buffer<Char>& buf) {
+  if (const_check(FMT_MSC_VER)) {
+    auto filebuf = dynamic_cast<std::basic_filebuf<Char>*>(os.rdbuf());
+    if (filebuf && write(*filebuf, {buf.data(), buf.size()})) return;
+  }
   const Char* buf_data = buf.data();
   using unsigned_streamsize = std::make_unsigned<std::streamsize>::type;
   unsigned_streamsize size = buf.size();
