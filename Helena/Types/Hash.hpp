@@ -3,7 +3,7 @@
 
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/FNV1a.hpp>
-#include <concepts>
+#include <Helena/Traits/AnyOf.hpp>
 
 namespace Helena::Types
 {
@@ -13,8 +13,13 @@ namespace Helena::Types
     template <typename>
     struct Equaler;
 
-    class Hash 
+    template <typename T>
+    requires Traits::AnyOf<T, std::uint32_t, std::uint64_t>
+    class Hash
     {
+    public:
+        using value_type = T;
+
     public:
         Hash() = delete;
         Hash(const Hash&) = delete;
@@ -22,9 +27,7 @@ namespace Helena::Types
         Hash& operator=(const Hash&) = delete;
         Hash& operator=(Hash&&) noexcept = delete;
 
-        template <typename T>
-        requires std::is_integral_v<T>
-        [[nodiscard]] static  constexpr auto Get(const std::string_view str) noexcept
+        [[nodiscard]] static constexpr auto Get(std::string_view str) noexcept
         {
             using Hash = Traits::FNV1a<T>;
 
@@ -36,9 +39,9 @@ namespace Helena::Types
             return value;
         }
 
-        template <typename T, typename P>
+        template <typename Type>
         [[nodiscard]] static constexpr auto Get() noexcept {
-            return Get<P>(Helena::Traits::template NameOf<T>::value);
+            return Get(Helena::Traits::template NameOf<Type>::value);
         }
     };
 }
