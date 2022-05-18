@@ -10,12 +10,12 @@ namespace Helena::Traits
     template <typename T>
     class NameOf final {
         template <std::size_t... Indexes>
-        static constexpr auto substring_as_array(std::string_view str, std::index_sequence<Indexes...>) {
+        [[nodiscard]] static constexpr auto substring_as_array(std::string_view str, std::index_sequence<Indexes...>) noexcept {
             return std::array{str[Indexes]..., '\n'};
         }
 
         template <typename>
-        static constexpr auto type_name_array()
+        [[nodiscard]] static constexpr auto type_name_array() noexcept
         {
         #if defined(HELENA_COMPILER_CLANG)
             constexpr auto prefix   = std::string_view{"[T = "};
@@ -54,6 +54,10 @@ namespace Helena::Traits
         }
 
     public:
+        constexpr operator std::string_view() const noexcept {
+            return value;
+        }
+
         static constexpr auto value = type_name<T>();
     };
 }
