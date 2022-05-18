@@ -49,6 +49,7 @@
 #include <Helena/Types/Mutex.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Types/Spinlock.hpp>
+#include <Helena/Types/TaskScheduler.hpp>
 #include <Helena/Types/TimeSpan.hpp>
 #include <Helena/Types/TSVector.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
