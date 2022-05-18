@@ -268,7 +268,7 @@ namespace Helena
 
     template <typename... T>
     void Engine::RemoveSystem() {
-        return Engine::Context::GetInstance().m_Systems.template Remove<T...>();
+        Engine::Context::GetInstance().m_Systems.template Remove<T...>();
     }
 
     template <typename Event, typename... Args>
