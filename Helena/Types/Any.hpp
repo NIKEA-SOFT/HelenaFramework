@@ -163,7 +163,7 @@ namespace Helena::Types
 
         using storage_type = std::aligned_storage_t<Len + !Len, Align>;
         using vtable_type = const void* (const operation, const Any&, const void*);
-        using hash_type = std::uint64_t;
+        using hash_type = Hash<std::uint64_t>;
 
         template<typename Type>
         static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type) && sizeof(Type) <= sizeof(storage_type) && std::is_nothrow_move_constructible_v<Type>;
@@ -239,7 +239,7 @@ namespace Helena::Types
             if constexpr(!std::is_void_v<Type>) 
             {
                 vtable = basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>;
-                key = Types::Hash::template Get<Type, std::uint64_t>();
+                key = hash_type::template Get<Type>();
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
@@ -276,7 +276,7 @@ namespace Helena::Types
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
-            , key{Types::Hash::template Get<void, std::uint64_t>()}
+            , key{hash_type::template Get<void>()}
             , vtable{}
             , mode{policy::owner} {}
 
@@ -374,10 +374,10 @@ namespace Helena::Types
         }
 
         /**
-         * @brief Returns the object type if any, `Hash::Get<void, std::uint64_t>()` otherwise.
-         * @return The object type if any, `Hash::Get<void, std::uint64_t>()` otherwise.
+         * @brief Returns the object type if any, `hash_type::Get<void>()` otherwise.
+         * @return The object type if any, `hash_type::Get<void>()` otherwise.
          */
-        [[nodiscard]] hash_type Hash() const noexcept {
+        [[nodiscard]] hash_type::value_type Hash() const noexcept {
             return key;
         }
 
@@ -394,7 +394,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] const void* Data(std::uint64_t hash) const noexcept {
+        [[nodiscard]] const void* Data(hash_type::value_type hash) const noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -411,7 +411,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] void* Data(std::uint64_t hash) noexcept {
+        [[nodiscard]] void* Data(hash_type::value_type hash) noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -460,7 +460,7 @@ namespace Helena::Types
                 vtable(operation::destroy, *this, nullptr);
             }
 
-            key = Types::Hash::template Get<void, std::uint64_t>();
+            key = hash_type::template Get<void>();
             vtable = nullptr;
             mode = policy::owner;
         }
@@ -512,7 +512,7 @@ namespace Helena::Types
             const void* instance;
             storage_type storage;
         };
-        hash_type key;
+        hash_type::value_type key;
         vtable_type* vtable;
         policy mode;
     };
@@ -573,14 +573,14 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Types::Hash::template Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>();
+        constexpr auto key = Hash<std::uint64_t>::template Get<Traits::RemoveCVRefPtr<Type>>();
         return static_cast<const Type*>(data->Data(key));
     }
 
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     Type* AnyCast(Any<Len, Align>* data) noexcept {
-        constexpr auto key = Types::Hash::template Get<Traits::RemoveCVRefPtr<Type>, std::uint64_t>();
+        constexpr auto key = Hash<std::uint64_t>::template Get<Traits::RemoveCVRefPtr<Type>>();
         // last attempt to make wrappers for const references return their values
         return static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->Data(key));
     }
