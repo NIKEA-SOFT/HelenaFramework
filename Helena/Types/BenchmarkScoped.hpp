@@ -26,7 +26,8 @@ namespace Helena::Types
         BenchmarkScoped(const Types::SourceLocation& location = Types::SourceLocation::Create()) : m_Location{location}, m_Time{Timer::now()} {}
         ~BenchmarkScoped() {
             const std::chrono::duration<float> timeleft = Timer::now() - m_Time;
-            Log::Console<Benchmark>("{}] Timeleft: {:.6f} sec", m_Location.GetFunction(), timeleft.count());
+            const auto formater = Helena::Log::Formater<Benchmark>{"{}] Timeleft: {:.6f} sec", m_Location};
+            Log::Console<Benchmark>(formater, m_Location.GetFunction(), timeleft.count());
         }
         BenchmarkScoped(const BenchmarkScoped&) = delete;
         BenchmarkScoped(BenchmarkScoped&&) noexcept = delete;
