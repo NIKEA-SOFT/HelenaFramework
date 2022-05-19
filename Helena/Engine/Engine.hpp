@@ -9,7 +9,6 @@
 #include <Helena/Types/Mutex.hpp>
 
 #include <algorithm>
-#include <bit>
 #include <functional>
 
 namespace Helena
