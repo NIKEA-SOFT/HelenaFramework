@@ -48,7 +48,7 @@ namespace Helena::Traits
         };
 
         template <typename Type>
-        static constexpr auto type_name() {
+        [[nodiscard]] static constexpr auto type_name() {
             constexpr auto& value = type_name_holder<Type>::value;
             return std::string_view{value.data()};
         }
