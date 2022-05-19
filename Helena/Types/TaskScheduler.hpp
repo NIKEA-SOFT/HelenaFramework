@@ -128,6 +128,10 @@ namespace Helena::Types
             }
         }
 
+        [[nodiscard]] std::size_t Count() const noexcept {
+            return m_Tasks.size();
+        }
+
         void Update()
         {
             while(!m_Times.empty())
