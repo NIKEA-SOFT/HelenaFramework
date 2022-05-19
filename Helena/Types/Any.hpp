@@ -377,7 +377,7 @@ namespace Helena::Types
          * @brief Returns the object type if any, `hash_type::Get<void>()` otherwise.
          * @return The object type if any, `hash_type::Get<void>()` otherwise.
          */
-        [[nodiscard]] hash_type::value_type Hash() const noexcept {
+        [[nodiscard]] hash_type::value_type Key() const noexcept {
             return key;
         }
 
