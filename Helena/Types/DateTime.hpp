@@ -13,8 +13,8 @@ namespace Helena::Types
 {
     class DateTime
     {
-        static constexpr std::int64_t m_TicksPerMilliseconds = 10000LL;
-        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMilliseconds;
+        static constexpr std::int64_t m_TicksPerMS = 10000LL;
+        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMS;
         static constexpr std::int64_t m_TicksPerMinutes = 60LL * m_TicksPerSeconds;
         static constexpr std::int64_t m_TicksPerHours = 60LL * m_TicksPerMinutes;
         static constexpr std::int64_t m_TicksPerDays = 24LL * m_TicksPerHours;
@@ -58,52 +58,50 @@ namespace Helena::Types
             HELENA_ASSERT(year >= 1 && year <= 9999);
             HELENA_ASSERT(month >= 1 && month <= MonthSize);
             HELENA_ASSERT(day >= 1 && day <= GetDaysInMonth(year, month));
-            m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + ms * m_TicksPerMilliseconds;
+            m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + ms * m_TicksPerMS;
         }
 
         constexpr DateTime& operator=(const DateTime&) = default;
         constexpr DateTime& operator=(DateTime&&) noexcept = default;
 
-        //[[nodiscard]] static std::int64_t NowTickTime() noexcept {
-        //    return FromTickTime().GetTicks();
-        //}
-
-        //[[nodiscard]] static std::int64_t NowUTCTime() noexcept {
-        //    return FromUTCTime().GetTicks();
-        //}
-
-        //[[nodiscard]] static std::int64_t NowLocalTime() noexcept {
-        //    return FromLocalTime().GetTicks();
-        //}
-
         [[nodiscard]] static DateTime FromTickTime() {
             return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
 
-        // Linux C++20 chrono is not fully supported
-        // TODO: replace to time zone
-        [[nodiscard]] static DateTime FromGMTTime() {
+        [[nodiscard]] static DateTime FromUTCTime() {
+        #if defined(HELENA_PLATFORM_WIN)
+            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
+            return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_sys_time().time_since_epoch()).count());
+        #else   // Linux not support C++20 chrono :(
             auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             const auto tm = std::gmtime(&time_now);
-            time_now = std::mktime(tm);
-            return FromTimeStamp(time_now);
+            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday)
+                + TimeToTicks(tm->tm_hour, tm->tm_min, tm->tm_sec)};
+        #endif
         }
 
-        // Linux C++20 chrono is not fully supported
-        // TODO: replace to time zone
         [[nodiscard]] static DateTime FromLocalTime() {
-            auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            const auto tm = std::localtime(&time_now);
-            time_now = std::mktime(tm);
-            return FromTimeStamp(time_now);
+        #if defined(HELENA_PLATFORM_WIN)
+            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
+            return FromTimeStamp(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_local_time().time_since_epoch()).count());
+        #else   // Linux not support C++20 chrono :(
+            auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto tm = std::localtime(&timeNow);
+            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday) 
+                + TimeToTicks(tm->tm_hour, tm->tm_min, tm->tm_sec)};
+        #endif
         }
 
         [[nodiscard]] static constexpr DateTime FromTimeStamp(std::int64_t seconds) noexcept {
             return DateTime(DateToTicks(1970, 1, 1) + seconds * m_TicksPerSeconds);
         }
 
-        [[nodiscard]] static constexpr DateTime FromMilliseconds(std::int64_t milliseconds) noexcept {
-            return DateTime(DateToTicks(1970, 1, 1) + milliseconds * m_TicksPerMilliseconds);
+        [[nodiscard]] static constexpr DateTime FromSeconds(std::int64_t seconds) noexcept {
+            return DateTime(DateToTicks(1970, 1, 1) + seconds * m_TicksPerSeconds);
+        }
+
+        [[nodiscard]] static constexpr DateTime FromMS(std::int64_t milliseconds) noexcept {
+            return DateTime(DateToTicks(1970, 1, 1) + milliseconds * m_TicksPerMS);
         }
 
         // %D - Day
@@ -114,7 +112,7 @@ namespace Helena::Types
         // %s - seconds
         // %ms - milliseconds
         // Currently this function not constexpr becaus Util::Cast use from_chars
-        [[nodiscard]] static DateTime FromString(const std::string_view format, const std::string_view time) noexcept
+        [[nodiscard]] static DateTime FromString(std::string_view format, std::string_view time) noexcept
         {
             if(format.empty() || time.empty()) {
                 return DateTime{};
@@ -131,11 +129,11 @@ namespace Helena::Types
             std::size_t offsetFormat{};
             std::size_t offsetTime{};
 
-            const auto fnNextChar = [](const std::string_view format, std::size_t& offset) -> char {
+            const auto fnNextChar = [](std::string_view format, std::size_t& offset) -> char {
                 return offset < format.size() ? format[offset++] : char{};
             };
 
-            const auto fnParse = [](const std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool
+            const auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool
             {
                 if(out) {
                     return false;
@@ -249,12 +247,36 @@ namespace Helena::Types
             return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerDays) + 1721425.5;
         }
 
+        constexpr void AddTicks(std::int64_t ticks) noexcept {
+            m_Ticks += ticks;
+        }
+
+        constexpr void AddDays(std::int64_t days) noexcept {
+            m_Ticks += days * m_TicksPerDays;
+        }
+
+        constexpr void AddHours(std::int64_t hours) noexcept {
+            m_Ticks += hours * m_TicksPerHours;
+        }
+
+        constexpr void AddMinutes(std::int64_t minutes) noexcept {
+            m_Ticks += minutes * m_TicksPerMinutes;
+        }
+
+        constexpr void AddSeconds(std::int64_t seconds) noexcept {
+            m_Ticks += seconds * m_TicksPerSeconds;
+        }
+
+        constexpr void AddMS(std::int64_t ms) noexcept {
+            m_Ticks += ms * m_TicksPerMS;
+        }
+
         [[nodiscard]] constexpr std::int64_t GetTicks() const noexcept {
             return m_Ticks;
         }
 
-        [[nodiscard]] constexpr std::int32_t GetMilliseconds() const noexcept {
-            return static_cast<std::int32_t>((m_Ticks / m_TicksPerMilliseconds) % 1000LL);
+        [[nodiscard]] constexpr std::int32_t GetMS() const noexcept {
+            return static_cast<std::int32_t>((m_Ticks / m_TicksPerMS) % 1000LL);
         }
 
         [[nodiscard]] constexpr std::int32_t GetSeconds() const noexcept {
@@ -291,6 +313,26 @@ namespace Helena::Types
             std::int32_t day{};
             GetDate(year, month, day);
             return year;
+        }
+
+        [[nodiscard]] constexpr double GetTotalMS() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerMS);
+        }
+
+        [[nodiscard]] constexpr double GetTotalSeconds() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerSeconds);
+        }
+
+        [[nodiscard]] constexpr double GetTotalMinutes() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerMinutes);
+        }
+
+        [[nodiscard]] constexpr double GetTotalHours() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerHours);
+        }
+
+        [[nodiscard]] constexpr double GetTotalDays() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerDays);
         }
 
         [[nodiscard]] constexpr std::int64_t GetTimeStamp() const noexcept {
@@ -350,7 +392,7 @@ namespace Helena::Types
             HELENA_ASSERT(minute >= 0 && minute <= 59);
             HELENA_ASSERT(second >= 0 && second <= 59);
             HELENA_ASSERT(millisecond >= 0 && millisecond <= 999);
-            return (hour * 3600LL + minute * 60LL + second) * m_TicksPerSeconds + millisecond * m_TicksPerMilliseconds;
+            return (hour * 3600LL + minute * 60LL + second) * m_TicksPerSeconds + millisecond * m_TicksPerMS;
         }
 
         constexpr DateTime operator-(const DateTime other) const noexcept {
@@ -361,17 +403,17 @@ namespace Helena::Types
             return DateTime(m_Ticks - other.m_Ticks);
         }
 
-        DateTime operator-=(const DateTime other) noexcept {
+        constexpr DateTime operator-=(const DateTime other) noexcept {
             m_Ticks -= other.m_Ticks;
             return *this;
         }
 
-        DateTime operator+=(const DateTime other) noexcept {
+        constexpr DateTime operator+=(const DateTime other) noexcept {
             m_Ticks += other.m_Ticks;
             return *this;
         }
 
-        [[nodiscard]] constexpr auto operator<=>(const DateTime&) const noexcept = default;
+        constexpr auto operator<=>(const DateTime&) const noexcept = default;
 
     private:
         std::int64_t m_Ticks{};
