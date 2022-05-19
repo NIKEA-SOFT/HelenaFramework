@@ -22,7 +22,7 @@ namespace Helena::Log
                 Helena::Log::Console<Helena::Log::Assert>("Condition: " #cond);         \
                                                                                         \
                 using tuple = decltype(std::forward_as_tuple(__VA_ARGS__));             \
-                if(std::tuple_size_v<tuple> > 0) {                                      \
+                if constexpr(std::tuple_size_v<tuple> > 0) {                            \
                     Helena::Log::Console<Helena::Log::Assert>("Message: " __VA_ARGS__); \
                 }                                                                       \
                                                                                         \
