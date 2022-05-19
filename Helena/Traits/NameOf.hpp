@@ -11,7 +11,7 @@ namespace Helena::Traits
     class NameOf final {
         template <std::size_t... Indexes>
         [[nodiscard]] static constexpr auto substring_as_array(std::string_view str, std::index_sequence<Indexes...>) noexcept {
-            return std::array{str[Indexes]..., '\n'};
+            return std::array{str[Indexes]..., '\0'};
         }
 
         template <typename>
@@ -50,7 +50,7 @@ namespace Helena::Traits
         template <typename Type>
         static constexpr auto type_name() {
             constexpr auto& value = type_name_holder<Type>::value;
-            return std::string_view{value.data(), value.size()};
+            return std::string_view{value.data()};
         }
 
     public:
