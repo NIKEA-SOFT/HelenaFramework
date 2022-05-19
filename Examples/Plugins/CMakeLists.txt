@@ -23,5 +23,5 @@ if(WIN32)
     endif()
 
 elseif(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread")
+    SET_TARGET_PROPERTIES(${HELENA_APP} PROPERTIES PREFIX "")
 endif()

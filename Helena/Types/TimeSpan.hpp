@@ -1,14 +1,14 @@
 #ifndef HELENA_TYPES_TIMESPAN_HPP
 #define HELENA_TYPES_TIMESPAN_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 
 namespace Helena::Types
 {
     class TimeSpan
     {
-        static constexpr std::int64_t m_TicksPerMilliseconds = 10000LL;
-        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMilliseconds;
+        static constexpr std::int64_t m_TicksPerMS = 10000LL;
+        static constexpr std::int64_t m_TicksPerSeconds = 1000LL * m_TicksPerMS;
         static constexpr std::int64_t m_TicksPerMinutes = 60LL * m_TicksPerSeconds;
         static constexpr std::int64_t m_TicksPerHours = 60LL * m_TicksPerMinutes;
         static constexpr std::int64_t m_TicksPerDays = 24LL * m_TicksPerHours;
@@ -16,33 +16,40 @@ namespace Helena::Types
     public:
         explicit constexpr TimeSpan() noexcept : m_Ticks{} {};
         explicit constexpr TimeSpan(std::int64_t ticks) : m_Ticks{ticks} {}
+        explicit constexpr TimeSpan(std::int64_t hours, std::int64_t min, std::int64_t sec, std::int64_t ms)
+            : m_Ticks{hours * m_TicksPerHours 
+            + min * m_TicksPerMinutes 
+            + sec * m_TicksPerSeconds 
+            + ms * m_TicksPerMS} {}
+        explicit constexpr TimeSpan(std::int64_t days, std::int64_t hours, std::int64_t min, std::int64_t sec, std::int64_t ms)
+            : m_Ticks{days * m_TicksPerDays 
+            + hours * m_TicksPerHours 
+            + min * m_TicksPerMinutes 
+            + sec * m_TicksPerSeconds 
+            + ms * m_TicksPerMS} {}
 
-        [[nodiscard]] static constexpr TimeSpan FromMilliseconds(double milliseconds) noexcept {
-            return TimeSpan{static_cast<std::int64_t>(milliseconds * static_cast<double>(m_TicksPerMilliseconds))};
+        [[nodiscard]] static constexpr TimeSpan FromTimeStamp(std::int64_t seconds) noexcept {
+            return TimeSpan{seconds * m_TicksPerSeconds};
         }
 
-        [[nodiscard]] static constexpr TimeSpan FromSeconds(double seconds) noexcept {
-            return TimeSpan{static_cast<std::int64_t>(seconds * static_cast<double>(m_TicksPerSeconds))};
+        [[nodiscard]] static constexpr TimeSpan FromMS(std::int64_t milliseconds) noexcept {
+            return TimeSpan{milliseconds * m_TicksPerMS};
         }
 
-        [[nodiscard]] static constexpr TimeSpan FromMinutes(double minutes) noexcept {
-            return TimeSpan{static_cast<std::int64_t>(minutes * static_cast<double>(m_TicksPerMinutes))};
+        [[nodiscard]] static constexpr TimeSpan FromSeconds(std::int64_t seconds) noexcept {
+            return TimeSpan{seconds * m_TicksPerSeconds};
         }
 
-        [[nodiscard]] static constexpr TimeSpan FromHours(double hours) noexcept {
-            return TimeSpan{static_cast<std::int64_t>(hours * static_cast<double>(m_TicksPerHours))};
+        [[nodiscard]] static constexpr TimeSpan FromMinutes(std::int64_t minutes) noexcept {
+            return TimeSpan{minutes * m_TicksPerMinutes};
         }
 
-        [[nodiscard]] static constexpr TimeSpan FromDays(double days) noexcept {
-            return TimeSpan{static_cast<std::int64_t>(days * static_cast<double>(m_TicksPerDays))};
+        [[nodiscard]] static constexpr TimeSpan FromHours(std::int64_t hours) noexcept {
+            return TimeSpan{hours * m_TicksPerHours};
         }
 
-        [[nodiscard]] static constexpr TimeSpan FromMin() noexcept {
-            return TimeSpan{std::numeric_limits<std::int64_t>::min()};
-        }
-
-        [[nodiscard]] static constexpr TimeSpan FromMax() noexcept {
-            return TimeSpan{std::numeric_limits<std::int64_t>::max()};
+        [[nodiscard]] static constexpr TimeSpan FromDays(std::int64_t days) noexcept {
+            return TimeSpan{days * m_TicksPerDays};
         }
 
         [[nodiscard]] constexpr std::int64_t GetTicks() const noexcept {
@@ -53,8 +60,8 @@ namespace Helena::Types
             return m_Ticks < 0 ? -m_Ticks : m_Ticks;
         }
 
-        [[nodiscard]] constexpr std::int32_t GetMilliseconds() const noexcept {
-            return static_cast<std::int32_t>((m_Ticks / m_TicksPerMilliseconds) % 1000LL);
+        [[nodiscard]] constexpr std::int32_t GetMS() const noexcept {
+            return static_cast<std::int32_t>((m_Ticks / m_TicksPerMS) % 1000LL);
         }
 
         [[nodiscard]] constexpr std::int32_t GetSeconds() const noexcept {
@@ -73,8 +80,8 @@ namespace Helena::Types
             return static_cast<std::int32_t>(m_Ticks / m_TicksPerDays);
         }
 
-        [[nodiscard]] constexpr double GetTotalMilliseconds() const noexcept {
-            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerMilliseconds);
+        [[nodiscard]] constexpr double GetTotalMS() const noexcept {
+            return static_cast<double>(m_Ticks) / static_cast<double>(m_TicksPerMS);
         }
 
         [[nodiscard]] constexpr double GetTotalSeconds() const noexcept {
@@ -141,7 +148,7 @@ namespace Helena::Types
             return *this;
         }
 
-        [[nodiscard]] constexpr auto operator<=>(const TimeSpan&) const noexcept = default;
+        constexpr auto operator<=>(const TimeSpan&) const noexcept = default;
 
     private:
         std::int64_t m_Ticks;

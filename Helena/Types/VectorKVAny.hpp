@@ -12,7 +12,7 @@ namespace Helena::Types
     template <typename UniqueKey, std::size_t Capacity>
     class VectorKVAny final
     {
-        using any_type = Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
+        using any_type = Types::Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
 
     public:
         VectorKVAny() : m_TypeIndexer{}, m_Storage{} {}
@@ -98,9 +98,9 @@ namespace Helena::Types
             static_assert(((std::is_same_v<Key, Traits::RemoveCVRefPtr<Key>>) && ...), "Type is const/ptr/ref");
 
             if constexpr(sizeof...(Key) == 1) {
-                const auto index = m_TypeIndexer.template Get<Key>();
+                const auto index = m_TypeIndexer.template Get<Key...>();
 
-                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key>::value);
+                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>::value);
 
                 m_Storage[index].Reset();
             } else {

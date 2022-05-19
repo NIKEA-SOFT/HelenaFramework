@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_VECTORUNIQUE_HPP
 #define HELENA_TYPES_VECTORUNIQUE_HPP
 
-#include <Helena/Debug/Assert.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Traits/NameOf.hpp>
 
@@ -124,11 +124,11 @@ namespace Helena::Types
             return !m_Size;
         }
 
-        [[nodiscard]] std::size_t GetSize() const noexcept {
+        [[nodiscard]] std::size_t Size() const noexcept {
             return m_Size;
         }
 
-        [[nodiscard]] std::size_t GetCapacity() const noexcept {
+        [[nodiscard]] std::size_t Capacity() const noexcept {
             return m_Storage.size();
         }
 

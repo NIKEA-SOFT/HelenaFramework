@@ -12,7 +12,7 @@ namespace Helena::Types
     template <typename UniqueKey, std::size_t Capacity = sizeof(double)>
     class VectorAny final
     {
-        using any_type = Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
+        using any_type = Types::Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
 
     public:
         VectorAny() : m_TypeIndexer{}, m_Storage{} {}
@@ -87,7 +87,7 @@ namespace Helena::Types
                 const auto index = m_TypeIndexer.template Get<T...>();
 
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>::value);
-                HELENA_ASSERT(AnyCast<std::add_const_t<T>&...>(&m_Storage[index]), "Type: {} type mismatch!", Traits::NameOf<T...>::value);
+                HELENA_ASSERT(AnyCast<std::add_const_t<T>...>(&m_Storage[index]), "Type: {} type mismatch!", Traits::NameOf<T...>::value);
 
                 return AnyCast<std::add_const_t<T>&...>(m_Storage[index]);
             } else {

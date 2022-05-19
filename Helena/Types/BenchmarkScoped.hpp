@@ -10,16 +10,15 @@ namespace Helena::Types
 {
     class BenchmarkScoped
     {
-        using Timer     = std::chrono::steady_clock;
-        using Logger    = Types::BasicLogger;
+        using Timer = std::chrono::steady_clock;
 
         struct Benchmark {
-            [[nodiscard]] static consteval auto GetPrefix() noexcept {
-                return Logger::CreatePrefix("[Benchmark:");
+            [[nodiscard]] static constexpr auto GetPrefix() noexcept {
+                return Log::CreatePrefix("[Benchmark:");
             }
 
-            [[nodiscard]] static consteval auto GetStyle() noexcept {
-                return Logger::CreateStyle(Logger::Color::BrightMagenta);
+            [[nodiscard]] static constexpr auto GetStyle() noexcept {
+                return Log::CreateStyle(Log::Color::BrightMagenta);
             }
         };
 
@@ -27,7 +26,8 @@ namespace Helena::Types
         BenchmarkScoped(const Types::SourceLocation& location = Types::SourceLocation::Create()) : m_Location{location}, m_Time{Timer::now()} {}
         ~BenchmarkScoped() {
             const std::chrono::duration<float> timeleft = Timer::now() - m_Time;
-            Log::Console<Benchmark>("{}] Timeleft: {:.6f} sec", m_Location.GetFunction(), timeleft.count());
+            const auto formater = Helena::Log::Formater<Benchmark>{"{}] Timeleft: {:.6f} sec", m_Location};
+            Log::Console<Benchmark>(formater, m_Location.GetFunction(), timeleft.count());
         }
         BenchmarkScoped(const BenchmarkScoped&) = delete;
         BenchmarkScoped(BenchmarkScoped&&) noexcept = delete;

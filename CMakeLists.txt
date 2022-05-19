@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(HelenaFramework VERSION 0.0.1 LANGUAGES CXX)
+project(HelenaFramework VERSION 1.0.0 LANGUAGES CXX)
 
 #|--------------------------------
 #| Helena Framework Options

@@ -1,27 +1,20 @@
-#ifndef HELENA_DEBUG_ASSERT_HPP
-#define HELENA_DEBUG_ASSERT_HPP
+#ifndef HELENA_PLATFORM_ASSERT_HPP
+#define HELENA_PLATFORM_ASSERT_HPP
 
-#include <Helena/Platform/Defines.hpp>
-#include <Helena/Engine/Log.hpp>
+#include <Helena/Types/BasicLoggersDef.hpp>
+
+namespace Helena::Log
+{
+    template <Traits::DefinitionLogger Logger, typename... Args>
+    void Console(const Formater<Logger> format, Args&&... args) noexcept;
+
+    template <typename... Args>
+    void Console(const Traits::DefinitionLogger auto logger, const Formater<std::decay_t<decltype(logger)>> format, Args&&... args) noexcept;
+}
 
 #ifdef HELENA_DEBUG
     #include <Helena/Platform/Platform.hpp>
     #include <tuple>
-
-    namespace Helena::Log
-    {
-        struct Assert {
-            using Logger = Types::BasicLogger;
-
-            [[nodiscard]] static consteval auto GetPrefix() noexcept {
-                return Logger::CreatePrefix("[ASSERT]");
-            }
-
-            [[nodiscard]] static consteval auto GetStyle() noexcept {
-                return Logger::CreateStyle(Logger::Color::BrightWhite, Logger::Color::Red);
-            }
-        };
-    }
 
     #define HELENA_ASSERT(cond, ...)                                                    \
         do {                                                                            \
@@ -29,7 +22,7 @@
                 Helena::Log::Console<Helena::Log::Assert>("Condition: " #cond);         \
                                                                                         \
                 using tuple = decltype(std::forward_as_tuple(__VA_ARGS__));             \
-                if constexpr (std::tuple_size_v<tuple> > 0) {                           \
+                if constexpr(std::tuple_size_v<tuple> > 0) {                            \
                     Helena::Log::Console<Helena::Log::Assert>("Message: " __VA_ARGS__); \
                 }                                                                       \
                                                                                         \
@@ -44,4 +37,6 @@
     #define HELENA_ASSERT(cond, ...)
 #endif
 
-#endif // HELENA_DEBUG_ASSERT_HPP
+    #include <Helena/Engine/Log.hpp>
+
+#endif // HELENA_PLATFORM_ASSERT_HPP
