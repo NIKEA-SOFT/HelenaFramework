@@ -5,6 +5,7 @@
 #include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Types/Hash.hpp>
 
+#include <algorithm>
 #include <vector>
 
 namespace Helena::Types
@@ -41,10 +42,10 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] static auto GetIndex(const storage_type& storage)
+            [[nodiscard]] static std::size_t GetIndex(const storage_type& storage)
             {
                 if(const auto it = std::find(storage.cbegin(), storage.cend(), m_Key); it != storage.cend()) {
-                    return std::distance(storage.cbegin(), it) - 1uLL;
+                    return std::distance(storage.cbegin(), it);
                 }
 
                 const_cast<storage_type&>(storage).emplace_back(m_Key);
