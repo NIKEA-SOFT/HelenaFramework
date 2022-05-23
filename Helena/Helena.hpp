@@ -25,7 +25,7 @@
 #include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Traits/Detector.hpp>
 #include <Helena/Traits/FNV1a.hpp>
-#include <Helena/Traits/FunctionInfo.hpp>
+#include <Helena/Traits/Function.hpp>
 #include <Helena/Traits/IntegralConstant.hpp>
 #include <Helena/Traits/Map.hpp>
 #include <Helena/Traits/NameOf.hpp>

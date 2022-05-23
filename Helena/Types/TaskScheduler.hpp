@@ -132,6 +132,11 @@ namespace Helena::Types
             return m_Tasks.size();
         }
 
+        void Clear() {
+            m_Tasks.clear();
+            m_Times.clear();
+        }
+
         void Update()
         {
             while(!m_Times.empty())
@@ -149,6 +154,8 @@ namespace Helena::Types
                 const auto addressOld = reinterpret_cast<std::uintptr_t>(std::addressof(*task));
                 HELENA_ASSERT(task->m_Repeat, "WTF? Repeat is null");
                 task->m_Callback(id, task->m_Time, --task->m_Repeat);
+
+                // TODO: Optimization if task modificated
 
                 // If task not found in m_Times then continue
                 // because task removed from callback

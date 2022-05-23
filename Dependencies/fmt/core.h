@@ -204,20 +204,6 @@
 #  endif
 #endif
 
-#ifndef FMT_DEPRECATED
-#  if FMT_HAS_CPP14_ATTRIBUTE(deprecated) || FMT_MSC_VER >= 1900
-#    define FMT_DEPRECATED [[deprecated]]
-#  else
-#    if (defined(__GNUC__) && !defined(__LCC__)) || defined(__clang__)
-#      define FMT_DEPRECATED __attribute__((deprecated))
-#    elif FMT_MSC_VER
-#      define FMT_DEPRECATED __declspec(deprecated)
-#    else
-#      define FMT_DEPRECATED /* deprecated */
-#    endif
-#  endif
-#endif
-
 #ifdef _MSC_VER
 #  define FMT_UNCHECKED_ITERATOR(It) \
     using _Unchecked_type = It  // Mark iterator as checked.
@@ -599,7 +585,9 @@ struct error_handler {
   constexpr error_handler(const error_handler&) = default;
 
   // This function is intentionally not constexpr to give a compile-time error.
-  FMT_NORETURN FMT_API void on_error(const char* message);
+  FMT_NORETURN FMT_API void on_error(const char* message) {
+    throw_format_error(message);
+  }
 };
 FMT_END_DETAIL_NAMESPACE
 
@@ -1386,26 +1374,6 @@ template <typename Context> struct arg_mapper {
     return std_string_view<char_type>(val);
   }
 
-  using cstring_result = conditional_t<std::is_same<char_type, char>::value,
-                                       const char*, unformattable_pointer>;
-
-  FMT_DEPRECATED FMT_CONSTEXPR FMT_INLINE auto map(const signed char* val)
-      -> cstring_result {
-    return map(reinterpret_cast<const char*>(val));
-  }
-  FMT_DEPRECATED FMT_CONSTEXPR FMT_INLINE auto map(const unsigned char* val)
-      -> cstring_result {
-    return map(reinterpret_cast<const char*>(val));
-  }
-  FMT_DEPRECATED FMT_CONSTEXPR FMT_INLINE auto map(signed char* val)
-      -> cstring_result {
-    return map(reinterpret_cast<const char*>(val));
-  }
-  FMT_DEPRECATED FMT_CONSTEXPR FMT_INLINE auto map(unsigned char* val)
-      -> cstring_result {
-    return map(reinterpret_cast<const char*>(val));
-  }
-
   FMT_CONSTEXPR FMT_INLINE auto map(void* val) -> const void* { return val; }
   FMT_CONSTEXPR FMT_INLINE auto map(const void* val) -> const void* {
     return val;
@@ -2029,14 +1997,22 @@ template <typename Context> class basic_format_args {
 // between clang and gcc on ARM (#1919).
 using format_args = basic_format_args<format_context>;
 
-// We cannot use enum classes as bit fields because of a gcc bug
-// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61414.
+// We cannot use enum classes as bit fields because of a gcc bug, so we put them
+// in namespaces instead (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61414).
+// Additionally, if an underlying type is specified, older gcc incorrectly warns
+// that the type is too small. Both bugs are fixed in gcc 9.3.
+#if FMT_GCC_VERSION && FMT_GCC_VERSION < 903
+#  define FMT_ENUM_UNDERLYING_TYPE(type)
+#else
+#  define FMT_ENUM_UNDERLYING_TYPE(type) : type
+#endif
 namespace align {
-enum type { none, left, right, center, numeric };
+enum type FMT_ENUM_UNDERLYING_TYPE(unsigned char){none, left, right, center,
+                                                  numeric};
 }
 using align_t = align::type;
 namespace sign {
-enum type { none, minus, plus, space };
+enum type FMT_ENUM_UNDERLYING_TYPE(unsigned char){none, minus, plus, space};
 }
 using sign_t = sign::type;
 
