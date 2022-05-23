@@ -118,11 +118,18 @@ FMT_END_NAMESPACE
 #  endif
 #endif
 
-// Workaround broken [[deprecated]] in the Intel, PGI and NVCC compilers.
-#if FMT_ICC_VERSION || defined(__PGI) || FMT_NVCC
-#  define FMT_DEPRECATED_ALIAS
-#else
-#  define FMT_DEPRECATED_ALIAS FMT_DEPRECATED
+#ifndef FMT_DEPRECATED
+#  if FMT_HAS_CPP14_ATTRIBUTE(deprecated) || FMT_MSC_VER >= 1900
+#    define FMT_DEPRECATED [[deprecated]]
+#  else
+#    if (defined(__GNUC__) && !defined(__LCC__)) || defined(__clang__)
+#      define FMT_DEPRECATED __attribute__((deprecated))
+#    elif FMT_MSC_VER
+#      define FMT_DEPRECATED __declspec(deprecated)
+#    else
+#      define FMT_DEPRECATED /* deprecated */
+#    endif
+#  endif
 #endif
 
 #ifndef FMT_USE_USER_DEFINED_LITERALS
@@ -680,8 +687,8 @@ FMT_CONSTEXPR inline size_t compute_width(string_view s) {
 }
 
 inline auto compute_width(basic_string_view<char8_type> s) -> size_t {
-  return compute_width(basic_string_view<char>(
-      reinterpret_cast<const char*>(s.data()), s.size()));
+  return compute_width(
+      string_view(reinterpret_cast<const char*>(s.data()), s.size()));
 }
 
 template <typename Char>
@@ -691,14 +698,19 @@ inline auto code_point_index(basic_string_view<Char> s, size_t n) -> size_t {
 }
 
 // Calculates the index of the nth code point in a UTF-8 string.
-inline auto code_point_index(basic_string_view<char8_type> s, size_t n)
-    -> size_t {
-  const char8_type* data = s.data();
+inline auto code_point_index(string_view s, size_t n) -> size_t {
+  const char* data = s.data();
   size_t num_code_points = 0;
   for (size_t i = 0, size = s.size(); i != size; ++i) {
     if ((data[i] & 0xc0) != 0x80 && ++num_code_points > n) return i;
   }
   return s.size();
+}
+
+inline auto code_point_index(basic_string_view<char8_type> s, size_t n)
+    -> size_t {
+  return code_point_index(
+      string_view(reinterpret_cast<const char*>(s.data()), s.size()), n);
 }
 
 #ifndef FMT_USE_FLOAT128
@@ -916,27 +928,6 @@ class FMT_API format_error : public std::runtime_error {
   ~format_error() noexcept override FMT_MSC_DEFAULT;
 };
 
-/**
-  \rst
-  Constructs a `~fmt::format_arg_store` object that contains references
-  to arguments and can be implicitly converted to `~fmt::format_args`.
-  If ``fmt`` is a compile-time string then `make_args_checked` checks
-  its validity at compile time.
-  \endrst
- */
-template <typename... Args, typename S, typename Char = char_t<S>>
-FMT_DEPRECATED FMT_INLINE auto make_args_checked(
-    const S& fmt, const remove_reference_t<Args>&... args)
-    -> format_arg_store<buffer_context<Char>, remove_reference_t<Args>...> {
-  static_assert(
-      detail::count<(
-              std::is_base_of<detail::view, remove_reference_t<Args>>::value &&
-              std::is_reference<Args>::value)...>() == 0,
-      "passing views as lvalues is disallowed");
-  detail::check_format_string<Args...>(fmt);
-  return {args...};
-}
-
 namespace detail_exported {
 #if FMT_USE_NONTYPE_TEMPLATE_PARAMETERS
 template <typename Char, size_t N> struct fixed_string {
@@ -985,11 +976,12 @@ constexpr auto is_negative(T) -> bool {
   return false;
 }
 
-template <typename T> constexpr auto is_supported_floating_point(T) -> bool {
-  return (std::is_same<T, float>() && FMT_USE_FLOAT) ||
-         (std::is_same<T, double>() && FMT_USE_DOUBLE) ||
-         (std::is_same<T, long double>() && FMT_USE_LONG_DOUBLE) ||
-         is_float128<T>();
+template <typename T>
+FMT_CONSTEXPR auto is_supported_floating_point(T) -> bool {
+  if (std::is_same<T, float>()) return FMT_USE_FLOAT;
+  if (std::is_same<T, double>()) return FMT_USE_DOUBLE;
+  if (std::is_same<T, long double>()) return FMT_USE_LONG_DOUBLE;
+  return true;
 }
 
 // Smallest of uint32_t, uint64_t, uint128_t that is large enough to
@@ -1381,34 +1373,26 @@ FMT_API auto fmt_snprintf(char* buf, size_t size, const char* fmt, ...) -> int;
 #  define FMT_SNPRINTF fmt_snprintf
 #endif  // _MSC_VER
 
-// Formats a floating-point number with snprintf.
+// Formats a floating-point number with snprintf using the hexfloat format.
 template <typename T>
 auto snprintf_float(T value, int precision, float_specs specs,
                     buffer<char>& buf) -> int {
   // Buffer capacity must be non-zero, otherwise MSVC's vsnprintf_s will fail.
   FMT_ASSERT(buf.capacity() > buf.size(), "empty buffer");
+  FMT_ASSERT(specs.format == float_format::hex, "");
   static_assert(!std::is_same<T, float>::value, "");
-
-  // Subtract 1 to account for the difference in precision since we use %e for
-  // both general and exponent format.
-  if (specs.format == float_format::general ||
-      specs.format == float_format::exp) {
-    precision = (precision >= 0 ? precision : 6) - 1;
-  }
 
   // Build the format string.
   char format[7];  // The longest format is "%#.*Le".
   char* format_ptr = format;
   *format_ptr++ = '%';
-  if (specs.showpoint && specs.format == float_format::hex) *format_ptr++ = '#';
+  if (specs.showpoint) *format_ptr++ = '#';
   if (precision >= 0) {
     *format_ptr++ = '.';
     *format_ptr++ = '*';
   }
   if (std::is_same<T, long double>()) *format_ptr++ = 'L';
-  *format_ptr++ = specs.format != float_format::hex
-                      ? (specs.format == float_format::fixed ? 'f' : 'e')
-                      : (specs.upper ? 'A' : 'a');
+  *format_ptr++ = specs.upper ? 'A' : 'a';
   *format_ptr = '\0';
 
   // Format using snprintf.
@@ -1430,55 +1414,11 @@ auto snprintf_float(T value, int precision, float_specs specs,
     }
     auto size = to_unsigned(result);
     // Size equal to capacity means that the last character was truncated.
-    if (size >= capacity) {
-      buf.try_reserve(size + offset + 1);  // Add 1 for the terminating '\0'.
-      continue;
-    }
-    auto is_digit = [](char c) { return c >= '0' && c <= '9'; };
-    if (specs.format == float_format::fixed) {
-      if (precision == 0) {
-        buf.try_resize(size);
-        return 0;
-      }
-      // Find and remove the decimal point.
-      auto end = begin + size, p = end;
-      do {
-        --p;
-      } while (is_digit(*p));
-      int fraction_size = static_cast<int>(end - p - 1);
-      std::memmove(p, p + 1, to_unsigned(fraction_size));
-      buf.try_resize(size - 1);
-      return -fraction_size;
-    }
-    if (specs.format == float_format::hex) {
+    if (size < capacity) {
       buf.try_resize(size + offset);
       return 0;
     }
-    // Find and parse the exponent.
-    auto end = begin + size, exp_pos = end;
-    do {
-      --exp_pos;
-    } while (*exp_pos != 'e');
-    char sign = exp_pos[1];
-    FMT_ASSERT(sign == '+' || sign == '-', "");
-    int exp = 0;
-    auto p = exp_pos + 2;  // Skip 'e' and sign.
-    do {
-      FMT_ASSERT(is_digit(*p), "");
-      exp = exp * 10 + (*p++ - '0');
-    } while (p != end);
-    if (sign == '-') exp = -exp;
-    int fraction_size = 0;
-    if (exp_pos != begin + 1) {
-      // Remove trailing zeros.
-      auto fraction_end = exp_pos - 1;
-      while (*fraction_end == '0') --fraction_end;
-      // Move the fractional part left to get rid of the decimal point.
-      fraction_size = static_cast<int>(fraction_end - begin - 1);
-      std::memmove(begin + 1, begin + 2, to_unsigned(fraction_size));
-    }
-    buf.try_resize(to_unsigned(fraction_size) + offset + 1);
-    return exp - fraction_size;
+    buf.try_reserve(size + offset + 1);  // Add 1 for the terminating '\0'.
   }
 }
 
@@ -2198,7 +2138,7 @@ FMT_CONSTEXPR20 auto do_write_float(OutputIt out, const DecimalFP& fp,
     -> OutputIt {
   auto significand = fp.significand;
   int significand_size = get_significand_size(fp);
-  constexpr Char zero = static_cast<Char>('0');
+  const Char zero = static_cast<Char>('0');
   auto sign = fspecs.sign;
   size_t size = to_unsigned(significand_size) + (sign ? 1 : 0);
   using iterator = reserve_iterator<OutputIt>;
@@ -2338,12 +2278,16 @@ struct has_isfinite<T, enable_if_t<sizeof(std::isfinite(T())) != 0>>
 template <typename T, FMT_ENABLE_IF(std::is_floating_point<T>::value&&
                                         has_isfinite<T>::value)>
 FMT_CONSTEXPR20 bool isfinite(T value) {
-  if (is_constant_evaluated()) return !isnan(value - value);
+  constexpr T inf = T(std::numeric_limits<double>::infinity());
+  if (is_constant_evaluated())
+    return !detail::isnan(value) && value != inf && value != -inf;
   return std::isfinite(value);
 }
 template <typename T, FMT_ENABLE_IF(!has_isfinite<T>::value)>
-constexpr bool isfinite(T value) {
-  return value - value == 0;  // std::isfinite doesn't support __float128.
+FMT_CONSTEXPR bool isfinite(T value) {
+  T inf = T(std::numeric_limits<double>::infinity());
+  // std::isfinite doesn't support __float128.
+  return !detail::isnan(value) && value != inf && value != -inf;
 }
 
 template <typename T, FMT_ENABLE_IF(is_floating_point<T>::value)>
@@ -3128,9 +3072,6 @@ struct join_view : detail::view {
 };
 
 template <typename It, typename Sentinel, typename Char>
-using arg_join FMT_DEPRECATED_ALIAS = join_view<It, Sentinel, Char>;
-
-template <typename It, typename Sentinel, typename Char>
 struct formatter<join_view<It, Sentinel, Char>, Char> {
  private:
   using value_type =
@@ -3377,13 +3318,6 @@ constexpr auto operator"" _a(const char* s, size_t) -> detail::udl_arg<char> {
   return {s};
 }
 #  endif
-
-// DEPRECATED!
-// User-defined literal equivalent of fmt::format.
-FMT_DEPRECATED constexpr auto operator"" _format(const char* s, size_t n)
-    -> detail::udl_formatter<char> {
-  return {{s, n}};
-}
 }  // namespace literals
 #endif  // FMT_USE_USER_DEFINED_LITERALS
 
@@ -3398,14 +3332,6 @@ template <typename Locale, typename... T,
 inline auto format(const Locale& loc, format_string<T...> fmt, T&&... args)
     -> std::string {
   return vformat(loc, string_view(fmt), fmt::make_format_args(args...));
-}
-
-template <typename... T, size_t SIZE, typename Allocator>
-FMT_DEPRECATED auto format_to(basic_memory_buffer<char, SIZE, Allocator>& buf,
-                              format_string<T...> fmt, T&&... args)
-    -> appender {
-  detail::vformat_to(buf, string_view(fmt), fmt::make_format_args(args...));
-  return appender(buf);
 }
 
 template <typename OutputIt, typename Locale,
@@ -3429,10 +3355,6 @@ FMT_INLINE auto format_to(OutputIt out, const Locale& loc,
 
 FMT_MODULE_EXPORT_END
 FMT_END_NAMESPACE
-
-#ifdef FMT_DEPRECATED_INCLUDE_XCHAR
-#  include "xchar.h"
-#endif
 
 #ifdef FMT_HEADER_ONLY
 #  define FMT_FUNC inline
