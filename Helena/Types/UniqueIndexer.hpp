@@ -13,7 +13,7 @@ namespace Helena::Types
     class UniqueIndexer
     {
     public:
-        using Hash      = Hash<std::uint64_t>;
+        using Hasher    = Hash<std::uint64_t>;
         using Storage   = std::vector<std::size_t>;
 
     public:
@@ -49,7 +49,7 @@ namespace Helena::Types
                 return storage.size() - 1uLL;
             }
 
-            static constexpr auto m_Key = Hash::template Get<T>();
+            static constexpr auto m_Key = Hasher::template Get<T>();
         };
 
         Storage m_Indexes;

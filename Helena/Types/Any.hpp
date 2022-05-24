@@ -272,7 +272,7 @@ namespace Helena::Types
         /*! @brief Alignment requirement. */
         static constexpr auto alignment = Align;
 
-        using Hash = hash_type;
+        using Hasher = hash_type;
 
         /*! @brief Default constructor. */
         constexpr Any() noexcept
@@ -574,14 +574,14 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::Hash::template Get<std::remove_cvref_t<Type>>();
+        constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
         return static_cast<const Type*>(data->Data(key));
     }
 
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     Type* AnyCast(Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::Hash::template Get<std::remove_cvref_t<Type>>();
+        constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
         // last attempt to make wrappers for const references return their values
         return static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->Data(key));
     }

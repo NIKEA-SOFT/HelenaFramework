@@ -18,6 +18,7 @@ namespace Helena::Types
     class Hash
     {
     public:
+        using Hasher = Traits::FNV1a<T>;
         using value_type = T;
 
     public:
@@ -29,11 +30,9 @@ namespace Helena::Types
 
         [[nodiscard]] static constexpr auto Get(std::string_view str) noexcept
         {
-            using Hash = Traits::FNV1a<T>;
-
-            auto value{Hash::Offset};
+            auto value{Hasher::Offset};
             for(std::size_t i = 0; i < str.size(); ++i) {
-                value = (value ^ static_cast<T>(str[i])) * Hash::Prime;
+                value = (value ^ static_cast<T>(str[i])) * Hasher::Prime;
             }
 
             return value;

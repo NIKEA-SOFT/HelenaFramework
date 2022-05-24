@@ -62,7 +62,7 @@ namespace Helena::Types
         }
 
     private:
-        alignas(Traits::Cacheline::value) std::vector<Type> m_Container {};
+        alignas(Traits::Cacheline) std::vector<Type> m_Container {};
         mutable Spinlock m_Lock {};
     };
 }
