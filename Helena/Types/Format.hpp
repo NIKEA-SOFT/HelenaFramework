@@ -1,6 +1,7 @@
 #ifndef HELENA_TYPES_FORMAT_HPP
 #define HELENA_TYPES_FORMAT_HPP
 
+#include <Helena/Dependencies/Fmt.hpp>
 #include <Helena/Platform/Assert.hpp>
 
 #include <string_view>
@@ -13,7 +14,7 @@ namespace Helena::Types
     {
         using memory_buffer = fmt::basic_memory_buffer<char, Capacity + 1>;
 
-        void Formatting(std::string_view msg, fmt::format_args args) noexcept 
+        void Formatting(std::string_view msg, fmt::format_args args) noexcept
         {
             try {
                 Clear();

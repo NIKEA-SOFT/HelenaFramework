@@ -5,7 +5,7 @@
 #include <array>
 #include <string_view>
 
-namespace Helena::Traits 
+namespace Helena::Traits
 {
     template <typename T>
     class NameOf final {

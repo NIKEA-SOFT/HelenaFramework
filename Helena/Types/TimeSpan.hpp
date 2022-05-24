@@ -17,15 +17,15 @@ namespace Helena::Types
         explicit constexpr TimeSpan() noexcept : m_Ticks{} {};
         explicit constexpr TimeSpan(std::int64_t ticks) : m_Ticks{ticks} {}
         explicit constexpr TimeSpan(std::int64_t hours, std::int64_t min, std::int64_t sec, std::int64_t ms)
-            : m_Ticks{hours * m_TicksPerHours 
-            + min * m_TicksPerMinutes 
-            + sec * m_TicksPerSeconds 
+            : m_Ticks{hours * m_TicksPerHours
+            + min * m_TicksPerMinutes
+            + sec * m_TicksPerSeconds
             + ms * m_TicksPerMS} {}
         explicit constexpr TimeSpan(std::int64_t days, std::int64_t hours, std::int64_t min, std::int64_t sec, std::int64_t ms)
-            : m_Ticks{days * m_TicksPerDays 
-            + hours * m_TicksPerHours 
-            + min * m_TicksPerMinutes 
-            + sec * m_TicksPerSeconds 
+            : m_Ticks{days * m_TicksPerDays
+            + hours * m_TicksPerHours
+            + min * m_TicksPerMinutes
+            + sec * m_TicksPerSeconds
             + ms * m_TicksPerMS} {}
 
         [[nodiscard]] static constexpr TimeSpan FromTimeStamp(std::int64_t seconds) noexcept {

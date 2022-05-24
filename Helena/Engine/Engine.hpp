@@ -1,15 +1,24 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
-#include <Helena/Platform/Platform.hpp>
 #include <Helena/Engine/Events.hpp>
+#include <Helena/Engine/Log.hpp>
+#include <Helena/Platform/Platform.hpp>
+#include <Helena/Platform/Defines.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Mutex.hpp>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace Helena
 {
@@ -419,7 +428,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void SubscribeEvent(void (*callback)(Args...));
+        static void SubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Listening to the event
@@ -439,7 +448,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void SubscribeEvent(void (System::*callback)(Args...));
+        static void SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Trigger an event for all listeners
@@ -478,7 +487,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void UnsubscribeEvent(void (*callback)(Args...));
+        static void UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Stop listening to the event
@@ -499,7 +508,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void UnsubscribeEvent(void (System::*callback)(Args...));
+        static void UnsubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
     };
 }
 

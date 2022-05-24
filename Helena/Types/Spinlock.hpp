@@ -30,7 +30,7 @@ namespace Helena::Types
         Spinlock& operator=(const Spinlock&) = delete;
         Spinlock& operator=(Spinlock&&) noexcept = delete;
 
-        void Lock() noexcept 
+        void Lock() noexcept
         {
             while(true)
             {

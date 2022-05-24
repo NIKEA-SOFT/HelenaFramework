@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <concepts>
 
-namespace Helena::Traits 
+namespace Helena::Traits
 {
     template <typename T>
     concept DefinitionLogger = requires {

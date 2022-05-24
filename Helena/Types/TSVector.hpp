@@ -30,10 +30,10 @@ namespace Helena::Types
             m_Container.emplace_back(std::forward<Args>(args)...);
         }
 
-        auto Pop() const 
+        auto Pop() const
         {
             std::vector<Type> container;
-            
+
             {
                 std::lock_guard lock{m_Lock};
                 if(!m_Container.empty()) {

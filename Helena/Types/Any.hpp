@@ -5,9 +5,8 @@
 #define HELENA_TYPES_ANY_HPP
 
 #include <Helena/Platform/Assert.hpp>
-#include <Helena/Types/Hash.hpp>
 #include <Helena/Traits/Constness.hpp>
-#include <Helena/Traits/CVRefPtr.hpp>
+#include <Helena/Types/Hash.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -40,7 +39,7 @@ namespace Helena::Types
      * @tparam Align Optional alignment requirement.
      */
     template<std::size_t Len, std::size_t Align>
-    class Any 
+    class Any
     {
         enum class operation : std::uint8_t {
             copy,
@@ -169,9 +168,9 @@ namespace Helena::Types
         static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type) && sizeof(Type) <= sizeof(storage_type) && std::is_nothrow_move_constructible_v<Type>;
 
         template<typename Type>
-        static const void* basic_vtable([[maybe_unused]] const operation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other) 
+        static const void* basic_vtable([[maybe_unused]] const operation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other)
         {
-            static_assert(!std::is_same_v<Type, void> && std::is_same_v<std::remove_reference_t<std::remove_const_t<Type>>, Type>, "Invalid type");
+            static_assert(!std::is_same_v<Type, void> && std::is_same_v<std::remove_cvref_t<Type>, Type>, "Invalid type");
             const Type* element = nullptr;
 
             if constexpr(in_situ<Type>) {
@@ -180,14 +179,14 @@ namespace Helena::Types
                 element = static_cast<const Type*>(value.instance);
             }
 
-            switch(op) 
+            switch(op)
             {
                 case operation::copy: {
                     if constexpr(std::is_copy_constructible_v<Type>) {
                         static_cast<Any*>(const_cast<void*>(other))->Initialize<Type>(*element);
                     }
                 } break;
-                case operation::move: 
+                case operation::move:
                 {
                     if constexpr(in_situ<Type>) {
                         if(value.Owner()) {
@@ -234,12 +233,12 @@ namespace Helena::Types
         }
 
         template<typename Type, typename... Args>
-        void Initialize([[maybe_unused]] Args &&...args) 
+        void Initialize([[maybe_unused]] Args &&...args)
         {
-            if constexpr(!std::is_void_v<Type>) 
+            if constexpr(!std::is_void_v<Type>)
             {
                 vtable = basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>;
-                key = hash_type::template Get<Type>();
+                key = hash_type::template Get<std::remove_cvref_t<Type>>();
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
@@ -273,6 +272,8 @@ namespace Helena::Types
         /*! @brief Alignment requirement. */
         static constexpr auto alignment = Align;
 
+        using Hash = hash_type;
+
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
@@ -296,7 +297,7 @@ namespace Helena::Types
          * @tparam Type Type of object to use to initialize the wrapper.
          * @param value An instance of an object to use to initialize the wrapper.
          */
-        template<typename Type, typename = std::enable_if_t<!std::is_same_v<std::decay_t<Type>, Any>>>
+        template<typename Type, typename = std::enable_if_t<std::is_same_v<std::decay_t<Type>, Any>>>
         Any(Type&& value) : Any{} {
             Initialize<std::decay_t<Type>>(std::forward<Type>(value));
         }
@@ -367,8 +368,8 @@ namespace Helena::Types
          * @param value An instance of an object to use to initialize the wrapper.
          * @return This any object.
          */
-        template<typename Type>
-        std::enable_if_t<!std::is_same_v<std::decay_t<Type>, Any>, Any&> operator=(Type&& value) {
+        template<typename Type, typename = std::enable_if_t<std::is_same_v<std::decay_t<Type>, Any>>>
+        Any& operator=(Type&& value) {
             Create<std::decay_t<Type>>(std::forward<Type>(value));
             return *this;
         }
@@ -454,7 +455,7 @@ namespace Helena::Types
         }
 
         /*! @brief Destroys contained object */
-        void Reset() 
+        void Reset()
         {
             if(vtable && Owner()) {
                 vtable(operation::destroy, *this, nullptr);
@@ -557,7 +558,7 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     Type AnyCast(Any<Len, Align>&& data) noexcept {
-        if constexpr(std::is_copy_constructible_v<std::remove_const_t<std::remove_reference_t<Type>>>) {
+        if constexpr(std::is_copy_constructible_v<std::remove_cvref_t<Type>>) {
             if(auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data); instance) {
                 return static_cast<Type>(std::move(*instance));
             } else {
@@ -573,14 +574,14 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Hash<std::uint64_t>::template Get<Traits::RemoveCVRefPtr<Type>>();
+        constexpr auto key = Any<>::Hash::template Get<std::remove_cvref_t<Type>>();
         return static_cast<const Type*>(data->Data(key));
     }
 
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     Type* AnyCast(Any<Len, Align>* data) noexcept {
-        constexpr auto key = Hash<std::uint64_t>::template Get<Traits::RemoveCVRefPtr<Type>>();
+        constexpr auto key = Any<>::Hash::template Get<std::remove_cvref_t<Type>>();
         // last attempt to make wrappers for const references return their values
         return static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->Data(key));
     }

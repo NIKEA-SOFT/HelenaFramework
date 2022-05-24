@@ -87,7 +87,7 @@ namespace Helena::Types
         #else   // Linux not support C++20 chrono :(
             auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             const auto tm = std::localtime(&timeNow);
-            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday) 
+            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday)
                 + TimeToTicks(tm->tm_hour, tm->tm_min, tm->tm_sec)};
         #endif
         }
@@ -144,7 +144,7 @@ namespace Helena::Types
 
                 // Buffer can be small, need compare for check
                 HELENA_ASSERT(data.size() == read_length, "Parse data: \"{}\" failed, data size less than read_length", data);
-                if(data.size() == read_length) 
+                if(data.size() == read_length)
                 {
                     // Cast string to int
                     auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
@@ -160,7 +160,7 @@ namespace Helena::Types
                 return false;
             };
 
-            const auto fnCompare = [&]() 
+            const auto fnCompare = [&]()
             {
                 char key = fnNextChar(format, offsetFormat);
                 switch(key)
@@ -218,15 +218,15 @@ namespace Helena::Types
                 if(!keyFormat) {
                     return DateTime{DateToTicks(year, month, day) + TimeToTicks(hour, minutes, seconds, milliseconds)};
                 }
-                
-                if(keyFormat == '%') 
+
+                if(keyFormat == '%')
                 {
                     if(!fnCompare()) {
                         break;
                     }
                 } else if(keyFormat != fnNextChar(time, offsetTime)) {
-                    HELENA_ASSERT(keyFormat == fnNextChar(time, offsetTime), 
-                        "Format: \"{}\" and Time: \"{}\" separators do not match!", 
+                    HELENA_ASSERT(keyFormat == fnNextChar(time, offsetTime),
+                        "Format: \"{}\" and Time: \"{}\" separators do not match!",
                         keyFormat, fnNextChar(time, offsetTime));
                     break;
                 }
@@ -382,11 +382,11 @@ namespace Helena::Types
             HELENA_ASSERT(day >= 1 && day <= GetDaysInMonth(year, month));
             --year;
             --month;
-            return (year * 365LL + year / 4LL - year / 100LL + year / 400LL + DaysPerMonth[month] + 
+            return (year * 365LL + year / 4LL - year / 100LL + year / 400LL + DaysPerMonth[month] +
                 static_cast<std::int32_t>(IsLeapYear(year)) + day - 1LL) * m_TicksPerDays;
         }
 
-        [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute = 0, 
+        [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute = 0,
                                                                 std::int32_t second = 0, std::int32_t millisecond = 0) noexcept {
             HELENA_ASSERT(hour >= 0 && hour <= 23);
             HELENA_ASSERT(minute >= 0 && minute <= 59);
