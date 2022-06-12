@@ -5,7 +5,6 @@
 #define HELENA_TYPES_ANY_HPP
 
 #include <Helena/Platform/Assert.hpp>
-#include <Helena/Traits/Constness.hpp>
 #include <Helena/Types/Hash.hpp>
 
 #include <cstdint>
@@ -219,7 +218,7 @@ namespace Helena::Types
                 } break;
                 case operation::compare: {
                     if constexpr(!std::is_function_v<Type> && !std::is_array_v<Type> && is_equality_comparable_v<Type>) {
-                        return *static_cast<const Type*>(element) == *static_cast<const Type*>(other) ? other : nullptr;
+                        return *element == *static_cast<const Type *>(other) ? other : nullptr;
                     } else {
                         return (element == other) ? other : nullptr;
                     }
@@ -261,7 +260,7 @@ namespace Helena::Types
         }
 
         Any(const Any& other, const policy pol) noexcept
-            : instance{other.data()}
+            : instance{other.Data()}
             , key{other.key}
             , vtable{other.vtable}
             , mode{pol} {}
@@ -508,6 +507,15 @@ namespace Helena::Types
             return (mode == policy::owner);
         }
 
+        /**
+        * @brief Returns true if a hash of T and the hash of a current object are equal, otherwise false.
+        * @return True if hash of T and hash of current object are equal, false otherwise.
+        */
+        template <typename T>
+        [[nodiscard]] bool EqualHash() const noexcept {
+            return key == hash_type::template Get<std::remove_cvref_t<T>>();
+        }
+
     private:
         union {
             const void* instance;
@@ -581,9 +589,13 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     Type* AnyCast(Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
-        // last attempt to make wrappers for const references return their values
-        return static_cast<Type*>(static_cast<typename Traits::Constness<Any<Len, Align>, Type>::type*>(data)->Data(key));
+      if constexpr(std::is_const_v<Type>) {
+          // last attempt to make wrappers for const references return their values
+          return AnyCast<Type>(&std::as_const(*data));
+      } else {
+          constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
+          return static_cast<Type*>(data->Data(key));
+      }
     }
 
     /**
