@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.9)
-project(HelenaFramework VERSION 1.0.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.14)
+project(HelenaFramework VERSION 1.0.1 LANGUAGES CXX)
 
 #|--------------------------------
 #| Helena Framework Options
@@ -51,13 +51,13 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 #|--------------------------------
 #| CMake modules
 #|--------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake") 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake")
 
 #|--------------------------------
 #| Helena Framework Variables
 #|--------------------------------
 set(HELENA_PROJECT_NAME ${PROJECT_NAME})
-set(HELENA_PROJECT_VERSION ${PROJECT_VERSION}) 
+set(HELENA_PROJECT_VERSION ${PROJECT_VERSION})
 set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 
 #|--------------------------------
@@ -105,7 +105,7 @@ elseif(UNIX)
         set(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
         set(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
         message(STATUS "Build coverage")
-        add_compile_options(--coverage -O0) 
+        add_compile_options(--coverage -O0)
     endif()
 else()
     message(FATAL_ERROR "Current platform not support!")
@@ -130,7 +130,7 @@ link_directories(${HELENA_PROJECT_OUTDIR})
 #|--------------------------------
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
-    #enable_testing()
+    enable_testing()
     #include(CTest)
     add_subdirectory(Test)
 endif()
