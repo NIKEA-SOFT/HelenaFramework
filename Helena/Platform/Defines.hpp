@@ -75,6 +75,12 @@
     #define HELENA_FUNCTION             __FUNCSIG__
 #endif
 
+#if defined(HELENA_COMPILER_CLANG) || defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_MSVC)
+    #define HELENA_RESTRICT __restrict
+#else
+    #define HELENA_RESTRICT
+#endif
+
 //#if __has_cpp_attribute(likely)
 //    #define HELENA_LIKELY               [[likely]]
 //#else
