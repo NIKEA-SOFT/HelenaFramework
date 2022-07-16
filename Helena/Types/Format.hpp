@@ -67,10 +67,6 @@ namespace Helena::Types
             return m_Buffer.data();
         }
 
-        [[nodiscard]] std::string_view GetBuffer() const noexcept {
-            return {GetData(), GetSize()};
-        }
-
         [[nodiscard]] std::size_t GetSize() const noexcept {
             return m_Buffer.size();
         }
@@ -80,7 +76,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] operator std::string_view() const {
-            return {GetData(), GetSize()};
+            return GetData();
         }
 
         char& operator[](std::size_t index) const {
