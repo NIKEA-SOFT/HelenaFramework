@@ -9,7 +9,7 @@
 
 namespace Helena::Types
 {
-    template <typename T>
+    template <typename>
     struct Storage;
 
     template <>
@@ -237,12 +237,12 @@ namespace Helena::Types
                 }
             }
 
-            template <typename T>
-            constexpr void Assign(T&& value) {
+            template <typename R>
+            constexpr void Assign(R&& value) {
                 if(this->m_HasValue) {
-                    this->m_Value = std::forward<T>(value);
+                    this->m_Value = std::forward<R>(value);
                 } else {
-                    Construct(std::forward<T>(value));
+                    Construct(std::forward<R>(value));
                 }
             }
 
