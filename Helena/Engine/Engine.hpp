@@ -266,11 +266,11 @@ namespace Helena
 
     private:
     #if defined(HELENA_PLATFORM_WIN)
-        static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
+        static BOOL WINAPI CtrlHandler([[maybe_unused]] DWORD dwCtrlType);
         static LONG WINAPI MiniDumpSEH(EXCEPTION_POINTERS* pException);
 
     #elif defined(HELENA_PLATFORM_LINUX)
-        static auto SigHandler(int signal) -> void;
+        static void SigHandler([[maybe_unused]] int signal);
     #endif
 
         static void RegisterHandlers();

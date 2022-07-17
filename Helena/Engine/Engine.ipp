@@ -12,7 +12,7 @@
 namespace Helena
 {
 #if defined(HELENA_PLATFORM_WIN)
-    inline BOOL WINAPI Engine::CtrlHandler(DWORD)
+    inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType)
     {
         const auto ctx = Engine::Context::Get();
         if(ctx)
@@ -83,7 +83,7 @@ namespace Helena
     }
 
 #elif defined(HELENA_PLATFORM_LINUX)
-    inline void Engine::SigHandler(int signal)
+    inline void Engine::SigHandler([[maybe_unused]] int signal)
     {
         const auto ctx = Engine::Context::Get();
         if(ctx)
