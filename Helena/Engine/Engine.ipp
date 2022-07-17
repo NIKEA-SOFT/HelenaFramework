@@ -2,17 +2,17 @@
 #define HELENA_ENGINE_ENGINE_IPP
 
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Traits/AnyOf.hpp>
+#include <Helena/Traits/Arguments.hpp>
+#include <Helena/Traits/Remove.hpp>
+#include <Helena/Traits/SameAS.hpp>
 #include <Helena/Types/DateTime.hpp>
-#include <Helena/Types/Format.hpp>
-#include <Helena/Util/ConstexprIf.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
 
 namespace Helena
 {
 #if defined(HELENA_PLATFORM_WIN)
-    inline BOOL WINAPI Engine::CtrlHandler(DWORD)
+    inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType)
     {
         const auto ctx = Engine::Context::Get();
         if(ctx)
@@ -33,7 +33,7 @@ namespace Helena
         }
 
         const auto dateTime = Types::DateTime::FromLocalTime();
-        const auto dumpName = Util::Format("{}_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp", 
+        const auto dumpName = Util::Format("{}_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
             appName,
             dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
             dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
@@ -67,7 +67,7 @@ namespace Helena
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
-    inline void Engine::RegisterHandlers() 
+    inline void Engine::RegisterHandlers()
     {
         static ULONG stackSize = 64 * 1024;
 
@@ -83,7 +83,7 @@ namespace Helena
     }
 
 #elif defined(HELENA_PLATFORM_LINUX)
-    inline void Engine::SigHandler(int signal)
+    inline void Engine::SigHandler([[maybe_unused]] int signal)
     {
         const auto ctx = Engine::Context::Get();
         if(ctx)
@@ -103,7 +103,7 @@ namespace Helena
     }
 #endif
 
-    [[nodiscard]] inline bool Engine::Heartbeat() 
+    [[nodiscard]] inline bool Engine::Heartbeat()
     {
         auto& ctx = Engine::Context::GetInstance();
         const auto state = ctx.m_State.load(std::memory_order_relaxed);
@@ -129,15 +129,13 @@ namespace Helena
     #if defined(HELENA_PLATFORM_WIN)
         __try {
     #endif
-        switch(state) 
+        switch(state)
         {
             case Engine::EState::Undefined: [[unlikely]]
             {
                 RegisterHandlers();
-                
-                ctx.m_ShutdownMessage.m_Location.m_File = "";
-                ctx.m_ShutdownMessage.m_Location.m_Function = "";
-                ctx.m_ShutdownMessage.m_Location.m_Line = 0;
+
+                ctx.m_ShutdownMessage.m_Location = {};
                 ctx.m_ShutdownMessage.m_Message.clear();
 
                 ctx.m_State     = Engine::EState::Init;
@@ -172,7 +170,7 @@ namespace Helena
                 SignalEvent<Events::Engine::Execute>();
                 SignalEvent<Events::Engine::Tick>(ctx.m_DeltaTime);
 
-                while(ctx.m_TimeElapsed >= ctx.m_Tickrate) 
+                while(ctx.m_TimeElapsed >= ctx.m_Tickrate)
                 {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
                     if(accumulatorMax < accumulator++) {
@@ -200,9 +198,21 @@ namespace Helena
                 ctx.m_Systems.Clear();
                 ctx.m_State = Engine::EState::Undefined;
 
-                if(!ctx.m_ShutdownMessage.m_Message.empty()) {
-                    const auto format = Log::Formater<Log::Fatal>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
-                    Log::Console<Log::Fatal>(format);
+                if(!ctx.m_ShutdownMessage.m_Message.empty())
+                {
+                    struct Shutdown
+                    {
+                        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
+                            return Log::CreatePrefix("[SHUTDOWN]");
+                        }
+
+                        [[nodiscard]] static constexpr auto GetStyle() noexcept {
+                            return Log::CreateStyle(Log::Color::BrightWhite, Log::Color::Red);
+                        }
+                    };
+
+                    const auto format = Log::Formater<Shutdown>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
+                    Log::Console(format);
                 }
 
                 return false;
@@ -241,9 +251,20 @@ namespace Helena
 
             if(!msg.m_Msg.empty()) {
                 ctx.m_ShutdownMessage.m_Location = msg.m_Location;
-                ctx.m_ShutdownMessage.m_Message = "Shutdown Engine with reason: " + Util::Format(msg.m_Msg, std::forward<Args>(args)...);
+                ctx.m_ShutdownMessage.m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
             }
         }
+    }
+
+    [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
+    {
+        const auto& ctx = Engine::Context::GetInstance();
+        if(ctx.m_State == EState::Shutdown) {
+            const auto& msg = ctx.m_ShutdownMessage.m_Message;
+            const auto& location = ctx.m_ShutdownMessage.m_Location;
+            return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), msg);
+        }
+        return std::string{};
     }
 
     template <typename T, typename... Args>
@@ -272,42 +293,9 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    void Engine::SubscribeEvent(void (*callback)(Args...))
+    void Engine::SubscribeEvent(void (*callback)([[maybe_unused]] Args...))
     {
-        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
-
-        auto& ctx = Engine::Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            ctx.m_Events.template Create<Event>();
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
-            return storage == callback; 
-        });
-        HELENA_ASSERT(empty, "Listener already registered!");
-
-        if(empty) 
-        {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) {
-                if constexpr(std::is_empty_v<Event>) {
-                    static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
-                    storage.m_Callback();
-                } else {
-                    static_assert(sizeof...(Args) == 1, "Args incorrect");
-                    static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-                    using To = std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>;
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
-                    fn(*static_cast<To*>(data));
-                }
-            });
-        }
-    }
-
-    template <typename Event, typename System, typename... Args>
-    void Engine::SubscribeEvent(void (System::*callback)(Args...))
-    {
-        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
@@ -320,9 +308,45 @@ namespace Helena
         });
         HELENA_ASSERT(empty, "Listener already registered!");
 
-        if(empty) 
+        if(empty)
         {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) {
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
+            {
+                if constexpr(std::is_empty_v<Event>) {
+                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
+
+                    storage.m_Callback();
+                } else {
+                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
+                    static_assert((Traits::SameAS<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
+
+                    decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
+                    fn(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
+                }
+            });
+        }
+    }
+
+    template <typename Event, typename System, typename... Args>
+    void Engine::SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...))
+    {
+        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+
+        auto& ctx = Engine::Context::GetInstance();
+        if(!ctx.m_Events.template Has<Event>()) {
+            ctx.m_Events.template Create<Event>();
+        }
+
+        auto& eventPool = ctx.m_Events.template Get<Event>();
+        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
+            return storage == callback;
+        });
+        HELENA_ASSERT(empty, "Listener already registered!");
+
+        if(empty)
+        {
+            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
+            {
                 auto& ctx = Engine::Context::GetInstance();
                 if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
                     decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
@@ -331,15 +355,16 @@ namespace Helena
                 }
 
                 if constexpr(std::is_empty_v<Event>) {
-                    static_assert(sizeof... (Args) == 0, "Args should be dropped for optimization");
+                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
+
                     decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
                     (ctx.m_Systems.template Get<System>().*fn)();
                 } else {
-                    static_assert(sizeof...(Args) == 1, "Args incorrect");
-                    static_assert((std::is_same_v<Event, Traits::RemoveCVRefPtr<Args>> && ...), "Args type incorrect");
-                    using To = std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>;
+                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
+                    static_assert((Traits::SameAS<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
+
                     decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    (ctx.m_Systems.template Get<System>().*fn)(*static_cast<To*>(data));
+                    (ctx.m_Systems.template Get<System>().*fn)(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
                 }
             });
         }
@@ -348,10 +373,10 @@ namespace Helena
     template <typename Event, typename... Args>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
-        if(ctx.m_Events.template Has<Event>()) 
+        if(ctx.m_Events.template Has<Event>())
         {
             auto& eventPool = ctx.m_Events.template Get<Event>();
             for(std::size_t pos = eventPool.size(); pos; --pos)
@@ -379,9 +404,9 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    void Engine::UnsubscribeEvent(void (*callback)(Args...)) {
-        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
-        
+    void Engine::UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...)) {
+        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
             return;
@@ -398,9 +423,9 @@ namespace Helena
     }
 
     template <typename Event, typename System, typename... Args>
-    void Engine::UnsubscribeEvent(void (System::* callback)(Args...)) {
-        static_assert(std::is_same_v<Event, Traits::RemoveCVRefPtr<Event>>, "Event type incorrect");
-        
+    void Engine::UnsubscribeEvent(void (System::* callback)([[maybe_unused]] Args...)) {
+        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
             return;

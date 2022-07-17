@@ -36,9 +36,9 @@ namespace Helena::Types
     template <Helena::Traits::DefinitionLogger Logger, typename... Args>
     void BasicLogger::PrintConsole(const Log::Formater<Logger> format, [[maybe_unused]] Args&&... args)
     {
-        HELENA_ASSERT(format.m_Location.m_File);
-        HELENA_ASSERT(format.m_Location.m_Function);
-        HELENA_ASSERT(format.m_Location.m_Line && format.m_Location.m_File[0] != '\0');
+        HELENA_ASSERT(format.m_Location.GetFile());
+        HELENA_ASSERT(format.m_Location.GetFunction());
+        HELENA_ASSERT(format.m_Location.GetLine() && *format.m_Location.GetFile());
 
         constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
         const auto msg = fmt::string_view{format.m_Msg};

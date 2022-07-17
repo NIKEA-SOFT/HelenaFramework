@@ -16,5 +16,4 @@ namespace Helena::Traits
     concept Map = IsMap<T>::value;
 }
 
-
 #endif // HELENA_TRAITS_MAP_HPP

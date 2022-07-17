@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace Helena::Traits 
+namespace Helena::Traits
 {
 	template <typename>
 	struct FNV1a;

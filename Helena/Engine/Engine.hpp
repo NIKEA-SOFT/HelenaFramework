@@ -1,15 +1,24 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
-#include <Helena/Platform/Platform.hpp>
 #include <Helena/Engine/Events.hpp>
+#include <Helena/Engine/Log.hpp>
+#include <Helena/Platform/Platform.hpp>
+#include <Helena/Platform/Defines.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Mutex.hpp>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace Helena
 {
@@ -257,11 +266,11 @@ namespace Helena
 
     private:
     #if defined(HELENA_PLATFORM_WIN)
-        static BOOL WINAPI CtrlHandler(DWORD dwCtrlType);
+        static BOOL WINAPI CtrlHandler([[maybe_unused]] DWORD dwCtrlType);
         static LONG WINAPI MiniDumpSEH(EXCEPTION_POINTERS* pException);
 
     #elif defined(HELENA_PLATFORM_LINUX)
-        static auto SigHandler(int signal) -> void;
+        static void SigHandler([[maybe_unused]] int signal);
     #endif
 
         static void RegisterHandlers();
@@ -312,6 +321,14 @@ namespace Helena
         */
         template <typename... Args>
         static void Shutdown(const Types::LocationString& msg = {}, [[maybe_unused]] Args&&... args);
+
+        /**
+        * @brief Returns the last shutdown reason
+        *
+        * @return Reason string if the engine State == EState::Shutdown and has a reason, empty otherwise
+        * @warning No point in calling this function if State != EState::Shutdown
+        */
+        [[nodiscard]] static auto ShutdownReason() noexcept;
 
         /**
         * @brief Register the system in the engine
@@ -419,7 +436,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void SubscribeEvent(void (*callback)(Args...));
+        static void SubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Listening to the event
@@ -439,7 +456,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void SubscribeEvent(void (System::*callback)(Args...));
+        static void SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Trigger an event for all listeners
@@ -478,7 +495,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void UnsubscribeEvent(void (*callback)(Args...));
+        static void UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
         * @brief Stop listening to the event
@@ -499,7 +516,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void UnsubscribeEvent(void (System::*callback)(Args...));
+        static void UnsubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
     };
 }
 

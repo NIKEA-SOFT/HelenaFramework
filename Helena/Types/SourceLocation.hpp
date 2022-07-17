@@ -9,10 +9,7 @@
 
 namespace Helena::Types
 {
-    /**
-    * @brief SourceLocation implementation
-    * @warning For optimization used POD and members are not initialized
-    */
+    /*! SourceLocation implementation */
     struct SourceLocation
     {
         [[nodiscard]] static constexpr const char* GetSourceName(const std::string_view file, const std::string_view delimeter) noexcept {
@@ -51,12 +48,11 @@ namespace Helena::Types
             return m_Line;
         }
 
-        const char* m_File;
-        const char* m_Function;
-        std::uint_least32_t m_Line;
+    private:
+        const char* m_File{};
+        const char* m_Function{};
+        std::uint_least32_t m_Line{};
     };
-
-    static_assert(std::is_trivial_v<SourceLocation> && std::is_standard_layout_v<SourceLocation>, "Type is not pod");
 }
 
 #endif // HELENA_TYPES_SOURCELOCATION_HPP

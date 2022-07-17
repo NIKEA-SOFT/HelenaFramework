@@ -181,7 +181,7 @@ namespace Helena::Types {
 
         template<auto Func>
         using arg_t = typename Delegate<>::template arg_t<Func>;
-       
+
         /*! @brief Default constructor. */
         Delegate() noexcept
             : fn{nullptr}, data{nullptr}
@@ -397,7 +397,7 @@ namespace Helena::Types {
     //Delegate(Delegate<...>::arg_t<Candidate>, Type &&) -> Delegate<std::remove_pointer_t<Internal::function_pointer_t<decltype(Candidate), Type>>>;
 
     template<auto Candidate, typename Type>
-    Delegate(typename Delegate<>::template arg_t<Candidate>, Type &&) 
+    Delegate(typename Delegate<>::template arg_t<Candidate>, Type &&)
         -> Delegate<std::remove_pointer_t<Delegate<>::function_pointer_t<decltype(Candidate), Type>>>;
 
     /**

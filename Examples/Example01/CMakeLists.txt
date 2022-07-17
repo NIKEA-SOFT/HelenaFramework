@@ -1,19 +1,19 @@
 #|--------------------------------
 #| HF Example01 Project
 #|--------------------------------
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.14)
 
 set(HELENA_APP Example01)
 
 project(${HELENA_APP})
 
-file(GLOB_RECURSE HELENA_APP_SOURCE 
+file(GLOB_RECURSE HELENA_APP_SOURCE
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
 
-file(GLOB_RECURSE HELENA_APP_HEADERS 
+file(GLOB_RECURSE HELENA_APP_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.ipp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"

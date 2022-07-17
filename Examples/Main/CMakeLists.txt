@@ -1,7 +1,7 @@
 #|--------------------------------
 #| HF Application Project
 #|--------------------------------
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.14)
 
 set(HELENA_APP Helena)
 #set(LIB_LUA_DIR ${HELENA_PROJECT_DIR}/Dependencies/lua)

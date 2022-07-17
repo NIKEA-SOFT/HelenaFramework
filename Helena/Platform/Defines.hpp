@@ -11,9 +11,9 @@
 
 /* ----------- [Diagnostic Pragma] ----------- */
 #if defined(HELENA_COMPILER_CLANG)
-    #define HELENA_DIAGNOSTIC_CLANG_PUSH        _Pragma("GCC diagnostic push")
-    #define HELENA_DIAGNOSTIC_CLANG_POP         _Pragma("GCC diagnostic pop")
-    #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)  _Pragma("GCC diagnostic ignored " #id)
+    #define HELENA_DIAGNOSTIC_CLANG_PUSH        _Pragma("clang diagnostic push")
+    #define HELENA_DIAGNOSTIC_CLANG_POP         _Pragma("clang diagnostic pop")
+    #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)  _Pragma("clang diagnostic ignored " #id)
 #else 
     #define HELENA_DIAGNOSTIC_CLANG_PUSH
     #define HELENA_DIAGNOSTIC_CLANG_POP
@@ -31,9 +31,9 @@
 #endif
 
 #if defined(HELENA_COMPILER_MSVC)
-    #define HELENA_DIAGNOSTIC_MSVC_PUSH         __pragma warning(push)
-    #define HELENA_DIAGNOSTIC_MSVC_POP          __pragma warning(pop)
-    #define HELENA_DIAGNOSTIC_MSVC_IGNORE(id)   __pragma warning(disable: id)
+    #define HELENA_DIAGNOSTIC_MSVC_PUSH         _Pragma("warning(push)")
+    #define HELENA_DIAGNOSTIC_MSVC_POP          _Pragma("warning(pop)")
+    #define HELENA_DIAGNOSTIC_MSVC_IGNORE(id)   _Pragma("warning(disable: id)")
 #else
     #define HELENA_DIAGNOSTIC_MSVC_PUSH
     #define HELENA_DIAGNOSTIC_MSVC_POP
@@ -73,6 +73,27 @@
     #define HELENA_FUNCTION             __PRETTY_FUNCTION__
 #else
     #define HELENA_FUNCTION             __FUNCSIG__
+#endif
+
+#if defined(HELENA_COMPILER_CLANG) || defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_MSVC)
+    #define HELENA_RESTRICT __restrict
+#else
+    #define HELENA_RESTRICT
+#endif
+
+#if defined(HELENA_COMPILER_CLANG)
+    #define HELENA_OPTIMIZATION_ENABLE          _Pragma("clang optimize on")
+    #define HELENA_OPTIMIZATION_DISABLE         _Pragma("clang optimize off")
+#elif defined(HELENA_COMPILER_GCC)
+    #define HELENA_OPTIMIZATION_ENABLE          _Pragma("GCC pop_options")
+    #define HELENA_OPTIMIZATION_DISABLE         _Pragma("GCC push_options") \
+                                                _Pragma("GCC optimize (\"-O0\")")
+#elif defined(HELENA_COMPILER_MSVC)
+    #define HELENA_OPTIMIZATION_ENABLE          _Pragma("optimize(\"\", on)")
+    #define HELENA_OPTIMIZATION_DISABLE         _Pragma("optimize(\"\", off)")
+#else
+    #define HELENA_OPTIMIZATION_ENABLE
+    #define HELENA_OPTIMIZATION_DISABLE
 #endif
 
 //#if __has_cpp_attribute(likely)

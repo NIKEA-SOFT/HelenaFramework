@@ -12,7 +12,7 @@ namespace Helena::Types
         void operator=(Type value) const noexcept {
             m_Data<Type> = value;
         }
-        
+
         template <typename Type>
         operator Type() const noexcept {
             return m_Data<Type>;

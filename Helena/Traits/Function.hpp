@@ -1,28 +1,28 @@
 #ifndef HELENA_TRAITS_FUNCTIONINFO_HPP
 #define HELENA_TRAITS_FUNCTIONINFO_HPP
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
-#include <cstddef>
 
 namespace Helena::Traits {
     template <typename Fn> // primary template
-    struct Function : public Function<decltype(&std::remove_reference<Fn>::type::operator())> { };
+    struct Function : public Function<decltype(&std::remove_reference<Fn>::type::operator())> {};
 
-    template <typename ClassType, typename ReturnType, typename... Arguments>
-    struct Function<ReturnType(ClassType::*)(Arguments...) const> : Function<ReturnType(*)(Arguments...)> { };
+    template <typename T, typename ReturnType, typename... Args>
+    struct Function<ReturnType(T::*)(Args...) const> : Function<ReturnType(*)(Args...)> {};
 
-    template <typename ClassType, typename ReturnType, typename... Arguments>
-    struct Function<ReturnType(ClassType::*)(Arguments...)> : Function<ReturnType(*)(Arguments...)> { };
+    template <typename T, typename ReturnType, typename... Args>
+    struct Function<ReturnType(T::*)(Args...)> : Function<ReturnType(*)(Args...)> {};
 
-    template <typename ReturnType, typename... Arguments>
-    struct Function<ReturnType(*)(Arguments...)> {
-        using Return = ReturnType;
+    template <typename ReturnType, typename... Args>
+    struct Function<ReturnType(*)(Args...)> {
+        static constexpr auto Size = sizeof...(Args);
+        static constexpr auto Orphan = !Size;
 
         template <std::size_t Index>
-        using Arg = typename std::tuple_element<Index, std::tuple<Arguments...>>::type;
-
-        static constexpr std::size_t Args = sizeof...(Arguments);
+        using Arg = std::tuple_element_t<Index, std::tuple<Args...>>;
+        using Return = ReturnType;
     };
 }
 

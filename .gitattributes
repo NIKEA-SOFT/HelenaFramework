@@ -1,0 +1,27 @@
+# Default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# Auto-convertible types
+*.c text diff=cpp
+*.cpp text diff=cpp
+*.h text diff=cpp
+*.hpp text diff=cpp
+*.ipp text diff=cpp
+*.txt text
+*.md text
+
+# Always have CRLF line endings.
+*.sln text eol=crlf
+*.csproj text eol=crlf
+*.vbproj text eol=crlf
+*.fsproj text eol=crlf
+*.dbproj text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxitems text eol=crlf
+*.props text eol=crlf
+*.filters text eol=crlf
+
+# Binary
+*.pdf binary
+*.png binary
+*.jpg binary

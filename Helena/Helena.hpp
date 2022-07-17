@@ -4,14 +4,14 @@
 // Version
 #define HELENA_VERSION_MAJOR 1
 #define HELENA_VERSION_MINOR 0
-#define HELENA_VERSION_PATCH 0
+#define HELENA_VERSION_PATCH 2
 
 // Platform
-#include <Helena/Platform/Platform.hpp>
-#include <Helena/Platform/Processor.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Compiler.hpp>
 #include <Helena/Platform/Defines.hpp>
-#include <Helena/Platform/Assert.hpp>
+#include <Helena/Platform/Platform.hpp>
+#include <Helena/Platform/Processor.hpp>
 
 // Engine
 #include <Helena/Engine/Events.hpp>
@@ -19,10 +19,12 @@
 #include <Helena/Engine/Log.hpp>
 
 // Traits
+#include <Helena/Traits/Add.hpp>
 #include <Helena/Traits/AnyOf.hpp>
+#include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/Cacheline.hpp>
+#include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constness.hpp>
-#include <Helena/Traits/CVRefPtr.hpp>
 #include <Helena/Traits/Detector.hpp>
 #include <Helena/Traits/FNV1a.hpp>
 #include <Helena/Traits/Function.hpp>
@@ -31,7 +33,10 @@
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/Pair.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
+#include <Helena/Traits/Remove.hpp>
+#include <Helena/Traits/SameAS.hpp>
 #include <Helena/Traits/ScopedEnum.hpp>
+#include <Helena/Traits/Select.hpp>
 #include <Helena/Traits/Specialization.hpp>
 
 // Types

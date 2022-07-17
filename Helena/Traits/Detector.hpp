@@ -6,7 +6,7 @@
 
 namespace Helena::Traits
 {
-    namespace Details 
+    namespace Details
     {
         struct Nullable {
             Nullable() = delete;
@@ -38,7 +38,7 @@ namespace Helena::Traits
     using IsDetectedOr = typename Details::Detector<Default, void, Expression, Args...>::value_type;
 
     template <typename Default, template <typename...> typename Expression, typename... Args>
-    using DetectedOrType = typename Details::Detector<Default, void, Expression, Args...>::storage_type;   
+    using DetectedOrType = typename Details::Detector<Default, void, Expression, Args...>::storage_type;
 }
 
 

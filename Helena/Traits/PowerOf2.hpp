@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace Helena::Traits 
+namespace Helena::Traits
 {
     template <std::size_t Size>
     struct PowerOf2

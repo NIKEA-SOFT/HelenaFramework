@@ -7,8 +7,7 @@ namespace Helena::Types
 {
     class BasicLogger
     {
-        [[nodiscard]] 
-        static bool MakeColor(fmt::memory_buffer& buffer, const fmt::text_style style);
+        [[nodiscard]] static bool MakeColor(fmt::memory_buffer& buffer, const fmt::text_style style);
         static void EndColor(fmt::memory_buffer& buffer) noexcept;
 
     public:
