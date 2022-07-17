@@ -30,7 +30,7 @@ namespace Helena::Types
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     public:
-        StaticVector() : m_Size{} {}
+        StaticVector() : m_Storage{}, m_Size{} {}
 
         template <typename... Args>
         requires(((Helena::Traits::Specialization<Args, std::tuple>
