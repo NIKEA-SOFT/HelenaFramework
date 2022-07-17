@@ -53,7 +53,7 @@ namespace Helena::Log
     template <Helena::Traits::DefinitionLogger Prefix>
     struct Formater {
         template <std::convertible_to<std::string_view> T>
-        constexpr Formater(T&& msg, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
+        constexpr Formater(const T& msg, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
             : m_Location{location}
             , m_Msg{msg} {}
 
