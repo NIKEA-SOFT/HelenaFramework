@@ -53,7 +53,7 @@ namespace Helena::Types
         constexpr DateTime(DateTime&&) noexcept = default;
         explicit constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
         explicit constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
-            std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t millisecond = 0) {
+            std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t millisecond = 0) : m_Ticks{} {
             HELENA_ASSERT(Valid(year, month, day, hour, minute, second, millisecond));
             m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + millisecond * m_TicksPerMilliseconds;
         }
@@ -229,7 +229,7 @@ namespace Helena::Types
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInMonth(std::int32_t year, std::int32_t month) noexcept {
             HELENA_ASSERT(month >= 1 && month <= Months);
-            return DaysPerMonth[month] - DaysPerMonth[month - 1] + (month == 2 && IsLeapYear(year));
+            return DaysPerMonth[month] - DaysPerMonth[static_cast<std::size_t>(month - 1)] + (month == 2 && IsLeapYear(year));
         }
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInYear(std::int32_t year) noexcept {
@@ -245,7 +245,7 @@ namespace Helena::Types
         [[nodiscard]] static constexpr std::int64_t DateToTicks(std::int32_t year, std::int32_t month, std::int32_t day) noexcept {
             HELENA_ASSERT(Valid(year, month, day));
             --year; --month; --day;
-            return (year * 365 + year / 4 - year / 100 + year / 400 + DaysPerMonth[month] + day + (month > 2 && IsLeapYear(year + 1))) * m_TicksPerDays;
+            return (year * 365LL + year / 4 - year / 100 + year / 400 + DaysPerMonth[month] + day + (month > 2 && IsLeapYear(year + 1))) * m_TicksPerDays;
         }
 
         [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute = 0,
@@ -444,7 +444,7 @@ namespace Helena::Types
         [[nodiscard]] constexpr auto operator<=>(const DateTime&) const noexcept = default;
 
     private:
-        std::int64_t m_Ticks{};
+        std::int64_t m_Ticks;
     };
 }
 
