@@ -135,9 +135,7 @@ namespace Helena
             {
                 RegisterHandlers();
 
-                ctx.m_ShutdownMessage.m_Location.m_File = "";
-                ctx.m_ShutdownMessage.m_Location.m_Function = "";
-                ctx.m_ShutdownMessage.m_Location.m_Line = 0;
+                ctx.m_ShutdownMessage.m_Location = {};
                 ctx.m_ShutdownMessage.m_Message.clear();
 
                 ctx.m_State     = Engine::EState::Init;
@@ -200,9 +198,21 @@ namespace Helena
                 ctx.m_Systems.Clear();
                 ctx.m_State = Engine::EState::Undefined;
 
-                if(!ctx.m_ShutdownMessage.m_Message.empty()) {
-                    const auto format = Log::Formater<Log::Fatal>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
-                    Log::Console<Log::Fatal>(format);
+                if(!ctx.m_ShutdownMessage.m_Message.empty())
+                {
+                    struct Shutdown
+                    {
+                        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
+                            return Log::CreatePrefix("[SHUTDOWN]");
+                        }
+
+                        [[nodiscard]] static constexpr auto GetStyle() noexcept {
+                            return Log::CreateStyle(Log::Color::BrightWhite, Log::Color::Red);
+                        }
+                    };
+
+                    const auto format = Log::Formater<Shutdown>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
+                    Log::Console(format);
                 }
 
                 return false;
@@ -241,9 +251,20 @@ namespace Helena
 
             if(!msg.m_Msg.empty()) {
                 ctx.m_ShutdownMessage.m_Location = msg.m_Location;
-                ctx.m_ShutdownMessage.m_Message = "Shutdown Engine with reason: " + Util::Format(msg.m_Msg, std::forward<Args>(args)...);
+                ctx.m_ShutdownMessage.m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
             }
         }
+    }
+
+    [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
+    {
+        const auto& ctx = Engine::Context::GetInstance();
+        if(ctx.m_State == EState::Shutdown) {
+            const auto& msg = ctx.m_ShutdownMessage.m_Message;
+            const auto& location = ctx.m_ShutdownMessage.m_Location;
+            return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), msg);
+        }
+        return std::string{};
     }
 
     template <typename T, typename... Args>

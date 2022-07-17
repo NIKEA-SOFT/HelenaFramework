@@ -323,6 +323,14 @@ namespace Helena
         static void Shutdown(const Types::LocationString& msg = {}, [[maybe_unused]] Args&&... args);
 
         /**
+        * @brief Returns the last shutdown reason
+        *
+        * @return Reason string if the engine State == EState::Shutdown and has a reason, empty otherwise
+        * @warning No point in calling this function if State != EState::Shutdown
+        */
+        [[nodiscard]] static auto ShutdownReason() noexcept;
+
+        /**
         * @brief Register the system in the engine
         * 
         * @code{.cpp}
