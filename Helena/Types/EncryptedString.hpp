@@ -36,6 +36,10 @@ namespace Helena::Types
                 return m_Data;
             }
 
+            [[nodiscard]] operator std::basic_string_view<R>() const noexcept {
+                return std::basic_string_view<R>{m_Data};
+            }
+
         private:
             R m_Data[Size];
         };
