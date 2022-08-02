@@ -19,7 +19,7 @@ namespace Helena::Types
             try {
                 Clear();
                 fmt::detail::vformat_to(m_Buffer, fmt::string_view{msg.data(), msg.size()}, args);
-                m_Buffer.push_back('\0');
+                AddTerminator();
             } catch(const fmt::format_error&) {
                 Clear();
                 Log::Console<Log::Exception>(
@@ -52,10 +52,12 @@ namespace Helena::Types
 
         void Append(char c) noexcept {
             m_Buffer.push_back(c);
+            AddTerminator();
         }
 
         void Append(const std::string_view buffer) noexcept {
             m_Buffer.append(buffer);
+            AddTerminator();
         }
 
         template <std::convertible_to<std::string_view> T, typename... Args>
@@ -72,7 +74,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] std::size_t Empty() const noexcept {
-            return !GetSize();
+            return GetSize() == 0;
         }
 
         [[nodiscard]] operator std::string_view() const {
@@ -91,6 +93,29 @@ namespace Helena::Types
 
         void Clear() noexcept {
             m_Buffer.clear();
+            AddTerminator();
+        }
+
+        char* begin() noexcept {
+            return m_Buffer.begin();
+        }
+
+        char* end() noexcept {
+            return m_Buffer.end();
+        }
+
+        const char* begin() const noexcept {
+            return m_Buffer.begin();
+        }
+
+        const char* end() const noexcept {
+            return m_Buffer.end();
+        }
+
+    private:
+        void AddTerminator() {
+            m_Buffer.push_back('\0');
+            m_Buffer.resize(m_Buffer.size() - 1);
         }
 
     private:
