@@ -220,7 +220,7 @@ namespace Helena::Types
             m_Size = 0;
         }
 
-        void Resize(std::size_t size) {
+        void Resize(std::size_t size) requires std::is_default_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
                 Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);
@@ -232,7 +232,7 @@ namespace Helena::Types
         }
 
 
-        void Resize(std::size_t size, const T& value) {
+        void Resize(std::size_t size, const T& value) requires std::is_copy_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
                 Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);
