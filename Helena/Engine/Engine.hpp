@@ -6,6 +6,7 @@
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Platform/Assert.hpp>
+#include <Helena/Traits/Cacheline.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
@@ -243,7 +244,7 @@ namespace Helena
             }
 
         private:
-            Types::VectorAny<UKSystems> m_Systems;
+            Types::VectorAny<UKSystems, Traits::Cacheline> m_Systems;
             Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
 
             Callback m_Callback;
