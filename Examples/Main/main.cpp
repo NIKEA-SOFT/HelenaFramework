@@ -1,4 +1,7 @@
 ﻿#include <Helena/Helena.hpp>
+#include <Helena/Types/EncryptedString.hpp>
+#include <Helena/Types/ModernDesign.hpp>
+#include <Helena/Types/ReferencePointer.hpp>
 
 class TestSystemA
 {
@@ -303,6 +306,95 @@ void example_task_sheduler()
     //  Update task (Remove): O(1) + O(logN) (when need remove task)
 }
 
+/* -------------- [Subsystems] ------------- */
+#include <Helena/Types/Subsystems.hpp>
+
+// it's subsystem of AnimationManager (just for example subsystems)
+struct AnimationSkeleton {};
+
+// it's subsystem of AnimationManager
+struct AnimationSpline
+    // ModernDesign can be used in Systems (for get `this` from static methods)
+    // or in Subsystems for get owner System instance
+    : public Helena::Types::ModernDesign<class AnimationManager>
+{
+    static void StaticFunc();
+    void NonStaticFunc();
+
+private:
+    int m_Value{};
+};
+
+// it's System
+class AnimationManager
+    : public Helena::Types::ModernDesign<AnimationManager>     // -> Get current system from static methods using CurrentSystem
+    , public Helena::Types::SubsystemDesign<AnimationManager>  // -> Create, Any, Has, Remove subsystems
+{
+
+public:
+    AnimationManager() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&OnInit);  // Subscribe on engine event
+    }
+
+private:
+    static void OnInit()
+    {
+        // Get current system AnimationManager
+        auto currentSystem = CurrentSystem();
+
+        // Register subsystems in current system (look implementation inside SubsystemDesign)
+        currentSystem->RegisterSubsystem<AnimationSpline>();
+        currentSystem->RegisterSubsystem<AnimationSkeleton>();
+
+        // Check the exist all of subsystems
+        if(currentSystem->HasSubsystem<AnimationSpline, AnimationSkeleton>()) {
+            // OK: AnimationSpline and AnimationSkeleton exist
+        }
+
+        // Check the exist any of subsystems
+        if(currentSystem->AnySubsystem<AnimationSpline, AnimationSkeleton>()) {
+            // OK: AnimationSpline or AnimationSkeleton exist
+        }
+
+        // Get reference to the some subsystem
+        auto& animationSpline = currentSystem->GetSubsystem<AnimationSpline>();
+        // or get multiple subsystems
+        const auto& [spline, skeleton] = currentSystem->GetSubsystem<AnimationSpline, AnimationSkeleton>();
+
+
+        // it's example the functional paradigm (SomeFunc it's static method)
+        AnimationSpline::StaticFunc();
+
+        // or OOP variant
+        spline.NonStaticFunc();
+
+        // Remove systems and destroy objects
+        currentSystem->RemoveSubsystem<AnimationSpline, AnimationSkeleton>();
+    }
+};
+
+void AnimationSpline::StaticFunc() {
+    // CurrentSystem() used for get instance of AnimationManager (System) and after GetSubsystem for get "this"
+    // Use this technique wisely, for example, in lambda functions you can get a win by omitting the need to capture this
+    // this means that you don't need to store lambda anymore.
+    auto& self = CurrentSystem()->GetSubsystem<AnimationSpline>();
+    const auto value = self.m_Value;
+
+    // for example lambda
+    // in oop
+    // const auto fnLambda = [this]() {};
+    // in modern design paradigm
+    // const auto ptr = +[]() {
+    //   auto& self = CurrentSystem()->GetSubsystem<AnimationSpline>();
+    // }
+}
+
+void AnimationSpline::NonStaticFunc() {
+    // Nop
+}
+
+/* ------------------------------------------- */
+
 int main(int argc, char** argv)
 {
     //Engine started from Initialize method
@@ -311,6 +403,7 @@ int main(int argc, char** argv)
     Helena::Engine::Context::SetTickrate(30.f);             // Set Update tickrate
     Helena::Engine::Context::SetMain([]() {                 // Register systems happen in this callback
         Helena::Engine::RegisterSystem<TestSystemA>();
+        Helena::Engine::RegisterSystem<AnimationManager>();
 
         example_systems();          // ok, here just example how use systems
         example_signals();          // here example with signals
