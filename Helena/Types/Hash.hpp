@@ -19,7 +19,7 @@ namespace Helena::Types
     {
     public:
         using Hasher = Traits::FNV1a<T>;
-        using value_type = T;
+        using Value = T;
 
     public:
         Hash() = delete;
@@ -28,7 +28,8 @@ namespace Helena::Types
         Hash& operator=(const Hash&) = delete;
         Hash& operator=(Hash&&) noexcept = delete;
 
-        [[nodiscard]] static constexpr auto Get(std::string_view str) noexcept
+        template <typename Char>
+        [[nodiscard]] static constexpr auto Get(std::basic_string_view<Char> str) noexcept
         {
             auto value{Hasher::Offset};
             for(std::size_t i = 0; i < str.size(); ++i) {
