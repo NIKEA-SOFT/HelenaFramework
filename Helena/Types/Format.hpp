@@ -46,9 +46,16 @@ namespace Helena::Types
         Format() = default;
         ~Format() = default;
         Format(const Format&) = delete;
-        Format(Format&&) noexcept = default;
+        Format(Format&& other) noexcept {
+            m_Buffer = std::move(other.m_Buffer);
+            AddTerminator();
+        };
+
         Format& operator=(const Format&) = delete;
-        Format& operator=(Format&&) = default;
+        Format& operator=(Format&& other) {
+            m_Buffer = std::move(other.m_Buffer);
+            AddTerminator();
+        }
 
         void Append(char c) noexcept {
             m_Buffer.push_back(c);
