@@ -1,28 +1,27 @@
 #ifndef HELENA_TRAITS_FUNCTIONINFO_HPP
 #define HELENA_TRAITS_FUNCTIONINFO_HPP
 
-#include <cstddef>
-#include <tuple>
-#include <type_traits>
+#include <Helena/Traits/Arguments.hpp>
+#include <Helena/Traits/Identity.hpp>
 
-namespace Helena::Traits {
-    template <typename Fn> // primary template
-    struct Function : public Function<decltype(&std::remove_reference<Fn>::type::operator())> {};
+namespace Helena::Traits
+{
+    template <typename Fn>
+    struct Function : Function<decltype(&Fn::operator())> {};
 
-    template <typename T, typename ReturnType, typename... Args>
-    struct Function<ReturnType(T::*)(Args...) const> : Function<ReturnType(*)(Args...)> {};
+    template <typename Ret, typename T, typename... Args>
+    struct Function<Ret(T::*)(Args...) const> : Identity<Ret(T::*)(Args...) const>, Arguments<Args...> {
+        using Return = Ret;
+    };
 
-    template <typename T, typename ReturnType, typename... Args>
-    struct Function<ReturnType(T::*)(Args...)> : Function<ReturnType(*)(Args...)> {};
+    template <typename Ret, typename T, typename... Args>
+    struct Function<Ret(T::*)(Args...)> : Identity<Ret(T::*)(Args...)>, Arguments<Args...> {
+        using Return = Ret;
+    };
 
-    template <typename ReturnType, typename... Args>
-    struct Function<ReturnType(*)(Args...)> {
-        static constexpr auto Size = sizeof...(Args);
-        static constexpr auto Orphan = !Size;
-
-        template <std::size_t Index>
-        using Arg = std::tuple_element_t<Index, std::tuple<Args...>>;
-        using Return = ReturnType;
+    template <typename Ret, typename... Args>
+    struct Function<Ret(*)(Args...)> : Identity<Ret(*)(Args...)>, Arguments<Args...> {
+        using Return = Ret;
     };
 }
 
