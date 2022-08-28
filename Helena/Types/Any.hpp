@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 #include <new>
+#include <utility>
 
 namespace Helena::Types
 {
@@ -40,20 +41,20 @@ namespace Helena::Types
     template<std::size_t Len, std::size_t Align>
     class Any
     {
-        enum class operation : std::uint8_t {
-            copy,
-            move,
-            transfer,
-            assign,
-            destroy,
-            compare,
-            get
+        enum class EOperation : std::uint8_t {
+            Copy,
+            Move,
+            Transfer,
+            Assign,
+            Destroy,
+            Compare,
+            Get
         };
 
-        enum class policy : std::uint8_t {
-            owner,
-            ref,
-            cref
+        enum class EPolicy : std::uint8_t {
+            Owner,
+            Ref,
+            CRef
         };
 
         template<typename, typename = void>
@@ -159,15 +160,18 @@ namespace Helena::Types
         template<typename Type>
         static inline constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
 
-        using storage_type = std::aligned_storage_t<Len + !Len, Align>;
-        using vtable_type = const void* (const operation, const Any&, const void*);
-        using hash_type = Hash<std::uint64_t>;
+        using Storage = std::aligned_storage_t<Len + !Len, Align>;
+        using VTable = const void* (const EOperation, const Any&, const void*);
+
+    public:
+        using Hasher = Hash<std::uint64_t>;
+
+    private:
+        template<typename Type>
+        static constexpr bool in_situ = Len && alignof(Type) <= alignof(Storage) && sizeof(Type) <= sizeof(Storage) && std::is_nothrow_move_constructible_v<Type>;
 
         template<typename Type>
-        static constexpr bool in_situ = Len && alignof(Type) <= alignof(storage_type) && sizeof(Type) <= sizeof(storage_type) && std::is_nothrow_move_constructible_v<Type>;
-
-        template<typename Type>
-        static const void* basic_vtable([[maybe_unused]] const operation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other)
+        static const void* VTableHandler([[maybe_unused]] const EOperation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other)
         {
             static_assert(!std::is_same_v<Type, void> && std::is_same_v<std::remove_cvref_t<Type>, Type>, "Invalid type");
             const Type* element = nullptr;
@@ -180,12 +184,12 @@ namespace Helena::Types
 
             switch(op)
             {
-                case operation::copy: {
+                case EOperation::Copy: {
                     if constexpr(std::is_copy_constructible_v<Type>) {
                         static_cast<Any*>(const_cast<void*>(other))->Initialize<Type>(*element);
                     }
                 } break;
-                case operation::move:
+                case EOperation::Move:
                 {
                     if constexpr(in_situ<Type>) {
                         if(value.Owner()) {
@@ -195,19 +199,19 @@ namespace Helena::Types
 
                     return (static_cast<Any*>(const_cast<void*>(other))->instance = std::exchange(const_cast<Any&>(value).instance, nullptr));
                 }
-                case operation::transfer: {
+                case EOperation::Transfer: {
                     if constexpr(std::is_move_assignable_v<Type>) {
                         *const_cast<Type*>(element) = std::move(*static_cast<Type*>(const_cast<void*>(other)));
                         return other;
                     }
                 } [[fallthrough]];
-                case operation::assign: {
+                case EOperation::Assign: {
                     if constexpr(std::is_copy_assignable_v<Type>) {
                         *const_cast<Type*>(element) = *static_cast<const Type*>(other);
                         return other;
                     }
                 } break;
-                case operation::destroy: {
+                case EOperation::Destroy: {
                     if constexpr(in_situ<Type>) {
                         element->~Type();
                     } else if constexpr(std::is_array_v<Type>) {
@@ -216,14 +220,14 @@ namespace Helena::Types
                         delete element;
                     }
                 } break;
-                case operation::compare: {
+                case EOperation::Compare: {
                     if constexpr(!std::is_function_v<Type> && !std::is_array_v<Type> && is_equality_comparable_v<Type>) {
                         return *element == *static_cast<const Type *>(other) ? other : nullptr;
                     } else {
                         return (element == other) ? other : nullptr;
                     }
                 } break;
-                case operation::get: {
+                case EOperation::Get: {
                     return element;
                 }
             }
@@ -236,12 +240,12 @@ namespace Helena::Types
         {
             if constexpr(!std::is_void_v<Type>)
             {
-                vtable = basic_vtable<std::remove_const_t<std::remove_reference_t<Type>>>;
-                key = hash_type::template Get<std::remove_cvref_t<Type>>();
+                vtable = VTableHandler<std::remove_const_t<std::remove_reference_t<Type>>>;
+                key = Hasher::template Get<std::remove_cvref_t<Type>>();
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
-                    mode = std::is_const_v<std::remove_reference_t<Type>> ? policy::cref : policy::ref;
+                    mode = std::is_const_v<std::remove_reference_t<Type>> ? EPolicy::CRef : EPolicy::Ref;
                     instance = (std::addressof(args), ...);
                 } else if constexpr(in_situ<Type>) {
                     if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<Type>) {
@@ -259,7 +263,7 @@ namespace Helena::Types
             }
         }
 
-        Any(const Any& other, const policy pol) noexcept
+        Any(const Any& other, const EPolicy pol) noexcept
             : instance{other.Data()}
             , key{other.key}
             , vtable{other.vtable}
@@ -271,14 +275,12 @@ namespace Helena::Types
         /*! @brief Alignment requirement. */
         static constexpr auto alignment = Align;
 
-        using Hasher = hash_type;
-
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
-            , key{hash_type::template Get<void>()}
+            , key{Hasher::template Get<void>()}
             , vtable{}
-            , mode{policy::owner} {}
+            , mode{EPolicy::Owner} {}
 
         /**
          * @brief Constructs a wrapper by directly initializing the new object.
@@ -307,7 +309,7 @@ namespace Helena::Types
          */
         Any(const Any& other) : Any{} {
             if(other.vtable) {
-                other.vtable(operation::copy, other, this);
+                other.vtable(EOperation::Copy, other, this);
             }
         }
 
@@ -317,14 +319,14 @@ namespace Helena::Types
          */
         Any(Any&& other) noexcept : instance{}, key{other.key}, vtable{other.vtable}, mode{other.mode} {
             if(other.vtable) {
-                other.vtable(operation::move, other, this);
+                other.vtable(EOperation::Move, other, this);
             }
         }
 
         /*! @brief Frees the internal storage, whatever it means. */
         ~Any() {
             if(vtable && Owner()) {
-                vtable(operation::destroy, *this, nullptr);
+                vtable(EOperation::Destroy, *this, nullptr);
             }
         }
 
@@ -337,7 +339,7 @@ namespace Helena::Types
             Reset();
 
             if(other.vtable) {
-                other.vtable(operation::copy, other, this);
+                other.vtable(EOperation::Copy, other, this);
             }
 
             return *this;
@@ -352,7 +354,7 @@ namespace Helena::Types
             Reset();
 
             if(other.vtable) {
-                other.vtable(operation::move, other, this);
+                other.vtable(EOperation::Move, other, this);
                 key = other.key;
                 vtable = other.vtable;
                 mode = other.mode;
@@ -374,10 +376,10 @@ namespace Helena::Types
         }
 
         /**
-         * @brief Returns the object type if any, `hash_type::Get<void>()` otherwise.
-         * @return The object type if any, `hash_type::Get<void>()` otherwise.
+         * @brief Returns the object type if any, `Hasher::Get<void>()` otherwise.
+         * @return The object type if any, `Hasher::Get<void>()` otherwise.
          */
-        [[nodiscard]] hash_type::value_type Key() const noexcept {
+        [[nodiscard]] Hasher::Value Key() const noexcept {
             return key;
         }
 
@@ -386,7 +388,7 @@ namespace Helena::Types
          * @return An opaque pointer the contained instance, if any.
          */
         [[nodiscard]] const void* Data() const noexcept {
-            return vtable ? vtable(operation::get, *this, nullptr) : nullptr;
+            return vtable ? vtable(EOperation::Get, *this, nullptr) : nullptr;
         }
 
         /**
@@ -394,7 +396,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] const void* Data(hash_type::value_type hash) const noexcept {
+        [[nodiscard]] const void* Data(Hasher::Value hash) const noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -403,7 +405,7 @@ namespace Helena::Types
          * @return An opaque pointer the contained instance, if any.
          */
         [[nodiscard]] void* Data() noexcept {
-            return (!vtable || mode == policy::cref) ? nullptr : const_cast<void*>(vtable(operation::get, *this, nullptr));
+            return (!vtable || mode == EPolicy::CRef) ? nullptr : const_cast<void*>(vtable(EOperation::Get, *this, nullptr));
         }
 
         /**
@@ -411,7 +413,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] void* Data(hash_type::value_type hash) noexcept {
+        [[nodiscard]] void* Data(Hasher::Value hash) noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -433,8 +435,8 @@ namespace Helena::Types
          * @return True in case of success, false otherwise.
          */
         bool Assign(const Any& other) {
-            if(vtable && mode != policy::cref && key == other.key) {
-                return (vtable(operation::assign, *this, other.Data()) != nullptr);
+            if(vtable && mode != EPolicy::CRef && key == other.key) {
+                return (vtable(EOperation::Assign, *this, other.Data()) != nullptr);
             }
 
             return false;
@@ -442,11 +444,11 @@ namespace Helena::Types
 
         /*! @copydoc assign */
         bool Assign(Any&& other) {
-            if(vtable && mode != policy::cref && key == other.key) {
+            if(vtable && mode != EPolicy::CRef && key == other.key) {
                 if(auto* val = other.Data(); val) {
-                    return (vtable(operation::transfer, *this, val) != nullptr);
+                    return (vtable(EOperation::Transfer, *this, val) != nullptr);
                 } else {
-                    return (vtable(operation::assign, *this, std::as_const(other).Data()) != nullptr);
+                    return (vtable(EOperation::Assign, *this, std::as_const(other).Data()) != nullptr);
                 }
             }
 
@@ -457,12 +459,12 @@ namespace Helena::Types
         void Reset()
         {
             if(vtable && Owner()) {
-                vtable(operation::destroy, *this, nullptr);
+                vtable(EOperation::Destroy, *this, nullptr);
             }
 
-            key = hash_type::template Get<void>();
+            key = Hasher::template Get<void>();
             vtable = nullptr;
-            mode = policy::owner;
+            mode = EPolicy::Owner;
         }
 
         /**
@@ -480,7 +482,7 @@ namespace Helena::Types
          */
         bool operator==(const Any& other) const noexcept {
             if(vtable && key == other.key) {
-                return (vtable(operation::compare, *this, other.Data()) != nullptr);
+                return (vtable(EOperation::Compare, *this, other.Data()) != nullptr);
             }
 
             return (!vtable && !other.vtable);
@@ -491,12 +493,12 @@ namespace Helena::Types
          * @return A wrapper that shares a reference to an unmanaged object.
          */
         [[nodiscard]] Any AsRef() noexcept {
-            return Any{*this, (mode == policy::cref ? policy::cref : policy::ref)};
+            return Any{*this, (mode == EPolicy::CRef ? EPolicy::CRef : EPolicy::Ref)};
         }
 
         /*! @copydoc as_ref */
         [[nodiscard]] Any AsRef() const noexcept {
-            return Any{*this, policy::cref};
+            return Any{*this, EPolicy::CRef};
         }
 
         /**
@@ -504,7 +506,7 @@ namespace Helena::Types
          * @return True if the wrapper owns its object, false otherwise.
          */
         [[nodiscard]] bool Owner() const noexcept {
-            return (mode == policy::owner);
+            return (mode == EPolicy::Owner);
         }
 
         /**
@@ -513,17 +515,17 @@ namespace Helena::Types
         */
         template <typename T>
         [[nodiscard]] bool EqualHash() const noexcept {
-            return key == hash_type::template Get<std::remove_cvref_t<T>>();
+            return key == Hasher::template Get<std::remove_cvref_t<T>>();
         }
 
     private:
         union {
             const void* instance;
-            storage_type storage;
+            Storage storage;
         };
-        hash_type::value_type key;
-        vtable_type* vtable;
-        policy mode;
+        Hasher::Value key;
+        VTable* vtable;
+        EPolicy mode;
     };
 
     /**
