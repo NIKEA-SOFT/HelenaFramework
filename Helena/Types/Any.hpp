@@ -4,10 +4,9 @@
 #ifndef HELENA_TYPES_ANY_HPP
 #define HELENA_TYPES_ANY_HPP
 
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
+#include <Helena/Platform/Assert.hpp>
 
-#include <cstdint>
 #include <memory>
 #include <new>
 #include <utility>
