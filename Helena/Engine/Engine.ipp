@@ -4,7 +4,7 @@
 #include <Helena/Engine/Engine.hpp>
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAS.hpp>
+#include <Helena/Traits/SameAs.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
@@ -295,7 +295,7 @@ namespace Helena
     template <typename Event, typename... Args>
     void Engine::SubscribeEvent(void (*callback)([[maybe_unused]] Args...))
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
@@ -318,7 +318,7 @@ namespace Helena
                     storage.m_Callback();
                 } else {
                     static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAS<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
+                    static_assert((Traits::SameAs<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
 
                     decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
                     fn(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
@@ -330,7 +330,7 @@ namespace Helena
     template <typename Event, typename System, typename... Args>
     void Engine::SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...))
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
@@ -361,7 +361,7 @@ namespace Helena
                     (ctx.m_Systems.template Get<System>().*fn)();
                 } else {
                     static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAS<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
+                    static_assert((Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
 
                     decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
                     (ctx.m_Systems.template Get<System>().*fn)(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
@@ -373,7 +373,7 @@ namespace Helena
     template <typename Event, typename... Args>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(ctx.m_Events.template Has<Event>())
@@ -405,7 +405,7 @@ namespace Helena
 
     template <typename Event, typename... Args>
     void Engine::UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
@@ -424,7 +424,7 @@ namespace Helena
 
     template <typename Event, typename System, typename... Args>
     void Engine::UnsubscribeEvent(void (System::* callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
         auto& ctx = Engine::Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
