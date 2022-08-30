@@ -1,8 +1,8 @@
 #ifndef HELENA_TYPES_UNIQUEINDEXER_HPP
 #define HELENA_TYPES_UNIQUEINDEXER_HPP
 
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
+#include <Helena/Platform/Assert.hpp>
 
 #include <algorithm>
 #include <vector>
