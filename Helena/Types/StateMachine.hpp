@@ -10,16 +10,6 @@ namespace Helena::Types
 {
     class StateMachine
     {
-        template <typename Dispatcher, typename States, std::size_t... Indexes>
-        static constexpr auto GenerateOverloads(std::index_sequence<Indexes...>) noexcept {
-            static_assert(std::is_same_v<std::remove_cvref_t<States>, States>, "States type incorrect!");
-            return std::array{+[]([[maybe_unused]] std::add_lvalue_reference_t<States> fsm) {
-                if constexpr(Indexes > 0) {
-                    Dispatcher{}(fsm, std::get<Indexes>(fsm));
-                }
-            }...};
-        }
-
     public:
         struct NoState {};
 
@@ -35,10 +25,10 @@ namespace Helena::Types
         StateMachine& operator=(StateMachine&&) noexcept = delete;
 
         template <typename State, typename... T, typename... Args>
-        requires Traits::AnyOf<State, T...>
+        requires Traits::AnyOf<State, T...> && std::is_constructible_v<State, Args...>
         static constexpr void ChangeState(States<T...>& fsm, [[maybe_unused]] Args&&... args) noexcept(noexcept(
-            fsm.emplace<State>(std::forward<Args>(args)...))) {
-            fsm.emplace<State>(std::forward<Args>(args)...);
+            fsm.template emplace<State>(std::forward<Args>(args)...))) {
+            fsm.template emplace<State>(std::forward<Args>(args)...);
         }
 
         template <typename State, typename... T>
@@ -49,7 +39,7 @@ namespace Helena::Types
 
         template <typename... T>
         static constexpr void ResetState(States<T...>& fsm) noexcept {
-            fsm.emplace<NoState>();
+            fsm.template emplace<NoState>();
         }
 
         template <typename Dispatcher, typename... T>
