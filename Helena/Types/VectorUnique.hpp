@@ -1,23 +1,20 @@
 #ifndef HELENA_TYPES_VECTORUNIQUE_HPP
 #define HELENA_TYPES_VECTORUNIQUE_HPP
 
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAS.hpp>
+#include <Helena/Traits/SameAs.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 
-#include <cstddef>
 #include <optional>
-#include <vector>
 
 namespace Helena::Types
 {
     template <typename UniqueKey, typename Type>
     class VectorUnique final
     {
-        static_assert(Traits::SameAS<Type, Traits::RemoveCVRP<Type>>, "Type is const/ptr/ref");
+        static_assert(Traits::SameAs<Type, Traits::RemoveCVRP<Type>>, "Type is const/ptr/ref");
 
     public:
         VectorUnique() : m_TypeIndexer{}, m_Storage{}, m_Size{} {}
@@ -30,7 +27,7 @@ namespace Helena::Types
         template <typename Key, typename... Args>
         void Create(Args&&... args)
         {
-            static_assert(Traits::SameAS<Key, Traits::RemoveCVRP<Key>>, "Key is const/ptr/ref");
+            static_assert(Traits::SameAs<Key, Traits::RemoveCVRP<Key>>, "Key is const/ptr/ref");
 
             const auto index = m_TypeIndexer.template Get<Key>();
             if(index >= m_Storage.size()) {
@@ -48,7 +45,7 @@ namespace Helena::Types
         [[nodiscard]] bool Has() const
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Key is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Key is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
@@ -62,7 +59,7 @@ namespace Helena::Types
         [[nodiscard]] bool Any() const
         {
             static_assert(Traits::Arguments<Key...>::Size > 1, "Exclusion-only Type are not supported");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Key is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Key is const/ptr/ref");
             return (Has<Key>() || ...);
         }
 
@@ -70,7 +67,7 @@ namespace Helena::Types
         [[nodiscard]] decltype(auto) Get()
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Key is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Key is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
@@ -85,7 +82,7 @@ namespace Helena::Types
         [[nodiscard]] decltype(auto) Get() const
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Key is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Key is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
@@ -97,7 +94,7 @@ namespace Helena::Types
         }
 
         template <typename Callback>
-        void Each(Callback func)
+        void Each(Callback func) const
         {
             for(std::size_t i = 0; i < m_Storage.size(); ++i)
             {
@@ -111,7 +108,7 @@ namespace Helena::Types
         void Remove()
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Key is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Key is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();

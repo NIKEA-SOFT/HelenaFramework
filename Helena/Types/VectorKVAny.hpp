@@ -2,9 +2,10 @@
 #define HELENA_TYPES_VECTORKVANY_HPP
 
 #include <Helena/Traits/Add.hpp>
+#include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAS.hpp>
+#include <Helena/Traits/SameAs.hpp>
 #include <Helena/Types/Any.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 
@@ -13,7 +14,7 @@ namespace Helena::Types
     template <typename UniqueKey, std::size_t Capacity = sizeof(double)>
     class VectorKVAny final
     {
-        using any_type = Types::Any<Capacity, alignof(typename std::aligned_storage_t<Capacity + !Capacity>)>;
+        using AnyType = Types::Any<Capacity, alignof(std::aligned_storage_t<Capacity + !Capacity>)>;
 
     public:
         VectorKVAny() : m_TypeIndexer{}, m_Storage{} {}
@@ -26,8 +27,8 @@ namespace Helena::Types
         template <typename Key, typename T, typename... Args>
         void Create(Args&&... args)
         {
-            static_assert(Traits::SameAS<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
-            static_assert(Traits::SameAS<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
 
             const auto index = m_TypeIndexer.template Get<Key>();
             if(index >= m_Storage.size()) {
@@ -42,7 +43,7 @@ namespace Helena::Types
         [[nodiscard]] bool Has() const
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Type is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Type is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
@@ -56,7 +57,7 @@ namespace Helena::Types
         [[nodiscard]] bool Any() const
         {
             static_assert(Traits::Arguments<Key...>::Size > 1, "Exclusion-only Type are not supported");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Type is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Type is const/ptr/ref");
 
             return (Has<Key>() || ...);
         }
@@ -64,8 +65,8 @@ namespace Helena::Types
         template <typename Key, typename T>
         [[nodiscard]] decltype(auto) Get()
         {
-            static_assert(Traits::SameAS<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
-            static_assert(Traits::SameAS<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
 
             const auto index = m_TypeIndexer.template Get<Key>();
 
@@ -80,8 +81,8 @@ namespace Helena::Types
         template <typename Key, typename T>
         [[nodiscard]] decltype(auto) Get() const
         {
-            static_assert(Traits::SameAS<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
-            static_assert(Traits::SameAS<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<Key, Traits::RemoveCVRP<Key>>, "Type is const/ptr/ref");
+            static_assert(Traits::SameAs<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
 
             const auto index = m_TypeIndexer.template Get<Key>();
 
@@ -97,7 +98,7 @@ namespace Helena::Types
         void Remove()
         {
             static_assert(!Traits::Arguments<Key...>::Orphan, "Pack is empty!");
-            static_assert(((Traits::SameAS<Key, Traits::RemoveCVRP<Key>>) && ...), "Type is const/ptr/ref");
+            static_assert((Traits::SameAs<Key, Traits::RemoveCVRP<Key>> && ...), "Type is const/ptr/ref");
 
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
@@ -119,7 +120,7 @@ namespace Helena::Types
 
     private:
         Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
-        std::vector<any_type> m_Storage;
+        std::vector<AnyType> m_Storage;
     };
 }
 
