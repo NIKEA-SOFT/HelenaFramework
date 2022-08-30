@@ -11,36 +11,17 @@ namespace Helena::Types
     template <std::size_t Capacity>
     class Format;
 
-    template <std::size_t Capacity, Util::ELengthPolicy Policy = Util::ELengthPolicy::Fixed>
+    template <std::size_t Capacity>
     struct FixedBuffer
     {
-        using size_type = std::conditional_t<Capacity <= std::numeric_limits<std::uint8_t>::max(), std::uint8_t,
-            std::conditional_t<Capacity <= std::numeric_limits<std::uint16_t>::max(), std::uint16_t,
-            std::conditional_t<Capacity <= std::numeric_limits<std::uint32_t>::max(), std::uint32_t, std::uint64_t>>>;
+        using size_type = std::conditional_t<Capacity <= (std::numeric_limits<std::uint8_t>::max)(), std::uint8_t,
+            std::conditional_t<Capacity <= (std::numeric_limits<std::uint16_t>::max)(), std::uint16_t,
+            std::conditional_t<Capacity <= (std::numeric_limits<std::uint32_t>::max)(), std::uint32_t, std::uint64_t>>>;
 
-        constexpr void FillBuffer(const char* const data, std::size_t size = std::numeric_limits<std::size_t>::max()) noexcept
+        constexpr void FillBuffer(const char* const data, std::size_t size = (std::numeric_limits<std::size_t>::max)()) noexcept
         {
-            if(data)
-            {
-                if(size > Capacity)
-                {
-                    if(size == std::numeric_limits<std::size_t>::max()) {
-                        size = Util::Length(Policy, data, Capacity);
-                    }
-                    else
-                    {
-                        switch(Policy)
-                        {
-                            case Util::ELengthPolicy::Truncate: {
-                                size = Capacity;
-                            } break;
-                            case Util::ELengthPolicy::Fixed: {
-                                size = 0;
-                            } break;
-                        }
-                    }
-                }
-
+            if(data) {
+                size = Util::String::LengthTruncated(data, (std::min)(Capacity, size) + 1);
                 *std::copy_n(data, size, m_Buffer) = '\0';
                 m_Size = static_cast<size_type>(size);
                 return;
