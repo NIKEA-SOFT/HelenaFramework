@@ -43,7 +43,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
-          path: ${{ github.workspace }}/Bin/Bin/Helena
+          path: ${{ github.workspace }}/Bin/Bin/HelenaMain
           if-no-files-found: error
   windows:
     name: "Windows"
@@ -64,7 +64,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1.10.0
       - name: Configure
         run: |
-          cmake . -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
+          cmake -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
       - name: Build
         run: |
           cmake --build Build --config ${{ matrix.build }}
@@ -72,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
-          path: ${{ github.workspace }}/Bin/Bin/Helena.exe
+          path: ${{ github.workspace }}/Bin/Bin/HelenaMain.exe
           if-no-files-found: error
 
 
