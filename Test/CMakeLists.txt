@@ -6,21 +6,26 @@ cmake_minimum_required(VERSION 3.14)
 set(HELENA_APP Test)
 project(${HELENA_APP})
 
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG main
-  GIT_SHALLOW 1
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+if(HELENA_FLAG_USE_BUNDLED_DEPS)
+    include(FetchContent)
+    FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG main
+      GIT_SHALLOW 1
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    if(NOT TARGET GTest::gtest_main)
+        add_library(GTest::gtest_main ALIAS gtest_main)
+    endif()
+endif()
 
 file(GLOB_RECURSE HELENA_APP_SOURCE *.cpp *.cc *.c)
 file(GLOB_RECURSE HELENA_APP_HEADERS *.h *.hpp *.ipp)
 
 add_executable(${HELENA_APP} ${HELENA_APP_SOURCE} ${HELENA_APP_HEADERS})
-target_link_libraries(${HELENA_APP} PRIVATE gtest_main Helena::Helena)
+target_link_libraries(${HELENA_APP} PRIVATE GTest::gtest_main Helena::Helena)
 
 include(GoogleTest)
 gtest_discover_tests(${HELENA_APP})

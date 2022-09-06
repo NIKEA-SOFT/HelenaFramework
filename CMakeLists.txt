@@ -4,9 +4,10 @@ project(HelenaFramework VERSION 1.0.2 LANGUAGES CXX)
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
-option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
-option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
+option(HELENA_FLAG_TEST             "Build and run test"    OFF)
+option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
+option(HELENA_FLAG_COVERAGE         "GCC/Clang coverage"    OFF)
+option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
 
 #|--------------------------------
 #| Set default build type
@@ -76,7 +77,15 @@ add_library(Helena::Helena ALIAS Helena)
 #| Helena Framework Dependencies
 #|--------------------------------
 target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR})
-target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
+if(HELENA_FLAG_USE_BUNDLED_DEPS)
+    target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
+else()
+    find_package(fmt REQUIRED)
+    if(HELENA_FLAG_TEST)
+        find_package(GTest REQUIRED)
+    endif()
+    target_link_libraries(Helena INTERFACE fmt::fmt-header-only)
+endif()
 
 #|--------------------------------
 #| Helena Framework Build
