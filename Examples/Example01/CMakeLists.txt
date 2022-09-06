@@ -41,3 +41,5 @@ if(WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")  # Use /Zc:preprocessor for support VA_OPT in MSVC
     endif()
 endif()
+
+target_link_libraries(${HELENA_APP} Helena::Helena)

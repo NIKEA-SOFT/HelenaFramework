@@ -3,7 +3,7 @@
 #|--------------------------------
 cmake_minimum_required(VERSION 3.14)
 
-set(HELENA_APP Helena)
+set(HELENA_APP HelenaMain)
 #set(LIB_LUA_DIR ${HELENA_PROJECT_DIR}/Dependencies/lua)
 
 project(${HELENA_APP})
@@ -33,3 +33,4 @@ if(WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")  # Use /Zc:preprocessor for support VA_OPT in MSVC
     endif()
 endif()
+target_link_libraries(${HELENA_APP} Helena::Helena)

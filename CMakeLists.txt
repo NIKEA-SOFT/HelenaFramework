@@ -65,31 +65,38 @@ endif()
 message(STATUS "Helena Binary Dir: ${HELENA_PROJECT_OUTDIR}")
 message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${CMAKE_CXX_STANDARD}] [${CMAKE_BUILD_TYPE}]")
 
+
+#|---------------------------------------------
+#| Helena Framework Interface target and alias
+#|---------------------------------------------
+add_library(Helena INTERFACE)
+add_library(Helena::Helena ALIAS Helena)
+
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-include_directories(${HELENA_PROJECT_DIR})
-include_directories(${HELENA_PROJECT_DIR}/Dependencies)
+target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR})
+target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
 
 #|--------------------------------
 #| Helena Framework Build
 #|--------------------------------
 if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
+    target_compile_definitions(Helena INTERFACE -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING
+	$<$<CONFIG:Release>:-DNDEBUG>
+    )
 elseif(UNIX)
-    set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
+    target_compile_options(Helena INTERFACE -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
+        $<$<CONFIG:Debug>:-O0 -g -ggdb>
+        $<$<CONFIG:Debug>:-O3>
+    )
 
-    add_definitions(-Wno-unused-parameter -Wno-unused-variable -Wno-unused-function)
     if(HELENA_FLAG_COVERAGE)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-        set(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
-        set(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
-        message(STATUS "Build coverage")
-        add_compile_options(--coverage -O0)
+        target_compile_options(Helena INTERFACE -fprofile-arcs -ftest-coverage -lgcov --coverage)
+	message(STATUS "Build Helena with coverage")
     endif()
 else()
-    message(FATAL_ERROR "Current platform not support!")
+    message(FATAL_ERROR "Current platform is not supported!")
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")

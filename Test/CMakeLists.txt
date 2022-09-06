@@ -20,7 +20,7 @@ file(GLOB_RECURSE HELENA_APP_SOURCE *.cpp *.cc *.c)
 file(GLOB_RECURSE HELENA_APP_HEADERS *.h *.hpp *.ipp)
 
 add_executable(${HELENA_APP} ${HELENA_APP_SOURCE} ${HELENA_APP_HEADERS})
-target_link_libraries(${HELENA_APP} PRIVATE gtest_main)
+target_link_libraries(${HELENA_APP} PRIVATE gtest_main Helena::Helena)
 
 include(GoogleTest)
 gtest_discover_tests(${HELENA_APP})
