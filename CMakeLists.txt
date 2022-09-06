@@ -17,25 +17,6 @@ if(UNIX)
     endif()
 endif()
 
-#|--------------------------------
-#| Set CMAKE_MACOSX_RPATH
-#|--------------------------------
-#if(APPLE)
-#    set(CMAKE_MACOSX_RPATH 1)
-#endif()
-
-#|--------------------------------
-#| CMake 3.9 and newer remove any effect the following settings may have on the install_name of a target on macOS:
-#|
-#| BUILD_WITH_INSTALL_RPATH target property
-#| SKIP_BUILD_RPATH target property
-#| CMAKE_SKIP_RPATH variable
-#| CMAKE_SKIP_INSTALL_RPATH variable
-#|--------------------------------
-#if(APPLE AND (${CMAKE_MAJOR_VERSION} GREATER_EQUAL 3 AND ${CMAKE_MINOR_VERSION} GREATER_EQUAL 9))
-    #message("CMake version is ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}")
-#    option(MACOS_NO_RPATH "CMake 3.9 and newer remove any effect of RPATH" ON)
-#endif()
 
 #|--------------------------------
 #| Config compiler
@@ -66,7 +47,6 @@ set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 set(HELENA_PROJECT_DIR ${CMAKE_SOURCE_DIR})
 set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
-#message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
 set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
@@ -127,7 +107,6 @@ link_directories(${HELENA_PROJECT_OUTDIR})
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
     enable_testing()
-    #include(CTest)
     add_subdirectory(Test)
 endif()
 
