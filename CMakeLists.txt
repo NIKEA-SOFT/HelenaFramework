@@ -91,11 +91,9 @@ endif()
 #| Helena Framework Build
 #|--------------------------------
 if(WIN32)
-    target_compile_definitions(Helena INTERFACE -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING
-	$<$<CONFIG:Release>:-DNDEBUG>
-    )
+    target_compile_definitions(Helena INTERFACE $<$<CONFIG:Release>:-DNDEBUG>)
 elseif(UNIX)
-    target_compile_options(Helena INTERFACE -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
+    target_compile_options(Helena INTERFACE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
         $<$<CONFIG:Debug>:-O3>
     )
