@@ -4,9 +4,10 @@ project(HelenaFramework VERSION 1.0.2 LANGUAGES CXX)
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
-option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
-option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
+option(HELENA_FLAG_TEST             "Build and run test"    OFF)
+option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
+option(HELENA_FLAG_COVERAGE         "GCC/Clang coverage"    OFF)
+option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
 
 #|--------------------------------
 #| Set default build type
@@ -18,24 +19,9 @@ if(UNIX)
 endif()
 
 #|--------------------------------
-#| Set CMAKE_MACOSX_RPATH
+#| Set supported build types
 #|--------------------------------
-#if(APPLE)
-#    set(CMAKE_MACOSX_RPATH 1)
-#endif()
-
-#|--------------------------------
-#| CMake 3.9 and newer remove any effect the following settings may have on the install_name of a target on macOS:
-#|
-#| BUILD_WITH_INSTALL_RPATH target property
-#| SKIP_BUILD_RPATH target property
-#| CMAKE_SKIP_RPATH variable
-#| CMAKE_SKIP_INSTALL_RPATH variable
-#|--------------------------------
-#if(APPLE AND (${CMAKE_MAJOR_VERSION} GREATER_EQUAL 3 AND ${CMAKE_MINOR_VERSION} GREATER_EQUAL 9))
-    #message("CMake version is ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}")
-#    option(MACOS_NO_RPATH "CMake 3.9 and newer remove any effect of RPATH" ON)
-#endif()
+set(HELENA_SUPPORTED_BUILD_TYPES Debug Release)
 
 #|--------------------------------
 #| Config compiler
@@ -44,7 +30,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_SUPPRESS_REGENERATION OFF)
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "${HELENA_SUPPORTED_BUILD_TYPES}" CACHE STRING "" FORCE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 
@@ -66,49 +52,60 @@ set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 set(HELENA_PROJECT_DIR ${CMAKE_SOURCE_DIR})
 set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
-#message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
 set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
+    if(CMAKE_BUILD_TYPE IN_LIST HELENA_SUPPORTED_BUILD_TYPES)
         set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Debug")
-    elseif(CMAKE_BUILD_TYPE MATCHES Release)
-        set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Release")
+	message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
     else()
-    message(FATAL_ERROR "Error: unknown build type")
+        message(FATAL_ERROR "Error: unknown build type \"${CMAKE_BUILD_TYPE}\"")
     endif()
 endif()
 
 message(STATUS "Helena Binary Dir: ${HELENA_PROJECT_OUTDIR}")
 message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${CMAKE_CXX_STANDARD}] [${CMAKE_BUILD_TYPE}]")
 
+
+#|---------------------------------------------
+#| Helena Framework Interface target and alias
+#|---------------------------------------------
+add_library(Helena INTERFACE)
+add_library(Helena::Helena ALIAS Helena)
+
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-include_directories(${HELENA_PROJECT_DIR})
-include_directories(${HELENA_PROJECT_DIR}/Dependencies)
+target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR})
+if(HELENA_FLAG_USE_BUNDLED_DEPS)
+    target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
+else()
+    find_package(fmt REQUIRED)
+    if(HELENA_FLAG_TEST)
+        find_package(GTest REQUIRED)
+    endif()
+    target_link_libraries(Helena INTERFACE fmt::fmt-header-only)
+endif()
 
 #|--------------------------------
 #| Helena Framework Build
 #|--------------------------------
 if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
+    target_compile_definitions(Helena INTERFACE -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING
+	$<$<CONFIG:Release>:-DNDEBUG>
+    )
 elseif(UNIX)
-    set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
+    target_compile_options(Helena INTERFACE -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
+        $<$<CONFIG:Debug>:-O0 -g -ggdb>
+        $<$<CONFIG:Debug>:-O3>
+    )
 
-    add_definitions(-Wno-unused-parameter -Wno-unused-variable -Wno-unused-function)
     if(HELENA_FLAG_COVERAGE)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-        set(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
-        set(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
-        message(STATUS "Build coverage")
-        add_compile_options(--coverage -O0)
+        target_compile_options(Helena INTERFACE -fprofile-arcs -ftest-coverage -lgcov --coverage)
+	message(STATUS "Build Helena with coverage")
     endif()
 else()
-    message(FATAL_ERROR "Current platform not support!")
+    message(FATAL_ERROR "Current platform is not supported!")
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
@@ -127,7 +124,6 @@ link_directories(${HELENA_PROJECT_OUTDIR})
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
     enable_testing()
-    #include(CTest)
     add_subdirectory(Test)
 endif()
 
