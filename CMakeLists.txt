@@ -17,6 +17,10 @@ if(UNIX)
     endif()
 endif()
 
+#|--------------------------------
+#| Set supported build types
+#|--------------------------------
+set(HELENA_SUPPORTED_BUILD_TYPES Debug Release)
 
 #|--------------------------------
 #| Config compiler
@@ -25,7 +29,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_SUPPRESS_REGENERATION OFF)
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "${HELENA_SUPPORTED_BUILD_TYPES}" CACHE STRING "" FORCE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 
@@ -50,14 +54,11 @@ message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
 
 set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
 if(DEFINED CMAKE_BUILD_TYPE)
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
+    if(CMAKE_BUILD_TYPE IN_LIST HELENA_SUPPORTED_BUILD_TYPES)
         set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Debug")
-    elseif(CMAKE_BUILD_TYPE MATCHES Release)
-        set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Release")
+	message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
     else()
-    message(FATAL_ERROR "Error: unknown build type")
+        message(FATAL_ERROR "Error: unknown build type \"${CMAKE_BUILD_TYPE}\"")
     endif()
 endif()
 
