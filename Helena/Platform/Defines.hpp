@@ -5,7 +5,7 @@
 #include <Helena/Platform/Processor.hpp>
 
 /* ----------- [Debug detect] ----------- */
-#if defined(DEBUG) || defined(_DEBUG)
+#if !defined(NDEBUG)
     #define HELENA_DEBUG
 #endif
 
@@ -14,7 +14,7 @@
     #define HELENA_DIAGNOSTIC_CLANG_PUSH        _Pragma("clang diagnostic push")
     #define HELENA_DIAGNOSTIC_CLANG_POP         _Pragma("clang diagnostic pop")
     #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)  _Pragma("clang diagnostic ignored " #id)
-#else 
+#else
     #define HELENA_DIAGNOSTIC_CLANG_PUSH
     #define HELENA_DIAGNOSTIC_CLANG_POP
     #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)
@@ -52,7 +52,7 @@
     #define HELENA_DIAGNOSTIC_PUSH              HELENA_DIAGNOSTIC_MSVC_PUSH
     #define HELENA_DIAGNOSTIC_POP               HELENA_DIAGNOSTIC_MSVC_POP
     #define HELENA_DIAGNOSTIC_IGNORE(id)        HELENA_DIAGNOSTIC_MSVC_IGNORE(id)
-#else 
+#else
     #define HELENA_DIAGNOSTIC_PUSH
     #define HELENA_DIAGNOSTIC_POP
     #define HELENA_DIAGNOSTIC_IGNORE(id)
