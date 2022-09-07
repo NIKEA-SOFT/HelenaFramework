@@ -91,7 +91,9 @@ endif()
 #| Helena Framework Build
 #|--------------------------------
 if(WIN32)
-    target_compile_definitions(Helena INTERFACE $<$<CONFIG:Release>:-DNDEBUG>)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        target_compile_options(Helena INTERFACE /Zc:preprocessor)
+    endif()
 elseif(UNIX)
     target_compile_options(Helena INTERFACE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
