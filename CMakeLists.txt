@@ -97,7 +97,7 @@ if(WIN32)
 elseif(UNIX)
     target_compile_options(Helena INTERFACE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
-        $<$<CONFIG:Debug>:-O3>
+        $<$<CONFIG:Release>:-O3>
     )
 
     if(HELENA_FLAG_COVERAGE)
