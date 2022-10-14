@@ -27,32 +27,32 @@ namespace Helena::Types
         template <typename T>
         [[nodiscard]] std::size_t Get() const {
             static const auto index = TypeIndexer<T>::GetIndex(m_Indexes);
-            HELENA_ASSERT(index < m_Indexes.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
+            HELENA_ASSERT(index < m_Indexes->size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
             return index;
         }
 
         [[nodiscard]] std::size_t Size() const noexcept {
-            return m_Indexes.size();
+            return m_Indexes->size();
         }
 
     private:
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] static std::size_t GetIndex(const Storage& storage)
+            [[nodiscard]] static std::size_t GetIndex(const std::unique_ptr<Storage>& storage)
             {
-                if(const auto it = std::find(storage.cbegin(), storage.cend(), m_Key); it != storage.cend()) {
-                    return std::distance(storage.cbegin(), it);
+                if(const auto it = std::find(storage->cbegin(), storage->cend(), m_Key); it != storage->cend()) {
+                    return std::distance(storage->cbegin(), it);
                 }
 
-                const_cast<Storage&>(storage).emplace_back(m_Key);
-                return storage.size() - 1uLL;
+                storage->emplace_back(m_Key);
+                return storage->size() - 1uLL;
             }
 
             static constexpr auto m_Key = Hasher::template Get<T>();
         };
 
-        Storage m_Indexes;
+        std::unique_ptr<Storage> m_Indexes{std::make_unique<Storage>()};
     };
 
 }
