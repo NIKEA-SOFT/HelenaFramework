@@ -43,17 +43,24 @@ namespace Helena::Types
         {
             Reset();
 
-            m_Container = other.m_Container;
-            if(m_Container) {
+            if(other.m_Container) {
+                m_Container = other.m_Container;
                 ++m_Container->m_Refs;
             }
 
             return *this;
         }
 
-        ReferencePointer& operator=(ReferencePointer&& other) noexcept {
-            m_Container = other.m_Container;
-            other.m_Container = nullptr;
+        ReferencePointer& operator=(ReferencePointer&& other) noexcept
+        {
+            Reset();
+
+            if(other.m_Container) {
+                m_Container = other.m_Container;
+                other.m_Container = nullptr;
+            }
+
+            return *this;
         }
 
         template <typename... Args>
