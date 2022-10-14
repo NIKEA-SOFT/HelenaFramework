@@ -46,6 +46,7 @@
 #include <Helena/Types/BasicLogger.hpp>
 #include <Helena/Types/BasicLoggersDef.hpp>
 #include <Helena/Types/BenchmarkScoped.hpp>
+#include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Types/Delegate.hpp>
 #include <Helena/Types/EncryptedString.hpp>
