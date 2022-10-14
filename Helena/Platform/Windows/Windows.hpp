@@ -61,8 +61,8 @@
         }
 
         // Set UTF-8
-        SetConsoleCP(65001);
-        SetConsoleOutputCP(65001);
+        SetConsoleCP(CP_UTF8);
+        SetConsoleOutputCP(CP_UTF8);
 
         // Fix Windows fmt.print, enable virtual terminal processing
         if(HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE)

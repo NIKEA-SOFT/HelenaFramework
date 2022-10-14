@@ -18,7 +18,7 @@ namespace Helena::Types
         BasicLogger& operator=(const BasicLogger&) = delete;
         BasicLogger& operator=(BasicLogger&&) noexcept = delete;
 
-        template <Helena::Traits::DefinitionLogger Logger, typename... Args>
+        template <Traits::DefinitionLogger Logger, typename... Args>
         static void PrintConsole(const Log::Formater<Logger> format, [[maybe_unused]] Args&&... args);
     };
 }

@@ -9,7 +9,7 @@
 
 namespace Helena::Util
 {
-    template <Helena::Traits::ScopedEnum T> 
+    template <Traits::ScopedEnum T>
     [[nodiscard]] constexpr auto Cast(const T value) noexcept {
         return static_cast<std::underlying_type_t<T>>(value);
     }

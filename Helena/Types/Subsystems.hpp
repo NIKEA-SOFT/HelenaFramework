@@ -58,7 +58,7 @@ namespace Helena::Types
         }
 
     private:
-        Helena::Types::VectorAny<UniqueKey> m_Subsystems;
+        VectorAny<UniqueKey> m_Subsystems;
     };
 }
 

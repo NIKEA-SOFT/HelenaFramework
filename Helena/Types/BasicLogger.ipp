@@ -33,7 +33,7 @@ namespace Helena::Types
         fmt::detail::reset_color<char>(buffer);
     }
 
-    template <Helena::Traits::DefinitionLogger Logger, typename... Args>
+    template <Traits::DefinitionLogger Logger, typename... Args>
     void BasicLogger::PrintConsole(const Log::Formater<Logger> format, [[maybe_unused]] Args&&... args)
     {
         HELENA_ASSERT(format.m_Location.GetFile());

@@ -1,8 +1,7 @@
 #ifndef HELENA_TRAITS_POWEROF2_HPP
 #define HELENA_TRAITS_POWEROF2_HPP
 
-#include <cstdint>
-#include <type_traits>
+#include <cstddef>
 
 namespace Helena::Traits
 {
