@@ -7,6 +7,7 @@
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Platform/Assert.hpp>
 
+#include <cstddef>
 #include <memory>
 #include <new>
 #include <utility>
@@ -29,7 +30,7 @@ namespace Helena::Types
         struct choice_t<0> {};
     }
 
-    template<std::size_t Len = sizeof(double[2]), std::size_t = alignof(typename std::aligned_storage_t<Len + !Len>)>
+    template<std::size_t Len = sizeof(double[2]), std::size_t = alignof(max_align_t)>
     class Any;
 
     /**
@@ -159,7 +160,10 @@ namespace Helena::Types
         template<typename Type>
         static inline constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
 
-        using Storage = std::aligned_storage_t<Len + !Len, Align>;
+        struct Storage {
+            alignas(Align) std::byte data[Len + !Len];
+        };
+
         using VTable = const void* (const EOperation, const Any&, const void*);
 
     public:
@@ -235,28 +239,29 @@ namespace Helena::Types
         }
 
         template<typename Type, typename... Args>
-        void Initialize([[maybe_unused]] Args &&...args)
+        void Initialize([[maybe_unused]] Args&&...args)
         {
+            using ValueType = std::remove_cvref_t<Type>;
             if constexpr(!std::is_void_v<Type>)
             {
-                vtable = VTableHandler<std::remove_const_t<std::remove_reference_t<Type>>>;
-                key = Hasher::template Get<std::remove_cvref_t<Type>>();
+                vtable = VTableHandler<ValueType>;
+                key = Hasher::template Get<ValueType>();
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
                     mode = std::is_const_v<std::remove_reference_t<Type>> ? EPolicy::CRef : EPolicy::Ref;
                     instance = (std::addressof(args), ...);
-                } else if constexpr(in_situ<Type>) {
-                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<Type>) {
-                        new(&storage) Type{std::forward<Args>(args)...};
+                } else if constexpr(in_situ<ValueType>) {
+                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<ValueType>) {
+                        new(&storage) ValueType{std::forward<Args>(args)...};
                     } else {
-                        new(&storage) Type(std::forward<Args>(args)...);
+                        new(&storage) ValueType(std::forward<Args>(args)...);
                     }
                 } else {
-                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<Type>) {
-                        instance = new Type{std::forward<Args>(args)...};
+                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<ValueType>) {
+                        instance = new ValueType{std::forward<Args>(args)...};
                     } else {
-                        instance = new Type(std::forward<Args>(args)...);
+                        instance = new ValueType(std::forward<Args>(args)...);
                     }
                 }
             }
@@ -623,7 +628,7 @@ namespace Helena::Types
      */
     template<std::size_t Len = Any<>::length, std::size_t Align = Any<Len>::alignment, typename Type>
     Any<Len, Align> AnyForward(Type&& value) {
-        return Any<Len, Align>{std::in_place_type<std::conditional_t<std::is_rvalue_reference_v<Type>, std::decay_t<Type>, Type>>, std::forward<Type>(value)};
+        return Any<Len, Align>{std::in_place_type<Type>, std::forward<Type>(value)};
     }
 }
 
