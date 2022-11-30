@@ -8,8 +8,8 @@ namespace Helena::Log
     template <Traits::DefinitionLogger Logger, typename... Args>
     void Console(const Formater<Logger> format, Args&&... args) noexcept;
 
-    template <typename... Args>
-    void Console(const Traits::DefinitionLogger auto logger, const Formater<std::decay_t<decltype(logger)>> format, Args&&... args) noexcept;
+    template <Traits::DefinitionLogger Logger, typename... Args>
+    void Console(const Logger logger, const Formater<std::remove_cvref_t<decltype(logger)>> format, Args&&... args) noexcept;
 }
 
 #ifdef HELENA_DEBUG
