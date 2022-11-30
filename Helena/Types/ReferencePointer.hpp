@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_REFERENCEPOINTER_HPP
 #define HELENA_TYPES_REFERENCEPOINTER_HPP
 
-#include <optional>
+#include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Platform/Assert.hpp>
 
 namespace Helena::Types
@@ -9,21 +9,17 @@ namespace Helena::Types
     template <typename T>
     class ReferencePointer
     {
-        struct Container {
-            std::optional<T> m_Storage;
-            std::size_t m_Refs;
-        };
+        using Container = CompressedPair<T, std::size_t>;
 
     public:
         ReferencePointer() : m_Container{} {};
 
         template <typename... Args>
-        ReferencePointer(std::in_place_t, Args&&... args) : m_Container{new (std::nothrow) Container} {
-            if(m_Container) {
-                m_Container->m_Storage = std::make_optional<T>(std::forward<Args>(args)...);
-                m_Container->m_Refs = 1uLL;
-            }
-        }
+        ReferencePointer(std::in_place_t, Args&&... args)
+            : m_Container{new (std::nothrow) Container{
+                std::piecewise_construct,
+                std::forward_as_tuple(std::forward<Args>(args)...),
+                std::forward_as_tuple(1uLL)}} {}
 
         ~ReferencePointer() {
             Reset();
@@ -31,7 +27,7 @@ namespace Helena::Types
 
         ReferencePointer(const ReferencePointer& other) : m_Container{other.m_Container} {
             if(m_Container) {
-                ++m_Container->m_Refs;
+                ++m_Container->Second();
             }
         }
 
@@ -45,7 +41,7 @@ namespace Helena::Types
 
             if(other.m_Container) {
                 m_Container = other.m_Container;
-                ++m_Container->m_Refs;
+                ++m_Container->Second();
             }
 
             return *this;
@@ -70,28 +66,28 @@ namespace Helena::Types
 
         [[nodiscard]] T& Ref() const {
             HELENA_ASSERT(m_Container, "Container is empty!");
-            return m_Container->m_Storage.value();
+            return m_Container->First();
         }
 
         [[nodiscard]] T* Ptr() const {
-            return m_Container ? &m_Container->m_Storage.value() : nullptr;
+            return m_Container ? &m_Container->First() : nullptr;
         }
 
         [[nodiscard]] bool Shared() const noexcept {
             HELENA_ASSERT(m_Container, "Container is empty!");
-            return m_Container && m_Container->m_Refs > 1;
+            return m_Container && m_Container->Second() > 1;
         }
 
         [[nodiscard]] std::size_t Count() const noexcept {
             HELENA_ASSERT(m_Container, "Container is empty!");
-            return m_Container->m_Refs;
+            return m_Container->Second();
         }
 
         void Reset() noexcept
         {
-            if(m_Container && !--m_Container->m_Refs) {
-                m_Container->m_Storage.reset();
-                delete m_Container; m_Container = nullptr;
+            if(m_Container && !--m_Container->Second()) {
+                delete m_Container;
+                m_Container = nullptr;
             }
         }
 
@@ -101,7 +97,12 @@ namespace Helena::Types
 
         [[nodiscard]] T& operator*() const {
             HELENA_ASSERT(m_Container);
-            return m_Container->m_Storage.value();
+            return m_Container->First();
+        }
+
+        [[nodiscard]] T* operator->() const {
+            HELENA_ASSERT(m_Container);
+            return &m_Container->First();
         }
 
     private:
