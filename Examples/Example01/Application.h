@@ -42,45 +42,57 @@ namespace Example01
 		}
 
 	public:
-		static void OnInitialize() 
+		bool Main() override
 		{
-			auto& ctx = GetInstance<Application>();
+			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
+			m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
+			m_WindowClassEx.cbClsExtra = 0;
+			m_WindowClassEx.cbWndExtra = 0;
+			m_WindowClassEx.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+			m_WindowClassEx.hbrBackground = (HBRUSH)COLOR_WINDOW;
+			m_WindowClassEx.hIcon = ::LoadIcon(0, IDI_APPLICATION);
+			m_WindowClassEx.hIconSm = ::LoadIcon(0, IDI_APPLICATION);
+			m_WindowClassEx.lpszClassName = "WND_CL";
+			m_WindowClassEx.lpszMenuName = nullptr;
+			m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
+			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
-			ctx.m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
-			ctx.m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
-			ctx.m_WindowClassEx.cbClsExtra = 0;
-			ctx.m_WindowClassEx.cbWndExtra = 0;
-			ctx.m_WindowClassEx.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
-			ctx.m_WindowClassEx.hbrBackground = (HBRUSH)COLOR_WINDOW;
-			ctx.m_WindowClassEx.hIcon = ::LoadIcon(0, IDI_APPLICATION);
-			ctx.m_WindowClassEx.hIconSm = ::LoadIcon(0, IDI_APPLICATION);
-			ctx.m_WindowClassEx.lpszClassName = "WND_CL";
-			ctx.m_WindowClassEx.lpszMenuName = nullptr;
-			ctx.m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
-			ctx.m_WindowClassEx.lpfnWndProc = &WindowProc;
-
-			if(!::RegisterClassEx(&ctx.m_WindowClassEx)) {
-				Helena::Engine::Shutdown("RegisterClass window failure!");
-				return;
+			if(!::RegisterClassEx(&m_WindowClassEx)) {
+				HELENA_MSG_ERROR("RegisterClass window failure!");
+				return false;
 			}
 
-			ctx.m_WindowHWND = ::CreateWindow(ctx.m_WindowClassEx.lpszClassName, ctx.GetAppName().data(),
-				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, ctx.m_WindowWidth, ctx.m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
+			SetTickrate(60.f);
+			SetWindowSize(960, 840);
 
-			if(!ctx.m_WindowHWND) {
-				Helena::Engine::Shutdown("CreateWindows failure!");
-				return;
+			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
+				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
+
+			if(!m_WindowHWND) {
+				HELENA_MSG_ERROR("CreateWindows failure!");
+				return false;
 			}
 
-			::ShowWindow(ctx.m_WindowHWND, SW_SHOW);
-			::UpdateWindow(ctx.m_WindowHWND);
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+				auto reason = Helena::Engine::ShutdownReason();
+				if(!reason.empty()) {
+					reason = Helena::Util::Format("Error:\n{}", reason);
+					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
+				}
+			});
+
+			::ShowWindow(m_WindowHWND, SW_SHOW);
+			::UpdateWindow(m_WindowHWND);
+
+			return true;
 		};
 
 		static void OnTick(Helena::Events::Engine::Tick) 
 		{
 			MSG msg {};
 			if(::PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
-				TranslateMessage(&msg);
+				::TranslateMessage(&msg);
 				::DispatchMessage(&msg);
 			}
 		}
@@ -137,6 +149,7 @@ namespace Example01
 		}
 
 	private:
+		std::string m_AppName{"Example01"};
 		WNDCLASSEX m_WindowClassEx{};
 		HWND m_WindowHWND{};
 		std::int32_t m_WindowWidth{960};
