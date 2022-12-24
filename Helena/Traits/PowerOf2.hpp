@@ -5,10 +5,13 @@
 
 namespace Helena::Traits
 {
+    //! Power of 2 (warn: false for value 0)
+    template <std::size_t Size>
+    static constexpr auto IsPowerOf2 = Size && !(Size & (Size - 1));
+
     template <std::size_t Size>
     static constexpr auto PowerOf2 = []{
-        constexpr auto isPowerOf2 = Size && !(Size & (Size - 1));
-        if constexpr(isPowerOf2) {
+        if constexpr(IsPowerOf2<Size>) {
             return Size;
         } else {
             auto value = Size;
