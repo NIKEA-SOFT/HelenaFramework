@@ -116,7 +116,6 @@ namespace Helena
             struct ShutdownMessage {
                 std::string m_Message;
                 Types::SourceLocation m_Location;
-                Types::Mutex m_Mutex;
             };
 
             static constexpr auto DefaultTickrate = 1.f / 30.f;
@@ -134,20 +133,20 @@ namespace Helena
             Context() noexcept
                 : m_Systems{}
                 , m_Events{}
-                , m_Callback{}
-                , m_ShutdownMessage{}
-                , m_ApplicationName{}
-                , m_Tickrate{DefaultTickrate}
-                , m_DeltaTime{}
-                , m_TimeElapsed{}
-                , m_TimeStart{}
+                , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
+                , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
                 , m_TimePrev{}
+                , m_Tickrate{DefaultTickrate}
+                , m_TimeDelta{}
+                , m_TimeElapsed{}
                 , m_State{EState::Undefined} {}
+
             ~Context() {
                 m_Events.Clear();
                 m_Systems.Clear();
             }
+
             Context(const Context&) = delete;
             Context(Context&&) noexcept = delete;
             Context& operator=(const Context&) = delete;
@@ -162,9 +161,22 @@ namespace Helena
             */
             template <typename T = Context, typename... Args>
             requires std::is_base_of_v<Context, T> && std::is_constructible_v<T, Args...>
-            static void Initialize([[maybe_unused]] Args&&... args) {
+            static void Initialize([[maybe_unused]] Args&&... args) 
+            {
                 HELENA_ASSERT(!m_Context, "Context already initialized!");
                 m_Context = std::make_shared<T>(std::forward<Args>(args)...);
+                HELENA_ASSERT(m_Context, "Initialize Context failed!");
+
+                if(!m_Context->Main())
+                {
+                    constexpr const auto message = "Initialize Main of Context: {} failed!";
+                    if(m_Context->m_State.load(std::memory_order_acquire) != EState::Shutdown) {
+                        Shutdown(message, Traits::NameOf<T>{});
+                        return;
+                    }
+
+                    HELENA_MSG_FATAL(message, Traits::NameOf<T>{});
+                }
             }
 
             /**
@@ -194,16 +206,6 @@ namespace Helena
             }
 
             /**
-            * @brief Set the application name
-            * @param name Application name
-            * @note You can set any name and use it in your code
-            */
-            static void SetAppName(std::string name) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_ApplicationName = std::move(name);
-            }
-
-            /**
             * @brief Set the update tickrate for the engine "Update" event
             * @param tickrate Update frequency
             * @note By default, 30 frames per second
@@ -211,27 +213,6 @@ namespace Helena
             static void SetTickrate(float tickrate) noexcept {
                 auto& ctx = GetInstance();
                 ctx.m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
-            }
-
-            /**
-            * @brief Set the entry point for the engine
-            * @param Callback Callback function
-            * @note 
-            * Use the entry point to work with the framework
-            * After calling the entry point, engine events are called for listeners
-            */
-            static void SetMain(Callback callback) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_Callback = std::move(callback);
-            }
-
-            /**
-            * @brief Return the application name
-            * @return String view object to the application name
-            */
-            [[nodiscard]] static std::string_view GetAppName() noexcept {
-                const auto& ctx = GetInstance();
-                return ctx.m_ApplicationName;
             }
 
             /**
@@ -244,21 +225,21 @@ namespace Helena
             }
 
         private:
+            [[nodiscard]] virtual bool Main() { return true; }
+
+        private:
             Types::VectorAny<UKSystems, Traits::Cacheline> m_Systems;
             Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
 
-            Callback m_Callback;
-
-            ShutdownMessage m_ShutdownMessage;
-            std::string m_ApplicationName;
-
-            float m_Tickrate;
-            float m_DeltaTime;
-            float m_TimeElapsed;
+            std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
 
             std::uint64_t m_TimeStart;
             std::uint64_t m_TimeNow;
             std::uint64_t m_TimePrev;
+
+            float m_Tickrate;
+            float m_TimeDelta;
+            float m_TimeElapsed;
 
             std::atomic<Engine::EState> m_State;
 
@@ -275,6 +256,7 @@ namespace Helena
     #endif
 
         static void RegisterHandlers();
+        [[nodiscard]] static std::uint64_t GetTickTime() noexcept;
 
     public:
         /**
