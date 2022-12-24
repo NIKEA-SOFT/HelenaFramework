@@ -16,6 +16,7 @@ namespace Helena::Events::Engine
     };
 
     struct Render {
+        float alpha;
         float deltaTime;
     };
 
