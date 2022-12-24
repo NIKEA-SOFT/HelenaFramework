@@ -3,6 +3,7 @@
 
 #include <Helena/Dependencies/Fmt.hpp>
 #include <Helena/Types/SourceLocation.hpp>
+#include <Helena/Traits/Underlying.hpp>
 
 #include <type_traits>
 #include <concepts>
@@ -11,44 +12,34 @@ namespace Helena::Traits
 {
     template <typename T>
     concept DefinitionLogger = requires {
-        //{ T::is_logging }   -> Traits::AnyOf<std::true_type, std::false_type>;
-        { T::GetPrefix() }  -> std::same_as<std::string_view>;
-        { T::GetStyle() }   -> std::same_as<fmt::text_style>;
+        T::Prefix;
+        T::Style;
+        requires    std::is_same_v<std::remove_const_t<decltype(T::Prefix)>, std::string_view> &&
+                    std::is_same_v<std::remove_const_t<decltype(T::Style)>, fmt::text_style>;
     };
 }
 
 namespace Helena::Log
 {
-    enum class Color : std::underlying_type_t<fmt::terminal_color> {
-        Black = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::black),
-        Red = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::red),
-        Green = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::green),
-        Yellow = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::yellow),
-        Blue = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::blue),
-        Magenta = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::magenta),
-        Cyan = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::cyan),
-        White = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::white),
-        BrightBlack = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_black),
-        BrightRed = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_red),
-        BrightGreen = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_green),
-        BrightYellow = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_yellow),
-        BrightBlue = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_blue),
-        BrightMagenta = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_magenta),
-        BrightCyan = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_cyan),
-        BrightWhite = std::underlying_type_t<fmt::terminal_color>(fmt::terminal_color::bright_white)
+    enum class Color    : Traits::Underlying<fmt::terminal_color>
+    {
+        Black           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::black),
+        Red             = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::red),
+        Green           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::green),
+        Yellow          = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::yellow),
+        Blue            = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::blue),
+        Magenta         = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::magenta),
+        Cyan            = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::cyan),
+        White           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::white),
+        BrightBlack     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_black),
+        BrightRed       = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_red),
+        BrightGreen     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_green),
+        BrightYellow    = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_yellow),
+        BrightBlue      = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_blue),
+        BrightMagenta   = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_magenta),
+        BrightCyan      = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_cyan),
+        BrightWhite     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_white)
     };
-
-    [[nodiscard]] static constexpr auto CreatePrefix(const std::string_view prefix) noexcept {
-        return prefix;
-    }
-
-    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color) noexcept {
-        return fmt::text_style{fmt::fg(static_cast<fmt::terminal_color>(color))};
-    }
-
-    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color, const Log::Color background) noexcept {
-        return fmt::text_style(fmt::fg(static_cast<fmt::terminal_color>(color)) | fmt::bg(static_cast<fmt::terminal_color>(background)));
-    }
 
     template <Helena::Traits::DefinitionLogger Prefix>
     struct Formater {
@@ -61,84 +52,71 @@ namespace Helena::Log
         std::string_view m_Msg;
     };
 
-    struct Debug {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[DEBUG]");
-        }
+    [[nodiscard]] static constexpr auto CreatePrefix(const std::string_view prefix) noexcept {
+        return prefix;
+    }
 
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightBlue);
-        }
+    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color) noexcept {
+        return fmt::text_style{fmt::fg(static_cast<fmt::terminal_color>(color))};
+    }
+
+    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color, const Log::Color background) noexcept {
+        return fmt::text_style{fmt::fg(static_cast<fmt::terminal_color>(color)) | fmt::bg(static_cast<fmt::terminal_color>(background))};
+    }
+
+    struct Benchmark {
+        static constexpr auto Prefix = CreatePrefix("[BENCHMARK][FUNCTION:");
+        static constexpr auto Style  = CreateStyle(Color::BrightMagenta);
+    };
+
+    struct Debug {
+        static constexpr auto Prefix = CreatePrefix("[DEBUG]");
+        static constexpr auto Style  = CreateStyle(Color::BrightBlue);
     };
 
     struct Info {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[INFO]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightGreen);
-        }
+        static constexpr auto Prefix = CreatePrefix("[INFO]");
+        static constexpr auto Style  = CreateStyle(Color::BrightGreen);
     };
 
     struct Notice {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[NOTICE]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightWhite);
-        }
+        static constexpr auto Prefix = CreatePrefix("[NOTICE]");
+        static constexpr auto Style  = CreateStyle(Color::BrightWhite);
     };
 
     struct Warning {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[WARNING]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightYellow);
-        }
+        static constexpr auto Prefix = CreatePrefix("[WARNING]");
+        static constexpr auto Style  = CreateStyle(Color::BrightYellow);
     };
 
     struct Error {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[ERROR]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightRed);
-        }
+        static constexpr auto Prefix = CreatePrefix("[ERROR]");
+        static constexpr auto Style  = CreateStyle(Color::BrightRed);
     };
 
     struct Fatal {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[FATAL]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightWhite, Color::Red);
-        }
+        static constexpr auto Prefix = CreatePrefix("[FATAL]");
+        static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 
     struct Exception {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[EXCEPTION]");
-        }
-
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightWhite, Color::Red);
-        }
+        static constexpr auto Prefix = CreatePrefix("[EXCEPTION]");
+        static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 
     struct Assert {
-        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-            return CreatePrefix("[ASSERT]");
-        }
+        static constexpr auto Prefix = CreatePrefix("[ASSERT]");
+        static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
+    };
 
-        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-            return CreateStyle(Color::BrightWhite, Color::Red);
-        }
+    struct Memory {
+        static constexpr auto Prefix = CreatePrefix("[MEMORY]");
+        static constexpr auto Style  = CreateStyle(Color::BrightCyan);
+    };
+
+    struct Shutdown {
+        static constexpr auto Prefix = CreatePrefix("[SHUTDOWN]");
+        static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 }
 
