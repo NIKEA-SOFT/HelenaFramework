@@ -167,7 +167,7 @@ namespace Helena::Types
         using VTable = const void* (const EOperation, const Any&, const void*);
 
     public:
-        using Hasher = Hash<std::uint64_t>;
+        using hash_type = Hash<std::uint64_t>;
 
     private:
         template<typename Type>
@@ -245,7 +245,7 @@ namespace Helena::Types
             if constexpr(!std::is_void_v<Type>)
             {
                 vtable = VTableHandler<ValueType>;
-                key = Hasher::template Get<ValueType>();
+                key = hash_type::template From<ValueType>();
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
@@ -282,7 +282,7 @@ namespace Helena::Types
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
-            , key{Hasher::template Get<void>()}
+            , key{hash_type::template From<void>()}
             , vtable{}
             , mode{EPolicy::Owner} {}
 
@@ -380,10 +380,10 @@ namespace Helena::Types
         }
 
         /**
-         * @brief Returns the object type if any, `Hasher::Get<void>()` otherwise.
-         * @return The object type if any, `Hasher::Get<void>()` otherwise.
+         * @brief Returns the object type if any, `hash_type::template From<void>()` otherwise.
+         * @return The object type if any, `hash_type::template From<void>()` otherwise.
          */
-        [[nodiscard]] Hasher::Value Key() const noexcept {
+        [[nodiscard]] hash_type::value_type Key() const noexcept {
             return key;
         }
 
@@ -400,7 +400,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] const void* Data(Hasher::Value hash) const noexcept {
+        [[nodiscard]] const void* Data(hash_type::value_type hash) const noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -417,7 +417,7 @@ namespace Helena::Types
          * @param hash Expected type.
          * @return An opaque pointer the contained instance, if any.
          */
-        [[nodiscard]] void* Data(Hasher::Value hash) noexcept {
+        [[nodiscard]] void* Data(hash_type::value_type hash) noexcept {
             return this->key == hash ? Data() : nullptr;
         }
 
@@ -466,7 +466,7 @@ namespace Helena::Types
                 vtable(EOperation::Destroy, *this, nullptr);
             }
 
-            key = Hasher::template Get<void>();
+            key = hash_type::template From<void>();
             vtable = nullptr;
             mode = EPolicy::Owner;
         }
@@ -519,7 +519,7 @@ namespace Helena::Types
         */
         template <typename T>
         [[nodiscard]] bool EqualHash() const noexcept {
-            return key == Hasher::template Get<std::remove_cvref_t<T>>();
+            return key == hash_type::template From<std::remove_cvref_t<T>>();
         }
 
     private:
@@ -527,7 +527,7 @@ namespace Helena::Types
             const void* instance;
             Storage storage;
         };
-        Hasher::Value key;
+        hash_type::value_type key;
         VTable* vtable;
         EPolicy mode;
     };
@@ -588,7 +588,7 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
+        constexpr auto key = Any<>::hash_type::template From<std::remove_cvref_t<Type>>();
         return static_cast<const Type*>(data->Data(key));
     }
 
@@ -599,7 +599,7 @@ namespace Helena::Types
           // last attempt to make wrappers for const references return their values
           return AnyCast<Type>(&std::as_const(*data));
       } else {
-          constexpr auto key = Any<>::Hasher::template Get<std::remove_cvref_t<Type>>();
+          constexpr auto key = Any<>::hash_type::template From<std::remove_cvref_t<Type>>();
           return static_cast<Type*>(data->Data(key));
       }
     }
