@@ -1,7 +1,4 @@
 ﻿#include <Helena/Helena.hpp>
-#include <Helena/Types/EncryptedString.hpp>
-#include <Helena/Types/ModernDesign.hpp>
-#include <Helena/Types/ReferencePointer.hpp>
 
 class TestSystemA
 {
@@ -21,7 +18,7 @@ public:
         // Unsubscribe from events
         // If listeners are system classes, then such classes can be automatically unsubscribed
         // from events if an object of this class-system has been removed from the Engine.
-        // Just remember that it's a good tone
+        // Just remember that this is a good tone
         Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&TestSystemA::OnInit);
         Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Config>(&TestSystemA::OnConfig);
         Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Execute>(&TestSystemA::OnExecute);
@@ -393,25 +390,104 @@ void AnimationSpline::NonStaticFunc() {
     // Nop
 }
 
-/* ------------------------------------------- */
+// Second method of intialization, using own Context
+class MyContext : public Helena::Engine::Context
+{
+private:
+    // We can override Main function for some logic
+    // for example: RegisterSystems and Signals here or initialize our configs
+    // Main function called when you call Helena::Engine::Context::Initialize<MyContext>();
+    bool Main() override
+    {
+        SetTickrate(30.f);      // Same as Helena::Engine::Context::SetTickrate(30.f);
+
+        // Register system's
+        Helena::Engine::RegisterSystem<TestSystemA>();
+        Helena::Engine::RegisterSystem<AnimationManager>();
+
+        // Or Signals
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+            HELENA_MSG_NOTICE("Hello from MyContext");
+        });
+
+        // WARNING: You cannot pass a class method that is not static/raw function from a context or other classes that are not system classes.
+        // Signals are mainly intended for class-systems.
+        // But they also support lambdas without captures or static methods.
+        // Believe me, this is enough to call a method of any class, let me demonstrate
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+            // example #1 for get current context by reference
+            auto& context1 = MyContext::template GetInstance<MyContext>();
+            // example #2 for get current context by shared_ptr
+            auto context2 = MyContext::template Get<MyContext>();
+            // I recommend the first option as it is more efficient
+
+
+            // Now just call our class method
+            context1.foo();
+        });
+
+        return true;    // true for "no error"
+    }
+
+    void foo() {
+        HELENA_MSG_NOTICE("Method: foo called");
+    }
+};
+
+
+// First method of initialization framework
+void Initialization_by_default()
+{
+    Helena::Engine::Context::Initialize();                  // Initialize Context (Context used in Engine)
+    Helena::Engine::Context::SetTickrate(30.f);             // Set Update tickrate
+
+    // Register system's
+    Helena::Engine::RegisterSystem<TestSystemA>();
+    Helena::Engine::RegisterSystem<AnimationManager>();
+
+    // Or Signals
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+        HELENA_MSG_NOTICE("Hello from Initialization_by_default");
+    });
+}
+
+void Initialization_with_my_Context() {
+    // Initialization with own Context, that call Main (if overrided)
+    Helena::Engine::Context::Initialize<MyContext>(/* args for constructor */);
+
+    // register system here or in your Context using `bool Main() override`
+}
+
+// TODO: test
+void test_allocators();
 
 int main(int argc, char** argv)
 {
     //Engine started from Initialize method
-    Helena::Engine::Context::Initialize();                  // Initialize Context (Context used in Engine)
-    Helena::Engine::Context::SetAppName("Helena");          // Set application name
-    Helena::Engine::Context::SetTickrate(30.f);             // Set Update tickrate
-    Helena::Engine::Context::SetMain([]() {                 // Register systems happen in this callback
-        Helena::Engine::RegisterSystem<TestSystemA>();
-        Helena::Engine::RegisterSystem<AnimationManager>();
+    Initialization_by_default();            // default initialization
+    //Initialization_with_my_Context();     // initialization with own Context
 
-        example_systems();          // ok, here just example how use systems
-        example_signals();          // here example with signals
-        example_task_sheduler();    // task scheduler example
-    });
+    example_systems();          // ok, here just example how use systems
+    example_signals();          // here example with signals
+    example_task_sheduler();    // task scheduler example
+
+    test_allocators();
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
 
     return 0;
+}
+
+// TODO: Wrapper's for containers in Helena with allocators
+void test_allocators()
+{
+    using String = std::basic_string<char, std::char_traits<char>, Helena::Types::IMemoryAllocator<char>>;
+    using Vector = std::vector<String, Helena::Types::IMemoryAllocator<String>>;
+
+    Helena::Types::DefaultAllocator allocator;
+    Vector vec_of_string{&allocator};
+
+    vec_of_string.emplace_back("long message for got allocation", &allocator);
+    vec_of_string.emplace_back("long message for got allocation", &allocator);
 }
