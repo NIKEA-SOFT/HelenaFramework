@@ -25,7 +25,6 @@
 #include <Helena/Traits/Cacheline.hpp>
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constness.hpp>
-#include <Helena/Traits/Detector.hpp>
 #include <Helena/Traits/FNV1a.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Traits/Identity.hpp>
@@ -42,6 +41,7 @@
 
 // Types
 #include <Helena/Types/AlignedStorage.hpp>
+#include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
 #include <Helena/Types/BasicLogger.hpp>
 #include <Helena/Types/BasicLoggersDef.hpp>
