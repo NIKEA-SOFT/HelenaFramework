@@ -17,6 +17,7 @@ namespace Helena::Log
     #include <tuple>
 
     #define HELENA_ASSERT(cond, ...)                                                    \
+    if(!std::is_constant_evaluated()) {                                                 \
         do {                                                                            \
             if(!(cond)) {                                                               \
                 Helena::Log::Console<Helena::Log::Assert>("Condition: " #cond);         \
@@ -32,11 +33,12 @@ namespace Helena::Log
                                                                                         \
                 std::exit(EXIT_FAILURE);                                                \
             }                                                                           \
-        } while(false)
+        } while(false);                                                                 \
+    }
 #else
     #define HELENA_ASSERT(cond, ...)
 #endif
 
-    #include <Helena/Engine/Log.hpp>
+#include <Helena/Engine/Log.hpp>
 
 #endif // HELENA_PLATFORM_ASSERT_HPP
