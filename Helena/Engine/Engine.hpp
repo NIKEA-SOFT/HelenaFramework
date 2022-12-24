@@ -225,7 +225,7 @@ namespace Helena
             }
 
         private:
-            [[nodiscard]] virtual bool Main() { return true; }
+            virtual bool Main() { return true; }
 
         private:
             Types::VectorAny<UKSystems, Traits::Cacheline> m_Systems;

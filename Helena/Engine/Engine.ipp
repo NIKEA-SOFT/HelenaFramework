@@ -174,7 +174,7 @@ namespace Helena
 
     #if defined(HELENA_PLATFORM_WIN)
         } __except (MiniDumpSEH(GetExceptionInformation())) {
-            if(ctx.m_State.load(std::memory_order_acquire) == EState::Shutdown) {
+            if(GetState() == EState::Shutdown) {
                 return false;
             }
 
