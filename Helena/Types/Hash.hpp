@@ -13,13 +13,12 @@ namespace Helena::Types
     template <typename>
     struct Equaler;
 
-    template <typename T>
-    requires Traits::AnyOf<T, std::uint32_t, std::uint64_t>
-    class Hash
+    template <Traits::AnyOf<std::uint32_t, std::uint64_t> T>
+    class Hash final
     {
     public:
-        using Hasher = Traits::FNV1a<T>;
-        using Value = T;
+        using hash_type = Traits::FNV1a<T>;
+        using value_type = T;
 
     public:
         Hash() = delete;
@@ -29,19 +28,25 @@ namespace Helena::Types
         Hash& operator=(Hash&&) noexcept = delete;
 
         template <typename Char>
-        [[nodiscard]] static constexpr auto Get(std::basic_string_view<Char> str) noexcept
+        [[nodiscard]] static constexpr auto From(const std::basic_string_view<Char> str) noexcept
         {
-            auto value{Hasher::Offset};
+            auto value{hash_type::Offset};
             for(std::size_t i = 0; i < str.size(); ++i) {
-                value = (value ^ static_cast<T>(str[i])) * Hasher::Prime;
+                value = (value ^ static_cast<T>(str[i])) * hash_type::Prime;
             }
 
             return value;
         }
 
+        template <typename Char>
+        requires std::convertible_to<std::add_pointer_t<Char>, std::basic_string_view<Char>>
+        [[nodiscard]] static constexpr auto From(const Char* str) noexcept {
+            return From(std::basic_string_view<Char>{str});
+        }
+
         template <typename Type>
-        [[nodiscard]] static constexpr auto Get() noexcept {
-            return Get(Helena::Traits::NameOf<Type>::Value);
+        [[nodiscard]] static constexpr auto From() noexcept {
+            return From(static_cast<std::string_view>(Helena::Traits::NameOf<Type>{}));
         }
     };
 }

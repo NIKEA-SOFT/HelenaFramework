@@ -16,7 +16,7 @@ namespace Helena::Types
         template <typename, std::size_t>
         friend class DecryptedString;
 
-        static constexpr auto m_Secret = Hash<std::uint64_t>::template Get<decltype([] {})>();
+        static constexpr auto m_Secret = Hash<std::uint64_t>::template From<decltype([] {})>();
         static constexpr auto m_Capacity = N;
 
     public:

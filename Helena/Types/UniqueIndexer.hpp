@@ -10,9 +10,8 @@
 namespace Helena::Types
 {
     template <typename UniqueKey>
-    class UniqueIndexer
+    class UniqueIndexer final
     {
-    public:
         using Hasher    = Hash<std::uint64_t>;
         using Storage   = std::vector<std::size_t>;
 
@@ -49,7 +48,7 @@ namespace Helena::Types
                 return storage->size() - 1uLL;
             }
 
-            static constexpr auto m_Key = Hasher::template Get<T>();
+            static constexpr auto m_Key = Hasher::template From<T>();
         };
 
         std::unique_ptr<Storage> m_Indexes{std::make_unique<Storage>()};
