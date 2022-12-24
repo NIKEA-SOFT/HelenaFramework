@@ -142,7 +142,7 @@ namespace Helena
                 , m_TimeElapsed{}
                 , m_State{EState::Undefined} {}
 
-            ~Context() {
+            virtual ~Context() {
                 m_Events.Clear();
                 m_Systems.Clear();
             }
