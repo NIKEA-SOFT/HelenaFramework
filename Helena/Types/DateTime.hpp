@@ -412,9 +412,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr DateTime operator/(const DateTime other) const noexcept {
-            if(!std::is_constant_evaluated()) {
-                HELENA_ASSERT(other.m_Ticks, "Divide by zero");
-            }
+            HELENA_ASSERT(other.m_Ticks, "Divide by zero");
             return DateTime{m_Ticks / other.m_Ticks};
         }
 
@@ -434,9 +432,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr DateTime& operator/=(const DateTime other) noexcept {
-            if(!std::is_constant_evaluated()) {
-                HELENA_ASSERT(other.m_Ticks, "Divide by zero");
-            }
+            HELENA_ASSERT(other.m_Ticks, "Divide by zero");
             m_Ticks /= other.m_Ticks;
             return *this;
         }
