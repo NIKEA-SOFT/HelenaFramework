@@ -10,14 +10,11 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
-#include <Helena/Types/Mutex.hpp>
 
 #include <algorithm>
-#include <cstring>
-#include <functional>
+#include <atomic>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -121,8 +118,6 @@ namespace Helena
             static constexpr auto DefaultTickrate = 1.f / 30.f;
 
         protected:
-            using Callback = std::function<void ()>;
-
             template <typename T = Context>
             static T& GetInstance() noexcept {
                 HELENA_ASSERT(m_Context, "Context not initilized");
@@ -459,6 +454,15 @@ namespace Helena
         */
         template <typename Event, typename... Args>
         static void SignalEvent([[maybe_unused]] Args&&... args);
+
+        /**
+        * @brief Trigger an event for all listeners
+        *
+        * @tparam Event Type of event
+        * @param event Event of signal (by reference)
+        */
+        template <typename Event>
+        static void SignalEvent(Event& event);
 
         /**
         * @brief Stop listening to the event

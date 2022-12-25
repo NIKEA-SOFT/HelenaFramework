@@ -325,6 +325,27 @@ namespace Helena
     {
         static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
 
+        if constexpr(std::is_empty_v<Event>) {
+            union {
+                Event event;
+            };
+            SignalEvent(event);
+        } else if constexpr(requires {std::is_aggregate_v<Event>; Event{std::forward<Args>(args)...};}) {
+            auto event = Event{std::forward<Args>(args)...};
+            SignalEvent(event);
+        } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
+            auto event = Event(std::forward<Args>(args)...);
+            SignalEvent(event);
+        } else {
+            []<bool constructible = false>() {
+                static_assert(constructible, "Event type not constructible from args");
+            }();
+        }
+    }
+
+    template <typename Event>
+    void Engine::SignalEvent(Event& event)
+    {
         auto& ctx = Context::GetInstance();
         if(ctx.m_Events.template Has<Event>())
         {
@@ -334,10 +355,8 @@ namespace Helena
                 if constexpr(std::is_empty_v<Event>) {
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
                 } else if constexpr(std::is_aggregate_v<Event>) {
-                    auto event = Event{std::forward<Args>(args)...};
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 } else {
-                    auto event = Event(std::forward<Args>(args)...);
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 }
             }
