@@ -20,6 +20,23 @@ namespace Helena::Types
         using hash_type = Traits::FNV1a<T>;
         using value_type = T;
 
+        template <typename Iterator>
+        requires requires(Iterator it) {
+            ++it; *it;
+            it != it;
+            { static_cast<T>(*it) } -> std::same_as<T>;
+        }
+        [[nodiscard]] static constexpr auto Calculate(Iterator begin, const Iterator end) noexcept
+        {
+            auto value{hash_type::Offset};
+            while(begin != end) {
+                value = (value ^ static_cast<T>(*begin)) * hash_type::Prime;
+                ++begin;
+            }
+
+            return value;
+        }
+
     public:
         Hash() = delete;
         Hash(const Hash&) = delete;
@@ -27,26 +44,29 @@ namespace Helena::Types
         Hash& operator=(const Hash&) = delete;
         Hash& operator=(Hash&&) noexcept = delete;
 
-        template <typename Char>
-        [[nodiscard]] static constexpr auto From(const std::basic_string_view<Char> str) noexcept
-        {
-            auto value{hash_type::Offset};
-            for(std::size_t i = 0; i < str.size(); ++i) {
-                value = (value ^ static_cast<T>(str[i])) * hash_type::Prime;
-            }
-
-            return value;
+        template <typename Container>
+        requires requires(Container container) {
+            container.begin();
+            container.end();
+            container.begin() != container.end();
+            { static_cast<T>(*container.begin()) } -> std::same_as<T>;
+        }
+        [[nodiscard]] static constexpr auto From(const Container& container) noexcept {
+            return Calculate(container.begin(), container.end());
         }
 
-        template <typename Char>
-        requires std::convertible_to<std::add_pointer_t<Char>, std::basic_string_view<Char>>
-        [[nodiscard]] static constexpr auto From(const Char* str) noexcept {
-            return From(std::basic_string_view<Char>{str});
+
+        [[nodiscard]] static constexpr auto From(const char* str) noexcept {
+            return From(std::string_view{str});
+        }
+
+        [[nodiscard]] static constexpr auto From(const wchar_t* str) noexcept {
+            return From(std::basic_string_view{str});
         }
 
         template <typename Type>
         [[nodiscard]] static constexpr auto From() noexcept {
-            return From(static_cast<std::string_view>(Helena::Traits::NameOf<Type>{}));
+            return From(Helena::Traits::NameOf<Type>::Value);
         }
     };
 }
