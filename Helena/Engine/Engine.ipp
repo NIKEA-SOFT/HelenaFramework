@@ -330,11 +330,11 @@ namespace Helena
                 Event event;
             };
             SignalEvent(event);
-        } else if constexpr(requires {std::is_aggregate_v<Event>; Event{std::forward<Args>(args)...};}) {
-            auto event = Event{std::forward<Args>(args)...};
-            SignalEvent(event);
         } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
             auto event = Event(std::forward<Args>(args)...);
+            SignalEvent(event);
+        } else if constexpr(requires {Event{std::forward<Args>(args)...};}) {
+            auto event = Event{std::forward<Args>(args)...};
             SignalEvent(event);
         } else {
             []<bool constructible = false>() {
@@ -354,8 +354,6 @@ namespace Helena
             {
                 if constexpr(std::is_empty_v<Event>) {
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
-                } else if constexpr(std::is_aggregate_v<Event>) {
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 } else {
                     eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
                 }
