@@ -6,7 +6,9 @@
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 
+#include <limits>
 #include <memory>
+#include <new>
 
 namespace Helena::Types
 {
@@ -120,10 +122,10 @@ namespace Helena::Types
         void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
         {
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
-                return ::operator delete(ptr, bytes, std::align_val_t{alignment});
+                return ::operator delete(ptr, std::align_val_t{alignment});
             }
 
-            return ::operator delete(ptr, bytes);
+            return ::operator delete(ptr);
         }
 
         bool Equal(const IMemoryResource& other) const noexcept override {
