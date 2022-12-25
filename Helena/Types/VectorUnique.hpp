@@ -35,8 +35,8 @@ namespace Helena::Types
             }
 
             HELENA_ASSERT(!m_Storage[index], "Key: {} already exist!", Traits::NameOf<Key>{});
-            if(!m_Storage[index].has_value()) {
-                m_Storage[index].emplace(std::forward<Args>(args)...);
+            if(!m_Storage[index]) {
+                m_Storage[index] = std::make_unique<Type>(std::forward<Args>(args)...);
                 m_Size++;
             }
         }
@@ -72,7 +72,7 @@ namespace Helena::Types
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
-                return m_Storage[index].value();
+                return *m_Storage[index];
             } else {
                 return std::forward_as_tuple(Get<Key>()...);
             }
@@ -87,21 +87,17 @@ namespace Helena::Types
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
-                return m_Storage[index].value();
+                return *m_Storage[index];
             } else {
                 return std::forward_as_tuple(Get<Key>()...);
             }
         }
 
-        template <typename Callback>
-        void Each(Callback func) const
-        {
-            for(std::size_t i = 0; i < m_Storage.size(); ++i)
-            {
-                if(auto& data = m_Storage[i]) {
-                    func(data.value());
-                }
-            }
+        template <typename Key>
+        [[nodiscard]] auto GetStorage() {
+            static_assert(Traits::SameAs<Key, Traits::RemoveCVRP<Key>>, "Key is const/ptr/ref");
+            const auto index = m_TypeIndexer.template Get<Key>();
+            return index < m_Storage.size() && m_Storage[index] ? m_Storage[index].get() : nullptr;
         }
 
         template <typename... Key>
@@ -113,8 +109,8 @@ namespace Helena::Types
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
-                if(m_Storage[index].has_value()) {
-                    m_Storage[index].reset();
+                if(m_Storage[index]) {
+                    m_Storage[index]->reset();
                     m_Size--;
                 }
             } else {
@@ -136,8 +132,8 @@ namespace Helena::Types
 
         void Clear() noexcept
         {
-            for(auto& opt : m_Storage) {
-                opt.reset();
+            for(auto& ptr : m_Storage) {
+                ptr.reset();
             }
 
             m_Size = 0;
@@ -145,7 +141,7 @@ namespace Helena::Types
 
     private:
         Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
-        std::vector<std::optional<Type>> m_Storage;
+        std::vector<std::unique_ptr<Type>> m_Storage;
         std::size_t m_Size;
     };
 }

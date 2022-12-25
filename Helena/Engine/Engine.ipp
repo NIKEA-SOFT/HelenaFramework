@@ -347,15 +347,15 @@ namespace Helena
     void Engine::SignalEvent(Event& event)
     {
         auto& ctx = Context::GetInstance();
-        if(ctx.m_Events.template Has<Event>())
+        if(auto poolStorage = ctx.m_Events.GetStorage<Event>())
         {
-            auto& eventPool = ctx.m_Events.template Get<Event>();
-            for(std::size_t pos = eventPool.size(); pos; --pos)
+            auto& poolEvents = *poolStorage;
+            for(std::size_t pos = poolEvents.size(); pos; --pos)
             {
                 if constexpr(std::is_empty_v<Event>) {
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
+                    poolEvents[pos - 1].m_Callback(poolEvents[pos - 1].m_Storage, nullptr);
                 } else {
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
+                    poolEvents[pos - 1].m_Callback(poolEvents[pos - 1].m_Storage, static_cast<void*>(&event));
                 }
             }
 
@@ -365,7 +365,7 @@ namespace Helena
                 Events::Engine::Execute,
                 Events::Engine::Finalize,
                 Events::Engine::Shutdown>::value) {
-                eventPool.clear();
+                poolEvents.clear();
             }
         }
     }
