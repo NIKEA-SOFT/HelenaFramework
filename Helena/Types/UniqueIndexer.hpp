@@ -15,6 +15,9 @@ namespace Helena::Types
         using Hasher    = Hash<std::uint64_t>;
         using Storage   = std::vector<std::size_t>;
 
+        template <typename T>
+        static inline std::size_t m_TypeIndex{(std::numeric_limits<std::size_t>::max)()};
+
     public:
         UniqueIndexer() = default;
         ~UniqueIndexer() = default;
@@ -25,9 +28,11 @@ namespace Helena::Types
 
         template <typename T>
         [[nodiscard]] std::size_t Get() const {
-            static const auto index = TypeIndexer<T>::GetIndex(m_Indexes);
-            HELENA_ASSERT(index < m_Indexes->size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
-            return index;
+            if(m_TypeIndex<T> == (std::numeric_limits<std::size_t>::max)()) [[unlikely]] {
+                m_TypeIndex<T> = TypeIndexer<T>::GetIndex(m_Indexes);
+                HELENA_ASSERT(m_TypeIndex<T> < m_Indexes->size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
+            }
+            return m_TypeIndex<T>;
         }
 
         [[nodiscard]] std::size_t Size() const noexcept {
