@@ -2,11 +2,12 @@
 #define HELENA_ENGINE_ENGINE_HPP
 
 #include <Helena/Engine/Events.hpp>
-#include <Helena/Engine/Log.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Traits/Cacheline.hpp>
+#include <Helena/Traits/Remove.hpp>
+#include <Helena/Traits/SameAs.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <functional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -40,8 +42,20 @@ namespace Helena
             union alignas(16) Storage {
                 Function m_Callback;
                 MemberFunction m_CallbackMember;
+
+                template <typename T>
+                [[nodiscard]] T As() const noexcept
+                {
+                    T fn{};
+                    if constexpr(std::is_member_function_pointer_v<T>) {
+                        new (&fn) decltype(m_CallbackMember){m_CallbackMember};
+                    } else {
+                        new (&fn) decltype(m_Callback){m_Callback};
+                    }
+                    return fn;
+                }
             };
-            using Callback = void (*)(Storage&, void*);
+            using Callback = void (*)(const Storage&, void* const);
 
             template <typename Ret, typename... Args>
             CallbackStorage(Ret (*callback)(Args...), Callback cb) : m_Callback{cb} {
@@ -92,8 +106,8 @@ namespace Helena
                 return !(*this == callback);
             }
 
-            Storage m_Storage;
             Callback m_Callback;
+            Storage m_Storage;
         };
         
     public:
@@ -414,6 +428,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
@@ -434,6 +449,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
 
         /**
@@ -453,6 +469,7 @@ namespace Helena
         * @param args Arguments for construct the event
         */
         template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SignalEvent([[maybe_unused]] Args&&... args);
 
         /**
@@ -462,6 +479,7 @@ namespace Helena
         * @param event Event of signal (by reference)
         */
         template <typename Event>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SignalEvent(Event& event);
 
         /**
@@ -482,6 +500,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...));
 
         /**
@@ -503,7 +522,17 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void UnsubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
+
+    private:
+        template <typename Event, typename Callback, typename SignalFunctor>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void SubscribeEvent(Callback&& callback, SignalFunctor&& fn);
+
+        template <typename Event, typename Comparator>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void UnsubscribeEvent(Comparator&& comparator);
     };
 }
 

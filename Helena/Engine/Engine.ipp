@@ -2,9 +2,7 @@
 #define HELENA_ENGINE_ENGINE_IPP
 
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Traits/Arguments.hpp>
-#include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAs.hpp>
+#include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
@@ -243,92 +241,77 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SubscribeEvent(void (*callback)([[maybe_unused]] Args...))
     {
-        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
+        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
 
-        auto& ctx = Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            ctx.m_Events.template Create<Event>();
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
-            return storage == callback;
+        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
+            if constexpr(std::is_empty_v<Event>) {
+                static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
+                std::invoke(storage.As<decltype(callback)>());
+            } else {
+                static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
+                static_assert((Traits::SameAs<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
+                std::invoke(storage.As<decltype(callback)>(), *static_cast<Traits::RemoveRef<
+                    typename Traits::Arguments<Args...>::template Get<0>>*>(data));
+            }
         });
-        HELENA_ASSERT(empty, "Listener already registered!");
-
-        if(empty)
-        {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
-            {
-                if constexpr(std::is_empty_v<Event>) {
-                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
-
-                    storage.m_Callback();
-                } else {
-                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAs<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
-                    fn(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-                }
-            });
-        }
     }
 
     template <typename Event, typename System, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...))
     {
-        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
+        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
 
+        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
+            auto& ctx = Context::GetInstance();
+            if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
+                UnsubscribeEvent<Event>(storage.As<decltype(callback)>());
+                return;
+            }
+
+            if constexpr(std::is_empty_v<Event>) {
+                static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
+                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>());
+            } else {
+                static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
+                static_assert((Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
+                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>(),
+                    *static_cast<Traits::RemoveRef<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
+            }
+        });
+    }
+
+    template <typename Event, typename Callback, typename SignalFunctor>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::SubscribeEvent(Callback&& callback, SignalFunctor&& fn)
+    {
         auto& ctx = Context::GetInstance();
         if(!ctx.m_Events.template Has<Event>()) {
             ctx.m_Events.template Create<Event>();
         }
 
         auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
-            return storage == callback;
+        const auto empty = eventPool.cend() == std::find_if(eventPool.cbegin(), eventPool.cend(),
+            [callback = std::forward<Callback>(callback)](const auto& storage) {
+                return storage == callback;
         });
         HELENA_ASSERT(empty, "Listener already registered!");
 
-        if(empty)
-        {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
-            {
-                auto& ctx = Context::GetInstance();
-                if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    UnsubscribeEvent<Event>(fn);
-                    return;
-                }
-
-                if constexpr(std::is_empty_v<Event>) {
-                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    (ctx.m_Systems.template Get<System>().*fn)();
-                } else {
-                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    (ctx.m_Systems.template Get<System>().*fn)(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-                }
-            });
-        }
+        if(!empty) [[unlikely]] return;
+        eventPool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
     }
 
     template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
-
         if constexpr(std::is_empty_v<Event>) {
-            union {
-                Event event;
-            };
+            union { Event event; };
             SignalEvent(event);
         } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
             auto event = Event(std::forward<Args>(args)...);
@@ -344,18 +327,20 @@ namespace Helena
     }
 
     template <typename Event>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent(Event& event)
     {
         auto& ctx = Context::GetInstance();
         if(auto poolStorage = ctx.m_Events.GetStorage<Event>())
         {
-            auto& poolEvents = *poolStorage;
-            for(std::size_t pos = poolEvents.size(); pos; --pos)
+            auto& eventPool = *poolStorage;
+            for(std::size_t pos = eventPool.size(); pos; --pos)
             {
+                const auto& [callback, storage] = eventPool[pos - 1];
                 if constexpr(std::is_empty_v<Event>) {
-                    poolEvents[pos - 1].m_Callback(poolEvents[pos - 1].m_Storage, nullptr);
+                    std::invoke(callback, storage, nullptr);
                 } else {
-                    poolEvents[pos - 1].m_Callback(poolEvents[pos - 1].m_Storage, static_cast<void*>(&event));
+                    std::invoke(callback, storage, static_cast<void*>(&event));
                 }
             }
 
@@ -365,46 +350,35 @@ namespace Helena
                 Events::Engine::Execute,
                 Events::Engine::Finalize,
                 Events::Engine::Shutdown>::value) {
-                poolEvents.clear();
+                eventPool.clear();
             }
         }
     }
 
     template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
-
-        auto& ctx = Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            return;
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });
-
-        if(it != eventPool.cend()) {
-            eventPool.erase(it);
-        }
     }
 
     template <typename Event, typename System, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::UnsubscribeEvent(void (System::* callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAs<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
-
-        auto& ctx = Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            return;
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });
+    }
 
-        if(it != eventPool.cend()) {
-            eventPool.erase(it);
+    template <typename Event, typename Comparator>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::UnsubscribeEvent(Comparator&& comparator) {
+        if(const auto poolStorage = Context::GetInstance().m_Events.GetStorage<Event>()) {
+            if(const auto it = std::find_if(poolStorage->cbegin(), poolStorage->cend(), std::forward<Comparator>(comparator));
+                it != poolStorage->cend()) {
+                poolStorage->erase(it);
+            };
         }
     }
 }
