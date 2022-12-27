@@ -30,7 +30,7 @@ namespace Helena::Types
         struct choice_t<0> {};
     }
 
-    template<std::size_t Len = sizeof(double[2]), std::size_t = alignof(max_align_t)>
+    template<std::size_t Len = sizeof(double[2]), std::size_t = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
     class Any;
 
     /**
