@@ -1,17 +1,14 @@
 #ifndef HELENA_TYPES_ALIGNEDSTORAGE_HPP
 #define HELENA_TYPES_ALIGNEDSTORAGE_HPP
 
-#include <cstddef>
-#include <memory>
-#include <iterator>
-#include <type_traits>
-#include <tuple>
-#include <utility>
-
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/Specialization.hpp>
+
+#include <memory>
+#include <iterator>
+#include <utility>
 
 namespace Helena::Types
 {
