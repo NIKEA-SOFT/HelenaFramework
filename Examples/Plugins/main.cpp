@@ -1,5 +1,9 @@
 ﻿#include <Helena/Helena.hpp>
 
+// WARNING: For using this example you need "PluginManager" system
+// URL: https://github.com/NIKEA-SOFT/HelenaSystems
+// PluginManager - is a System that will allow you to load dynamic libraries at runtime.
+// The term System implies that this is a class that brings its own logic when you register it through the framework
 
 class GameApplication
 {
