@@ -1,6 +1,8 @@
 #ifndef HELENA_PLATFORM_PLATFORM_HPP
 #define HELENA_PLATFORM_PLATFORM_HPP
 
+#include <Helena/Platform/Compiler.hpp>
+
 /* ----------- [Platform detect] ----------- */
 #if defined(_WIN32) || defined(_WIN64)
     #define HELENA_PLATFORM_NAME    "Windows"
