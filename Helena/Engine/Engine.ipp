@@ -9,6 +9,19 @@
 
 namespace Helena
 {
+    inline void Engine::InitContext(ContextStorage context) noexcept {
+        m_Context = std::move(context);
+    }
+
+    [[nodiscard]] inline bool Engine::HasContext() noexcept {
+        return static_cast<bool>(m_Context);
+    }
+
+    [[nodiscard]] inline Engine::Context& Engine::MainContext() noexcept {
+        HELENA_ASSERT(m_Context, "Context not initialized!");
+        return *m_Context;
+    }
+
 #if defined(HELENA_PLATFORM_WIN)
     inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType) {
         if(GetState() == EState::Init) Shutdown();
@@ -97,10 +110,61 @@ namespace Helena
         return ms;
     }
 
-    [[nodiscard]] inline bool Engine::Heartbeat()
+    template <std::derived_from<Engine::Context> T, typename... Args>
+    requires std::constructible_from<T, Args...>
+    void Engine::Initialize([[maybe_unused]] Args&&... args)
     {
-        auto& ctx = Context::GetInstance();
+        HELENA_ASSERT(!HasContext(), "Context already initialized!");
+        InitContext(ContextStorage{new (std::nothrow) T, +[](Context* ctx) {
+            delete ctx;
+        }});
+        HELENA_ASSERT(HasContext(), "Initialize Context failed!");
+
+        if(!MainContext().Main())
+        {
+            constexpr const auto message = "Initialize Main of Context: {} failed!";
+            if(GetState() != EState::Shutdown) {
+                Shutdown(message, Traits::NameOf<T>{});
+                return;
+            }
+
+            HELENA_MSG_FATAL(message, Traits::NameOf<T>{});
+        }
+    }
+
+    inline void Engine::Initialize(Context& ctx) noexcept {
+        HELENA_ASSERT(!HasContext(), "Context already initialized!");
+        InitContext(ContextStorage{std::addressof(ctx), +[](Context*){}});
+    }
+
+    template <std::derived_from<Engine::Context> T>
+    [[nodiscard]] inline T& Engine::GetContext() noexcept {
+        return static_cast<T&>(MainContext());
+    }
+
+    [[nodiscard]] inline Engine::EState Engine::GetState() noexcept {
+        return MainContext().m_State.load(std::memory_order_acquire);
+    }
+
+    inline void Engine::SetTickrate(float tickrate) noexcept {
+        MainContext().m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
+    }
+
+    [[nodiscard]] inline float Engine::GetTickrate() noexcept {
+        return MainContext().m_Tickrate;
+    }
+
+    [[nodiscard]] inline std::uint64_t Engine::GetTimeElapsed() noexcept {
+        return GetTickTime() - MainContext().m_TimeStart;
+    }
+
+    [[nodiscard]] inline bool Engine::Heartbeat(std::size_t sleepMS, std::uint8_t accumulator)
+    {
+        auto& ctx = MainContext();
         const auto state = GetState();
+        const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, Args&&... args) {
+            (SignalEvent<Events>(args...), ...);
+        };
 
     #if defined(HELENA_PLATFORM_WIN)
         __try {
@@ -117,11 +181,6 @@ namespace Helena
                 ctx.m_ShutdownMessage->m_Location = {};
                 ctx.m_ShutdownMessage->m_Message.clear();
                 ctx.m_State.store(EState::Init, std::memory_order_release);
-
-                if(Running()) SignalEvent<Events::Engine::Init>();
-                if(Running()) SignalEvent<Events::Engine::Config>();
-                if(Running()) SignalEvent<Events::Engine::Execute>();
-
             } break;
 
             case EState::Init: [[likely]]
@@ -131,31 +190,58 @@ namespace Helena
                 ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.f;
                 ctx.m_TimeElapsed += ctx.m_TimeDelta;
 
-                // Base signal called only once for new listeners
-                SignalEvent<Events::Engine::Init>();
-                SignalEvent<Events::Engine::Config>();
-                SignalEvent<Events::Engine::Execute>();
-                SignalEvent<Events::Engine::Tick>(ctx.m_TimeDelta);
+                signal.operator()(Signals<
+                    Events::Engine::PreInit,
+                    Events::Engine::Init,
+                    Events::Engine::PostInit,
+                    Events::Engine::PreConfig,
+                    Events::Engine::Config,
+                    Events::Engine::PostConfig,
+                    Events::Engine::PreExecute,
+                    Events::Engine::Execute,
+                    Events::Engine::PostExecute
+                >{});
 
-                constexpr std::uint32_t accumulatorMax = 5;
-                std::uint32_t accumulator{};
-                while(ctx.m_TimeElapsed >= ctx.m_Tickrate && accumulator++ < accumulatorMax) {
+                signal.operator()(Signals<
+                    Events::Engine::PreTick,
+                    Events::Engine::Tick,
+                    Events::Engine::PostTick
+                >{}, ctx.m_TimeDelta);
+
+                std::uint32_t accumulated{};
+                while(ctx.m_TimeElapsed >= ctx.m_Tickrate && accumulated++ < accumulator) {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    SignalEvent<Events::Engine::Update>(ctx.m_Tickrate);
+                    signal.operator()(Signals<
+                        Events::Engine::PreUpdate,
+                        Events::Engine::Update,
+                        Events::Engine::PostUpdate
+                    >{}, ctx.m_Tickrate);
                 }
 
-                SignalEvent<Events::Engine::Render>(ctx.m_TimeElapsed / ctx.m_Tickrate, ctx.m_TimeDelta);
+                signal.operator()(Signals<
+                    Events::Engine::PreRender,
+                    Events::Engine::Render,
+                    Events::Engine::PostRender
+                >{}, ctx.m_TimeElapsed / ctx.m_Tickrate, ctx.m_TimeDelta);
 
             #ifndef HELENA_ENGINE_NOSLEEP
-                Util::Sleep(std::chrono::milliseconds{1});
+                if(!accumulated) {
+                    Util::Sleep(std::chrono::milliseconds{sleepMS});
+                }
             #endif
 
             } break;
 
             case Engine::EState::Shutdown: [[unlikely]]
             {
-                SignalEvent<Events::Engine::Finalize>();
-                SignalEvent<Events::Engine::Shutdown>();
+                signal.operator()(Signals<
+                    Events::Engine::PreFinalize,
+                    Events::Engine::Finalize,
+                    Events::Engine::PostFinalize,
+                    Events::Engine::PreShutdown,
+                    Events::Engine::Shutdown,
+                    Events::Engine::PostShutdown
+                >{});
 
                 ctx.m_Events.Clear();
                 ctx.m_Systems.Clear();
@@ -187,14 +273,10 @@ namespace Helena
         return GetState() == EState::Init;
     }
 
-    [[nodiscard]] inline Engine::EState Engine::GetState() noexcept {
-        return Context::GetInstance().m_State.load(std::memory_order_acquire);
-    }
-
     template <typename... Args>
     void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
     {
-        auto& ctx = Context::GetInstance();
+        auto& ctx = MainContext();
         const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
         if(state != EState::Shutdown) {
             ctx.m_ShutdownMessage->m_Location = msg.m_Location;
@@ -205,7 +287,7 @@ namespace Helena
     [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
     {;
         if(GetState() == EState::Shutdown) {
-            auto& ctx = Context::GetInstance();
+            auto& ctx = MainContext();
             const auto& msg = ctx.m_ShutdownMessage->m_Message;
             const auto& location = ctx.m_ShutdownMessage->m_Location;
             return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), msg);
@@ -215,29 +297,30 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
+    requires std::constructible_from<T, Args...>
     void Engine::RegisterSystem([[maybe_unused]] Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
-        Context::GetInstance().m_Systems.template Create<T>(std::forward<Args>(args)...);
+        MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasSystem() {
-        return Context::GetInstance().m_Systems.template Has<T...>();
+        return MainContext().m_Systems.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnySystem() {
-        return Context::GetInstance().m_Systems.template Any<T...>();
+        return MainContext().m_Systems.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetSystem() {
-        return Context::GetInstance().m_Systems.template Get<T...>();
+        return MainContext().m_Systems.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveSystem() {
-        Context::GetInstance().m_Systems.template Remove<T...>();
+        MainContext().m_Systems.template Remove<T...>();
     }
 
     template <typename Event, typename... Args>
@@ -268,7 +351,7 @@ namespace Helena
         using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
 
         SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
-            auto& ctx = Context::GetInstance();
+            auto& ctx = MainContext();
             if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
                 UnsubscribeEvent<Event>(storage.As<decltype(callback)>());
                 return;
@@ -290,7 +373,7 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SubscribeEvent(Callback&& callback, SignalFunctor&& fn)
     {
-        auto& ctx = Context::GetInstance();
+        auto& ctx = MainContext();
         if(!ctx.m_Events.template Has<Event>()) {
             ctx.m_Events.template Create<Event>();
         }
@@ -300,7 +383,7 @@ namespace Helena
             [callback = std::forward<Callback>(callback)](const auto& storage) {
                 return storage == callback;
         });
-        HELENA_ASSERT(empty, "Listener already registered!");
+        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>{});
 
         if(!empty) [[unlikely]] return;
         eventPool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
@@ -330,7 +413,7 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent(Event& event)
     {
-        auto& ctx = Context::GetInstance();
+        auto& ctx = MainContext();
         if(auto poolStorage = ctx.m_Events.GetStorage<Event>())
         {
             auto& eventPool = *poolStorage;
@@ -344,12 +427,12 @@ namespace Helena
                 }
             }
 
-            if constexpr(Traits::IsAnyOf<Event,
-                Events::Engine::Init,
-                Events::Engine::Config,
-                Events::Engine::Execute,
-                Events::Engine::Finalize,
-                Events::Engine::Shutdown>::value) {
+            if constexpr(Traits::AnyOf<Event,
+                Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
+                Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
+                Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
+                Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
+                Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
                 eventPool.clear();
             }
         }
@@ -374,7 +457,7 @@ namespace Helena
     template <typename Event, typename Comparator>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::UnsubscribeEvent(Comparator&& comparator) {
-        if(const auto poolStorage = Context::GetInstance().m_Events.GetStorage<Event>()) {
+        if(const auto poolStorage = MainContext().m_Events.GetStorage<Event>()) {
             if(const auto it = std::find_if(poolStorage->cbegin(), poolStorage->cend(), std::forward<Comparator>(comparator));
                 it != poolStorage->cend()) {
                 poolStorage->erase(it);

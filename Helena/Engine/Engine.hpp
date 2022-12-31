@@ -17,7 +17,6 @@
 #include <memory>
 #include <functional>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 namespace Helena
@@ -109,7 +108,10 @@ namespace Helena
             Callback m_Callback;
             Storage m_Storage;
         };
-        
+
+        template <typename...>
+        struct Signals {};
+
     public:
         //! Engine states
         enum class EState : std::uint8_t
@@ -123,20 +125,12 @@ namespace Helena
         class Context
         {
             friend class Engine;
-
             struct ShutdownMessage {
                 std::string m_Message;
                 Types::SourceLocation m_Location;
             };
 
             static constexpr auto DefaultTickrate = 1.f / 30.f;
-
-        protected:
-            template <typename T = Context>
-            static T& GetInstance() noexcept {
-                HELENA_ASSERT(m_Context, "Context not initilized");
-                return *static_cast<T*>(m_Context.get());
-            }
 
         public:
             Context() noexcept
@@ -161,78 +155,6 @@ namespace Helena
             Context& operator=(const Context&) = delete;
             Context& operator=(Context&&) noexcept = delete;
 
-            /**
-            * @brief Initialize context of Engine
-            * @tparam T Context type
-            * @tparam Args Types of arguments used to construct
-            * @param args Arguments for context initialization
-            * @note The context can be inherited
-            */
-            template <typename T = Context, typename... Args>
-            requires std::is_base_of_v<Context, T> && std::is_constructible_v<T, Args...>
-            static void Initialize([[maybe_unused]] Args&&... args) 
-            {
-                HELENA_ASSERT(!m_Context, "Context already initialized!");
-                m_Context = std::make_shared<T>(std::forward<Args>(args)...);
-                HELENA_ASSERT(m_Context, "Initialize Context failed!");
-
-                if(!m_Context->Main())
-                {
-                    constexpr const auto message = "Initialize Main of Context: {} failed!";
-                    if(m_Context->m_State.load(std::memory_order_acquire) != EState::Shutdown) {
-                        Shutdown(message, Traits::NameOf<T>{});
-                        return;
-                    }
-
-                    HELENA_MSG_FATAL(message, Traits::NameOf<T>{});
-                }
-            }
-
-            /**
-            * @brief Initialize the engine context for sharing between the executable and plugins
-            * @tparam T Context type
-            * @param ctx Context object for support shared memory and across boundary
-            * @note This overload is used to share the context object between the executable and plugins
-            */
-            template <typename T = Context>
-            requires std::is_base_of_v<Context, T>
-            static void Initialize(const std::shared_ptr<T>& ctx) noexcept {
-                HELENA_ASSERT(ctx, "Context is empty!");
-                HELENA_ASSERT(!m_Context || (ctx && m_Context == ctx), "Context already initialized!");
-                m_Context = ctx;
-            }
-
-            /**
-            * @brief Return a context object
-            * @tparam T Context type
-            * @return Return a shared pointer to a context object
-            */
-            template <typename T = Context>
-            requires std::is_base_of_v<Context, T>
-            [[nodiscard]] static std::shared_ptr<T> Get() noexcept {
-                HELENA_ASSERT(m_Context, "Context not initialized");
-                return std::static_pointer_cast<T>(m_Context);
-            }
-
-            /**
-            * @brief Set the update tickrate for the engine "Update" event
-            * @param tickrate Update frequency
-            * @note By default, 30 frames per second
-            */
-            static void SetTickrate(float tickrate) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
-            }
-
-            /**
-            * @brief Returns the current engine tickrate
-            * @return Tickrate in float
-            */
-            [[nodiscard]] static float GetTickrate() noexcept {
-                const auto& ctx = GetInstance();
-                return ctx.m_Tickrate;
-            }
-
         private:
             virtual bool Main() { return true; }
 
@@ -251,9 +173,16 @@ namespace Helena
             float m_TimeElapsed;
 
             std::atomic<Engine::EState> m_State;
-
-            inline static std::shared_ptr<Context> m_Context;
         };
+
+    private:
+        using ContextDeleter = void (*)(Context*);
+        using ContextStorage = std::unique_ptr<Context, ContextDeleter>;
+        inline static ContextStorage m_Context{nullptr, nullptr};
+
+        static void InitContext(ContextStorage context) noexcept;
+        [[nodiscard]] static bool HasContext() noexcept;
+        [[nodiscard]] static Context& MainContext() noexcept;
 
     private:
     #if defined(HELENA_PLATFORM_WIN)
@@ -269,19 +198,75 @@ namespace Helena
 
     public:
         /**
+        * @brief Initialize context of Engine
+        * @tparam T Context type
+        * @tparam Args Types of arguments used to construct
+        * @param args Arguments for context initialization
+        * @note The context can be inherited
+        */
+        template <std::derived_from<Engine::Context> T = Context, typename... Args>
+        requires std::constructible_from<T, Args...>
+        static void Initialize([[maybe_unused]] Args&&... args);
+
+        /**
+        * @brief Initialize the engine context for sharing between the executable and plugins
+        * @param ctx Context object for support shared memory and across boundary
+        * @note This overload is used to share the context object between the executable and plugins
+        */
+        static void Initialize(Context& ctx) noexcept;
+
+        /**
+        * @brief Get context of Engine
+        * @return Return a reference to context
+        */
+        template <std::derived_from<Engine::Context> T>
+        [[nodiscard]] static T& GetContext() noexcept;
+
+        /**
+        * @brief Return the current state of the engine
+        * @return EState state flag
+        */
+        [[nodiscard]] static EState GetState() noexcept;
+
+        /**
+        * @brief Set the update tickrate for the engine "Update" event
+        * @param tickrate Update frequency
+        * @note By default, 30 frames per second
+        */
+        static void SetTickrate(float tickrate) noexcept;
+
+        /**
+        * @brief Returns the current engine tickrate
+        * @return Tickrate in float
+        */
+        [[nodiscard]] static float GetTickrate() noexcept;
+
+        /**
+        * @brief Get time elapsed since Initialize
+        * @return Return a time elapsed since Initialize
+        */
+        [[nodiscard]] static std::uint64_t GetTimeElapsed() noexcept;
+
+        /**
         * @brief Heartbeat of the engine
-        * 
+        * @param sleepMS Sleep time in milliseconds
+        * @param accumulator Count of steps to reduce accumulated time in Update events
         * @code{.cpp}
         * while(Helena::Engine::Heartbeat()) {}
         * @endcode
         * 
         * @return True if successful or false if an error is detected or called shutdown
         * @note 
-        * You have to call heartbeat in a loop to keep the framework running
-        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep by 1 ms
+        * - Heartbeat: You have to call heartbeat in a loop to keep the framework running
+        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep.
         * The thread will not sleep if your operations consume a lot of CPU time
+        * - Accumulator: if your loop is too busy, then there may be an accumulation of delta time
+        * that cannot be repaid by a single Update call, which will cause more Update calls to
+        * follow immediately to reduce the accumulated time.
+        * It is not recommended to use a large value, your thread may get stuck in a loop.
+        * The correct solution is to offload the thread by finding a performance bottleneck.
         */
-        [[nodiscard]] static bool Heartbeat();
+        [[nodiscard]] static bool Heartbeat(std::size_t sleepMS = 1, std::uint8_t accumulator = 5);
 
         /**
         * @brief Check if the engine is currently running
@@ -289,12 +274,6 @@ namespace Helena
         * @note This function is similar to calling GetState() == EState::Init;
         */
         [[nodiscard]] static bool Running() noexcept;
-
-        /**
-        * @brief Return the current state of the engine
-        * @return EState state flag
-        */
-        [[nodiscard]] static EState GetState() noexcept;
 
         /**
         * @brief Shutdown the engine (thread safe)
@@ -335,6 +314,7 @@ namespace Helena
         * @param args Arguments for system initialization
         */
         template <typename T, typename... Args>
+        requires std::constructible_from<T, Args...>
         static void RegisterSystem([[maybe_unused]] Args&&... args);
 
         /**
