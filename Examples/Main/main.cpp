@@ -1,4 +1,5 @@
 ﻿#include <Helena/Helena.hpp>
+#include <Systems/PluginManager.hpp>
 
 class TestSystemA
 {
@@ -337,26 +338,26 @@ private:
     static void OnInit()
     {
         // Get current system AnimationManager
-        auto currentSystem = CurrentSystem();
+        auto& currentSystem = CurrentSystem();
 
         // Register subsystems in current system (look implementation inside SubsystemDesign)
-        currentSystem->RegisterSubsystem<AnimationSpline>();
-        currentSystem->RegisterSubsystem<AnimationSkeleton>();
+        currentSystem.RegisterSubsystem<AnimationSpline>();
+        currentSystem.RegisterSubsystem<AnimationSkeleton>();
 
         // Check the exist all of subsystems
-        if(currentSystem->HasSubsystem<AnimationSpline, AnimationSkeleton>()) {
+        if(currentSystem.HasSubsystem<AnimationSpline, AnimationSkeleton>()) {
             // OK: AnimationSpline and AnimationSkeleton exist
         }
 
         // Check the exist any of subsystems
-        if(currentSystem->AnySubsystem<AnimationSpline, AnimationSkeleton>()) {
+        if(currentSystem.AnySubsystem<AnimationSpline, AnimationSkeleton>()) {
             // OK: AnimationSpline or AnimationSkeleton exist
         }
 
         // Get reference to the some subsystem
-        auto& animationSpline = currentSystem->GetSubsystem<AnimationSpline>();
+        [[maybe_unused]] auto& animationSpline = currentSystem.GetSubsystem<AnimationSpline>();
         // or get multiple subsystems
-        const auto& [spline, skeleton] = currentSystem->GetSubsystem<AnimationSpline, AnimationSkeleton>();
+        [[maybe_unused]] const auto& [spline, skeleton] = currentSystem.GetSubsystem<AnimationSpline, AnimationSkeleton>();
 
 
         // it's example the functional paradigm (SomeFunc it's static method)
@@ -366,7 +367,7 @@ private:
         spline.NonStaticFunc();
 
         // Remove systems and destroy objects
-        currentSystem->RemoveSubsystem<AnimationSpline, AnimationSkeleton>();
+        currentSystem.RemoveSubsystem<AnimationSpline, AnimationSkeleton>();
     }
 };
 
@@ -374,7 +375,7 @@ void AnimationSpline::StaticFunc() {
     // CurrentSystem() used for get instance of AnimationManager (System) and after GetSubsystem for get "this"
     // Use this technique wisely, for example, in lambda functions you can get a win by omitting the need to capture this
     // this means that you don't need to store lambda anymore.
-    auto& self = CurrentSystem()->GetSubsystem<AnimationSpline>();
+    auto& self = CurrentSystem().GetSubsystem<AnimationSpline>();
     const auto value = self.m_Value;
 
     // for example lambda
@@ -399,32 +400,174 @@ private:
     // Main function called when you call Helena::Engine::Context::Initialize<MyContext>();
     bool Main() override
     {
-        SetTickrate(30.f);      // Same as Helena::Engine::Context::SetTickrate(30.f);
+        Helena::Engine::SetTickrate(30.f);
 
         // Register system's
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
 
         // Or Signals
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
-            HELENA_MSG_NOTICE("Hello from MyContext");
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PreInit");
         });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+            HELENA_MSG_NOTICE("Hello from Init");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PostInit");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreConfig>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PreConfig");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>(+[]() {
+            HELENA_MSG_NOTICE("Hello from Config");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostConfig>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PostConfig");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreExecute>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PreExecute");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute>(+[]() {
+            HELENA_MSG_NOTICE("Hello from Execute");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostExecute>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PostExecute");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick>(+[](Helena::Events::Engine::PreTick ev) {
+            HELENA_MSG_NOTICE("Hello from PreTick");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(+[](Helena::Events::Engine::Tick ev) {
+            HELENA_MSG_NOTICE("Hello from Tick");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick>(+[](Helena::Events::Engine::PostTick ev) {
+            HELENA_MSG_NOTICE("Hello from PostTick");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate>(+[](Helena::Events::Engine::PreUpdate ev) {
+            HELENA_MSG_NOTICE("Hello from PreUpdate");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>(+[](Helena::Events::Engine::Update ev) {
+            HELENA_MSG_NOTICE("Hello from Update");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>(+[](Helena::Events::Engine::PostUpdate ev) {
+            HELENA_MSG_NOTICE("Hello from PostUpdate");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender>(+[](Helena::Events::Engine::PreRender ev) {
+            HELENA_MSG_NOTICE("Hello from PreRender");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render>(+[](Helena::Events::Engine::Render ev) {
+            HELENA_MSG_NOTICE("Hello from Render");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender>(+[](Helena::Events::Engine::PostRender ev) {
+            HELENA_MSG_NOTICE("Hello from PostRender");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreFinalize>(+[](){
+            HELENA_MSG_NOTICE("Hello from PreFinalize");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(+[]() {
+            HELENA_MSG_NOTICE("Hello from Finalize");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostFinalize>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PostFinalize");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreShutdown>(+[](){
+            HELENA_MSG_NOTICE("Hello from PreShutdown");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+            HELENA_MSG_NOTICE("Hello from Shutdown");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostShutdown>(+[]() {
+            HELENA_MSG_NOTICE("Hello from PostShutdown");
+        });
+
+
+        /* Hot reload test
+        Helena::Engine::RegisterSystem<Helena::Systems::PluginManager>("D:\\Projects\\HelenaFramework\\Bin\\Bin");
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreLoad>(+[](Helena::Events::PluginManager::PreLoad ev) {
+            HELENA_MSG_INFO("Event PreLoad plugin: {}", ev.name);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostLoad>(+[](Helena::Events::PluginManager::PostLoad ev) {
+            HELENA_MSG_INFO("Event PostLoad plugin: {}, error: {}", ev.name, ev.error);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreReload>(+[](Helena::Events::PluginManager::PreReload ev) {
+            HELENA_MSG_INFO("Event PreReload plugin: {}", ev.name);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload>(+[](Helena::Events::PluginManager::PostReload ev) {
+            HELENA_MSG_INFO("Event PostReload plugin: {}, error: {}", ev.name, ev.error);
+        }
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload>(+[](Helena::Events::PluginManager::PreUnload ev) {
+            HELENA_MSG_INFO("Event PreUnload plugin: {}", ev.name);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostUnload>(+[](Helena::Events::PluginManager::PostUnload ev) {
+            HELENA_MSG_INFO("Event PostUnload plugin: {}", ev.name);
+        });
+
+        if(Helena::Systems::PluginManager::Load("HelenaPlugin")) {
+            HELENA_MSG_INFO("Plugin loaded!");
+        } else {
+            HELENA_MSG_ERROR("Plugin load failed!");
+        }
+
+        // hot reload test by scheduler
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]{
+            auto& self = Helena::Engine::GetContext<MyContext>();
+            HELENA_MSG_DEBUG("Task created");
+            self.m_Scheduler.Create(1, 20000, [](std::uint64_t id, std::uint64_t& time, std::uint32_t& repeat) {
+                HELENA_MSG_DEBUG("Reload plugin callback from scheduler called");
+                if(Helena::Systems::PluginManager::Reload("HelenaPlugin")) {
+                    HELENA_MSG_INFO("Plugin reloaded!");
+                } else {
+                    HELENA_MSG_ERROR("Plugin reload failed!");
+                }
+            });
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>(+[](Helena::Events::Engine::PostUpdate) {
+            Helena::Engine::GetContext<MyContext>().m_Scheduler.Update();
+        });
+        */
 
         // WARNING: You cannot pass a class method that is not static/raw function from a context or other classes that are not system classes.
         // Signals are mainly intended for class-systems.
         // But they also support lambdas without captures or static methods.
         // Believe me, this is enough to call a method of any class, let me demonstrate
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
-            // example #1 for get current context by reference
-            auto& context1 = MyContext::template GetInstance<MyContext>();
-            // example #2 for get current context by shared_ptr
-            auto context2 = MyContext::template Get<MyContext>();
-            // I recommend the first option as it is more efficient
+        //Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+        //    // example #1 for get current context by reference
+        //    auto& context1 = Helena::Engine::GetContext<MyContext>();
 
 
-            // Now just call our class method
-            context1.foo();
-        });
+        //    // Now just call our class method
+        //    context1.foo();
+        //});
 
         return true;    // true for "no error"
     }
@@ -432,14 +575,16 @@ private:
     void foo() {
         HELENA_MSG_NOTICE("Method: foo called");
     }
+
+    //Helena::Types::TaskScheduler m_Scheduler;
 };
 
 
 // First method of initialization framework
 void Initialization_by_default()
 {
-    Helena::Engine::Context::Initialize();                  // Initialize Context (Context used in Engine)
-    Helena::Engine::Context::SetTickrate(30.f);             // Set Update tickrate
+    Helena::Engine::Initialize();                  // Initialize Context (Context used in Engine)
+    Helena::Engine::SetTickrate(30.f);             // Set Update tickrate
 
     // Register system's
     Helena::Engine::RegisterSystem<TestSystemA>();
@@ -453,19 +598,19 @@ void Initialization_by_default()
 
 void Initialization_with_my_Context() {
     // Initialization with own Context, that call Main (if overrided)
-    Helena::Engine::Context::Initialize<MyContext>(/* args for constructor */);
-
+    Helena::Engine::Initialize<MyContext>(/* args for constructor */);
     // register system here or in your Context using `bool Main() override`
 }
 
 // TODO: test
 void test_allocators();
 
+
 int main(int argc, char** argv)
 {
     //Engine started from Initialize method
-    Initialization_by_default();            // default initialization
-    //Initialization_with_my_Context();     // initialization with own Context
+    //Initialization_by_default();          // default initialization
+    Initialization_with_my_Context();       // initialization with own Context
 
     example_systems();          // ok, here just example how use systems
     example_signals();          // here example with signals
