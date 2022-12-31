@@ -18,9 +18,9 @@ namespace Helena::Types
         ModernDesign& operator=(ModernDesign&&) noexcept = delete;
 
     protected:
-        [[nodiscard]] static T* CurrentSystem() {
-            const auto result = Helena::Engine::HasSystem<T>();
-            return result ? std::addressof(Helena::Engine::GetSystem<T>()) : nullptr;
+        [[nodiscard]] static T& CurrentSystem() {
+            HELENA_ASSERT(Engine::HasSystem<T>(), "System: {} not registered!", Traits::NameOf<T>{});
+            return Engine::GetSystem<T>();
         }
     };
 }
