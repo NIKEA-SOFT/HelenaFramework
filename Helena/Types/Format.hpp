@@ -128,9 +128,6 @@ namespace Helena::Types
     private:
         memory_buffer m_Buffer;
     };
-
-    template <std::size_t Size>
-    Format(const char(&)[Size]) -> Format<Size>;
 }
 
 #endif // HELENA_TYPES_FORMAT_HPP
