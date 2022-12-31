@@ -4,6 +4,7 @@
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/FNV1a.hpp>
 #include <Helena/Traits/AnyOf.hpp>
+#include <Helena/Traits/Specialization.hpp>
 
 namespace Helena::Types
 {
@@ -20,12 +21,7 @@ namespace Helena::Types
         using hash_type = Traits::FNV1a<T>;
         using value_type = T;
 
-        template <typename Iterator>
-        requires requires(Iterator it) {
-            ++it; *it;
-            it != it;
-            { static_cast<T>(*it) } -> std::same_as<T>;
-        }
+        template <std::input_iterator Iterator>
         [[nodiscard]] static constexpr auto Calculate(Iterator begin, const Iterator end) noexcept
         {
             auto value{hash_type::Offset};
@@ -68,6 +64,22 @@ namespace Helena::Types
         [[nodiscard]] static constexpr auto From() noexcept {
             return From(Helena::Traits::NameOf<Type>::Value);
         }
+    };
+
+    // Heterogeneous lookup
+    template <Traits::Specialization<std::basic_string> T>
+    requires requires(T str) {
+        { std::hash<std::basic_string_view<typename T::value_type>>{}(str) } -> std::convertible_to<std::size_t>;
+    }
+    struct Hasher<T> {
+        using char_type = typename T::value_type;
+        using string_view = std::basic_string_view<char_type>;
+        using hash_type = std::hash<string_view>;
+        using is_transparent = void;
+
+        [[nodiscard]] std::size_t operator()(const char_type* str) const { return hash_type{}(str); }
+        [[nodiscard]] std::size_t operator()(string_view str) const { return hash_type{}(str); }
+        [[nodiscard]] std::size_t operator()(const T& str) const { return hash_type{}(str); }
     };
 }
 
