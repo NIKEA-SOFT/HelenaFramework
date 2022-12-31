@@ -57,22 +57,7 @@ namespace Example01
 			m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
 			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
-			if(!::RegisterClassEx(&m_WindowClassEx)) {
-				HELENA_MSG_ERROR("RegisterClass window failure!");
-				return false;
-			}
-
-			SetTickrate(60.f);
-			SetWindowSize(960, 840);
-
-			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
-				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
-
-			if(!m_WindowHWND) {
-				HELENA_MSG_ERROR("CreateWindows failure!");
-				return false;
-			}
-
+			Helena::Engine::SetTickrate(60.f);
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
 				auto reason = Helena::Engine::ShutdownReason();
@@ -81,6 +66,19 @@ namespace Example01
 					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
 				}
 			});
+
+			if(!::RegisterClassEx(&m_WindowClassEx)) {
+				HELENA_MSG_ERROR("RegisterClass window failure!");
+				return false;
+			}
+
+			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
+				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
+
+			if(!m_WindowHWND) {
+				HELENA_MSG_ERROR("CreateWindows failure!");
+				return false;
+			}
 
 			::ShowWindow(m_WindowHWND, SW_SHOW);
 			::UpdateWindow(m_WindowHWND);
@@ -98,24 +96,21 @@ namespace Example01
 		}
 
 		static void SetWindowSize(std::int32_t width, std::int32_t height) {
-			auto& ctx = GetInstance<Application>();
+			auto& ctx = Helena::Engine::GetContext<Application>();
 			ctx.m_WindowWidth = width;
 			ctx.m_WindowHeight = height;
 		}
 
 		static void SetArgs(std::int32_t argc, char** argv) noexcept {
-			auto& ctx = GetInstance<Application>();
-			ctx.m_ArgsCount = argc;
+			Helena::Engine::GetContext<Application>().m_ArgsCount = argc;
 		}
 
 		[[nodiscard]] static const std::string_view GetArgs(std::uint32_t index) noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_Args[index];
+			return Helena::Engine::GetContext<Application>().m_Args[index];
 		}
 
 		[[nodiscard]] static std::uint32_t GetArgsCount() noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_ArgsCount;
+			return Helena::Engine::GetContext<Application>().m_ArgsCount;
 		}
 
 		[[nodiscard]] static std::string GetPath(const std::string& path) {
@@ -123,22 +118,20 @@ namespace Example01
 		}
 
 		[[nodiscard]] static const std::string& GetPathExec() noexcept {
-			auto& ctx = GetInstance<Application>();
+			auto& ctx = Helena::Engine::GetContext<Application>();
 			return !ctx.m_CurrentPath.empty() ? ctx.m_CurrentPath : ctx.m_CurrentPath = GetExecPath();
 		}
 
 		static void SetPathConfig(const std::string& path) {
-			auto& ctx = GetInstance<Application>();
-			ctx.m_ConfigPath = GetPathExec() + HELENA_SEPARATOR + path;
+			Helena::Engine::GetContext<Application>().m_ConfigPath = GetPathExec() + HELENA_SEPARATOR + path;
 		}
 
 		[[nodiscard]] static const std::string& GetPathConfig() noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_ConfigPath;
+			return Helena::Engine::GetContext<Application>().m_ConfigPath;
 		}
 
 		[[nodiscard]] static std::string GetPathConfig(const std::string& path) noexcept {
-			const auto& ctx = GetInstance<Application>();
+			const auto& ctx = Helena::Engine::GetContext<Application>();
 			HELENA_ASSERT(!ctx.m_ConfigPath.empty(), "Config path is empty!");
 			return ctx.m_ConfigPath + HELENA_SEPARATOR + path;
 		}

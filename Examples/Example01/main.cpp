@@ -14,7 +14,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 {
     // Engine started from Initialize method
     // Here used own Context
-    Helena::Engine::Context::Initialize<Example01::Application>(/*args for ctor...*/);
+    Helena::Engine::Initialize<Example01::Application>(/*args for ctor...*/);
 
     // Possible other syntax when used own context
     // Example01::Application::Initialize<Example01::Application>(/*args for ctor...*/);
