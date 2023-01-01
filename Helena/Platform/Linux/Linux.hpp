@@ -27,7 +27,8 @@
 	#define HELENA_API_IMPORT			__attribute__((visibility("default")))
 
 	#define HELENA_MODULE_HANDLE        void*
-	#define HELENA_MODULE_LOAD(a)       dlopen((a), RTLD_LAZY | RTLD_GLOBAL)
+	#define HELENA_MODULE_LOAD(a)		dlopen((a), RTLD_NOW)
+	#define HELENA_MODULE_ISLOAD(a)		dlopen((a), RTLD_NOW | RTLD_NOLOAD)
 	#define HELENA_MODULE_GETSYM(a, b)  dlsym(a, b)
 	#define HELENA_MODULE_UNLOAD(a)     dlclose(a)
 	#define HELENA_MODULE_EXTENSION     ".so"
