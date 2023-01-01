@@ -95,7 +95,7 @@
     #define HELENA_API_IMPORT           __declspec(dllimport)
 
     #define HELENA_MODULE_HANDLE        HINSTANCE
-    #define HELENA_MODULE_LOAD(a)       ::LoadLibraryExW(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)
+    #define HELENA_MODULE_LOAD(a)       ::LoadLibraryExA(a, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)
     #define HELENA_MODULE_GETSYM(a, b)  ::GetProcAddress(a, b)
     #define HELENA_MODULE_UNLOAD(a)     ::FreeLibrary(a)
     #define HELENA_MODULE_EXTENSION     ".dll"
