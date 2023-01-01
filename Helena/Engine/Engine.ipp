@@ -133,7 +133,14 @@ namespace Helena
     }
 
     inline void Engine::Initialize(Context& ctx) noexcept {
-        HELENA_ASSERT(!HasContext(), "Context already initialized!");
+    #if defined(HELENA_COMPILER_GCC)
+        // WARNING: For plugins compiled on GCC, you must provide the flag: -fno-gnu-unique
+        // Otherwise, false positives of the assert are possible.
+        HELENA_ASSERT(!HasContext(), "Context already initialized or compiler flag: -fno-gnu-unique not used!");
+    #else
+        HELENA_ASSERT(!HasContext(), "Context already initialized");
+    #endif
+
         InitContext(ContextStorage{std::addressof(ctx), +[](Context*){}});
     }
 
