@@ -28,5 +28,11 @@ source_group("Headers" FILES ${HELENA_APP_HEADERS})
 
 if(WIN32)
     set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
+elseif(UNIX)
+    set_target_properties(${HELENA_APP} PROPERTIES COMPILE_FLAGS "-fvisibility=hidden")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set_target_properties(${HELENA_APP} PROPERTIES COMPILE_FLAGS "-fno-gnu-unique")
+    endif()
 endif()
+
 target_link_libraries(${HELENA_APP} Helena::Helena)
