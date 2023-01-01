@@ -53,8 +53,10 @@ namespace Helena::Systems
         using EntryPoint = void (EState, Engine::Context&);
 
     public:
-        PluginManager(const std::filesystem::path& directory) : m_Directory{std::filesystem::absolute(directory)} {
+        PluginManager(const std::filesystem::path& directory) : m_Directory{directory}
+        {
             [[maybe_unused]] std::error_code err;
+            m_Directory = std::filesystem::absolute(std::filesystem::canonical(m_Directory, err));
             HELENA_ASSERT(std::filesystem::is_directory(directory, err),
                 "Path: \"{}\" is not directory, error: {}, message: {}", m_Directory.string(), err.value(), err.message());
 
@@ -93,7 +95,7 @@ namespace Helena::Systems
             auto pluginPath = self.m_Directory / plugin; plugin.resize(plugin.size() - (sizeof(HELENA_MODULE_EXTENSION) - 1 /*null*/));
             if(!std::filesystem::is_regular_file(pluginPath, err)) {
                 HELENA_MSG_ERROR("Plugin: \"{}\" plugin not found, error: {}, message: {}",
-                    self.m_Directory.string(), err.value(), err.message());
+                    pluginPath.string(), err.value(), err.message());
                 return false;
             }
 
@@ -106,7 +108,7 @@ namespace Helena::Systems
                 }
             }
 
-            const auto handle = LoadPlugin(pluginPath.c_str());
+            const auto handle = LoadPlugin(pluginPath.string());
             HELENA_ASSERT(handle != nullptr, "Load plugin: \"{}\" failed", pluginPath.string());
             if(!handle) {
                 std::filesystem::remove(pluginPath, err);
@@ -131,18 +133,17 @@ namespace Helena::Systems
         static void Unload(std::string_view pluginName)
         {
             auto& self = CurrentSystem();
-            const auto it = self.m_Plugins.find(pluginName);
-            if(it == self.m_Plugins.cend()) {
-                HELENA_MSG_WARNING("Plugin: \"{}\" not loaded, unload failed", pluginName);
+            if(const auto it = self.m_Plugins.find(pluginName); it != self.m_Plugins.cend()) {
+                Engine::SignalEvent<Events::PluginManager::PreUnload>(pluginName);
+                PluginMain(it->second, EState::Unload);
+                UnloadPlugin(it->second);
+                RemovePlugin((self.m_Directory / pluginName) += m_Extension);
+                self.m_Plugins.erase(it);
+                Engine::SignalEvent<Events::PluginManager::PostUnload>(pluginName);
                 return;
             }
 
-            Engine::SignalEvent<Events::PluginManager::PreUnload>(pluginName);
-            PluginMain(it->second, EState::Unload);
-            UnloadPlugin(it->second);
-            RemovePlugin((self.m_Directory / pluginName) += m_Extension);
-            self.m_Plugins.erase(it);
-            Engine::SignalEvent<Events::PluginManager::PostUnload>(pluginName);
+            HELENA_MSG_WARNING("Plugin: \"{}\" not loaded, unload failed", pluginName);
         }
 
         [[nodiscard]] static bool Reload(std::string_view pluginName)
@@ -191,7 +192,7 @@ namespace Helena::Systems
             return nullptr;
         }
 
-        static auto LoadPlugin(std::wstring_view plugin) -> HELENA_MODULE_HANDLE {
+        static auto LoadPlugin(std::string_view plugin) -> HELENA_MODULE_HANDLE {
             return static_cast<HELENA_MODULE_HANDLE>(HELENA_MODULE_LOAD(plugin.data()));
         }
 
