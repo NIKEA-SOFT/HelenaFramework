@@ -8,10 +8,10 @@ namespace Example01
 		{
 			std::string path;
 
-		#ifdef HELENA_PLATFORM_WIN
+		#if defined(HELENA_PLATFORM_WIN)
 			path.resize(MAX_PATH);
 			(void)GetModuleFileNameA(nullptr, path.data(), MAX_PATH);
-		#elif HELENA_PLATFORM_LINUX
+		#elif defined(HELENA_PLATFORM_LINUX)
 			path.resize(PATH_MAX);
 			(void)readlink("/proc/self/exe", path.data(), PATH_MAX);
 		#endif
