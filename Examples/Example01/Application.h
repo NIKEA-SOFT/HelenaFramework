@@ -57,7 +57,7 @@ namespace Example01
 			m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
 			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
-			Helena::Engine::SetTickrate(60.f);
+			Helena::Engine::SetTickrate(60.);
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
 				auto reason = Helena::Engine::ShutdownReason();

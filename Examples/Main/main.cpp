@@ -54,7 +54,7 @@ public:
     // Therefore, we cannot ignore it, as it was with OnInit, OnConfig, OnExecute
     void OnTick(const Helena::Events::Engine::Tick event) {
         // // You can uncomment this line, but it is called too often
-        //HELENA_MSG_DEBUG("EngineTick: {:.4f}", event.deltaTime);
+        HELENA_MSG_DEBUG("EngineTick: {:.6f}", event.deltaTime);
     }
 
     // This event is called with a fixed step (but after OnTick)
@@ -62,13 +62,13 @@ public:
     // It describes all the events of the engine, yes, these are just types
     void OnUpdate(const Helena::Events::Engine::Update event) {
         // You can uncomment this line, but it is called too often
-        //HELENA_MSG_DEBUG("EngineUpdate: {:.4f}", event.fixedTime);
+        HELENA_MSG_DEBUG("EngineUpdate: {:.6f}", event.fixedTime);
     }
 
     // This event is called every tick
     void OnRender(const Helena::Events::Engine::Render event) {
         // You can uncomment this line, but it is called too often
-        //HELENA_MSG_DEBUG("EngineRender: {:.4f}", event.deltaTime);
+        HELENA_MSG_DEBUG("EngineRender: alhpa: {:.6f}, delta: {:.6f}", event.alpha, event.deltaTime);
     }
 
     // This event is called when the Engine shutdown
@@ -521,7 +521,7 @@ private:
 
         Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload>(+[](Helena::Events::PluginManager::PostReload ev) {
             HELENA_MSG_INFO("Event PostReload plugin: {}, error: {}", ev.name, ev.error);
-        }
+        });
 
         Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload>(+[](Helena::Events::PluginManager::PreUnload ev) {
             HELENA_MSG_INFO("Event PreUnload plugin: {}", ev.name);
@@ -583,8 +583,8 @@ private:
 // First method of initialization framework
 void Initialization_by_default()
 {
-    Helena::Engine::Initialize();                  // Initialize Context (Context used in Engine)
-    Helena::Engine::SetTickrate(30.f);             // Set Update tickrate
+    Helena::Engine::Initialize();                   // Initialize Context (Context used in Engine)
+    Helena::Engine::SetTickrate(30.);               // Set Update tickrate
 
     // Register system's
     Helena::Engine::RegisterSystem<TestSystemA>();
@@ -604,7 +604,6 @@ void Initialization_with_my_Context() {
 
 // TODO: test
 void test_allocators();
-
 
 int main(int argc, char** argv)
 {

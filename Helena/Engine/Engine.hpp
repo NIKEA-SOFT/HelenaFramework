@@ -168,12 +168,14 @@ namespace Helena
             std::uint64_t m_TimeNow;
             std::uint64_t m_TimePrev;
 
-            float m_Tickrate;
-            float m_TimeDelta;
-            float m_TimeElapsed;
+            double m_Tickrate;
+            double m_TimeDelta;
+            double m_TimeElapsed;
 
             std::atomic<Engine::EState> m_State;
         };
+
+        static constexpr auto wtf = sizeof(Context);
 
     private:
         using ContextDeleter = void (*)(Context*);
@@ -233,13 +235,13 @@ namespace Helena
         * @param tickrate Update frequency
         * @note By default, 30 frames per second
         */
-        static void SetTickrate(float tickrate) noexcept;
+        static void SetTickrate(double tickrate) noexcept;
 
         /**
         * @brief Returns the current engine tickrate
         * @return Tickrate in float
         */
-        [[nodiscard]] static float GetTickrate() noexcept;
+        [[nodiscard]] static double GetTickrate() noexcept;
 
         /**
         * @brief Get time elapsed since Initialize

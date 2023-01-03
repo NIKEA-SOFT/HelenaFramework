@@ -153,11 +153,11 @@ namespace Helena
         return MainContext().m_State.load(std::memory_order_acquire);
     }
 
-    inline void Engine::SetTickrate(float tickrate) noexcept {
-        MainContext().m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
+    inline void Engine::SetTickrate(double tickrate) noexcept {
+        MainContext().m_Tickrate = 1. / (std::max)(tickrate, 1.);
     }
 
-    [[nodiscard]] inline float Engine::GetTickrate() noexcept {
+    [[nodiscard]] inline double Engine::GetTickrate() noexcept {
         return MainContext().m_Tickrate;
     }
 
@@ -194,7 +194,7 @@ namespace Helena
             {
                 ctx.m_TimePrev  = ctx.m_TimeNow;
                 ctx.m_TimeNow   = GetTickTime();
-                ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.f;
+                ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.;
                 ctx.m_TimeElapsed += ctx.m_TimeDelta;
 
                 signal.operator()(Signals<

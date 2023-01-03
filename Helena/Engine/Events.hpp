@@ -19,22 +19,22 @@ namespace Helena::Events::Engine
 
 
     struct PreTick {
-        float deltaTime;
+        double deltaTime;
     };
     struct Tick : PreTick {};
     struct PostTick : PreTick {};
 
 
     struct PreUpdate {
-        float fixedTime;
+        double fixedTime;
     };
     struct Update : PreUpdate {};
     struct PostUpdate : PreUpdate {};
 
 
     struct PreRender {
-        float alpha;
-        float deltaTime;
+        double alpha;
+        double deltaTime;
     };
     struct Render : PreRender {};
     struct PostRender : PreRender {};
