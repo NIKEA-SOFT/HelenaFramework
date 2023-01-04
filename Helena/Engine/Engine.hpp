@@ -175,8 +175,6 @@ namespace Helena
             std::atomic<Engine::EState> m_State;
         };
 
-        static constexpr auto wtf = sizeof(Context);
-
     private:
         using ContextDeleter = void (*)(Context*);
         using ContextStorage = std::unique_ptr<Context, ContextDeleter>;
