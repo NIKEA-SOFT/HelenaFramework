@@ -14,7 +14,7 @@ namespace Helena::Types
     template <typename UniqueKey, std::size_t Capacity = sizeof(double)>
     class VectorAny final
     {
-        using AnyType = Types::Any<Capacity, alignof(max_align_t)>;
+        using AnyType = Types::Any<Capacity, __STDCPP_DEFAULT_NEW_ALIGNMENT__>;
 
     public:
         VectorAny() : m_TypeIndexer{}, m_Storage{} {}
