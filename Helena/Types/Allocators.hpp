@@ -1,14 +1,15 @@
 #ifndef HELENA_TYPES_ALLOCATORS_HPP
 #define HELENA_TYPES_ALLOCATORS_HPP
 
-#include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 
+#include <bit>
 #include <limits>
 #include <memory>
 #include <new>
+#include <utility>
 
 namespace Helena::Types
 {
@@ -58,14 +59,12 @@ namespace Helena::Types
         void* AllocateMemory(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
             HELENA_ASSERT(IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
             alignment = PowerOf2(alignment);
-            HELENA_MSG_MEMORY("Memory alloc: {} bytes, {} alignment!", bytes, alignment);
             return Allocate(bytes, alignment);
         }
 
         void FreeMemory(void* ptr, std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
             HELENA_ASSERT(IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
             alignment = PowerOf2(alignment);
-            HELENA_MSG_MEMORY("Memory free: {} bytes, {} alignment!", bytes, alignment);
             Free(ptr, bytes, alignment);
         }
 
@@ -91,6 +90,28 @@ namespace Helena::Types
             return ++alignment;
         }
 
+        [[nodiscard]] static void* Align(void* ptr, std::size_t& space, std::size_t size, std::size_t alignment) {
+            const auto distance = AlignDistance(ptr, alignment);
+            const bool conditions[]{space < distance, (space - distance) < size};
+            void* const results[]{std::bit_cast<std::byte*>(ptr) + distance, nullptr};
+            const auto hasError = conditions[0] | conditions[1];
+            space -= (distance * !hasError);
+            return results[hasError];
+        }
+
+        [[nodiscard]] static void* AlignForward(void* ptr, std::size_t alignment) noexcept {
+            HELENA_ASSERT(IsPowerOf2(alignment), "Alignment requirements are not met.");
+            return std::bit_cast<void*>((std::bit_cast<std::uintptr_t>(ptr) + alignment - 1) & ~(alignment - 1));
+        }
+
+        [[nodiscard]] static std::size_t AlignDistance(void* ptr, void* alignedPtr) noexcept {
+            return std::bit_cast<std::uintptr_t>(ptr) - std::bit_cast<std::uintptr_t>(alignedPtr);
+        }
+
+        [[nodiscard]] static std::size_t AlignDistance(void* ptr, std::size_t alignment) noexcept {
+            return AlignDistance(ptr, AlignForward(ptr, alignment));
+        }
+
         [[nodiscard]] bool operator==(const IMemoryResource& other) const noexcept {
             return this == &other && Equal(other);
         }
@@ -109,9 +130,12 @@ namespace Helena::Types
     public:
         using IMemoryResource::IMemoryResource;
 
+        [[nodiscard]] static IMemoryResource* Get() noexcept;
+
     private:
         void* Allocate(std::size_t bytes, std::size_t alignment) override
         {
+            HELENA_MSG_MEMORY("Allocate memory bytes: {}, alignment: {}", bytes, alignment);
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
                 return ::operator new(bytes, std::align_val_t{alignment});
             }
@@ -121,6 +145,7 @@ namespace Helena::Types
 
         void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
         {
+            HELENA_MSG_MEMORY("Free memory bytes: {}, alignment: {}", bytes, alignment);
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
                 return ::operator delete(ptr, std::align_val_t{alignment});
             }
@@ -133,29 +158,85 @@ namespace Helena::Types
         }
     };
 
+    [[nodiscard]] inline IMemoryResource* DefaultAllocator::Get() noexcept {
+        static DefaultAllocator allocator{};
+        return &allocator;
+    }
+
+    template <std::size_t Stack>
+    class StackAllocator : public IMemoryResource {
+    public:
+        StackAllocator() = default;
+        ~StackAllocator() = default;
+        explicit StackAllocator(IMemoryResource* const upstreamResource) noexcept : m_UpstreamResource{upstreamResource} {}
+        StackAllocator(const StackAllocator&) = default;
+        StackAllocator(StackAllocator&&) noexcept = default;
+        StackAllocator& operator=(const StackAllocator&) = default;
+        StackAllocator& operator=(StackAllocator&&) noexcept = default;
+
+        [[nodiscard]] IMemoryResource* UpstreamResource() const noexcept {
+            return m_UpstreamResource;
+        }
+
+        [[nodiscard]] std::size_t Size() const noexcept {
+            return Stack - m_Capacity;
+        }
+
+        [[nodiscard]] static constexpr std::size_t Capacity() noexcept {
+            return Stack;
+        }
+
+    private:
+        void* Allocate(std::size_t bytes, std::size_t alignment) override
+        {
+            HELENA_ASSERT(IsPowerOf2(alignment), "Alignment requirements are not met.");
+            if(const auto address = Align(m_Buffer + Size(), m_Capacity, bytes, alignment)) {
+                return m_Capacity -= bytes, address;
+            }
+
+            return m_UpstreamResource->AllocateMemory(bytes, alignment);
+        }
+
+        void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
+        {
+            if(std::cmp_less(std::bit_cast<std::uintptr_t>(ptr), std::bit_cast<std::uintptr_t>(static_cast<void*>(m_Buffer))) ||
+                std::cmp_greater_equal(std::bit_cast<std::uintptr_t>(ptr), std::bit_cast<std::uintptr_t>(m_Buffer + Stack))) {
+                m_UpstreamResource->FreeMemory(ptr, bytes, alignment);
+            }
+        }
+
+        bool Equal(const IMemoryResource& other) const noexcept override {
+            return this == &other;
+        }
+
+    private:
+        std::byte m_Buffer[Stack];
+        std::size_t m_Capacity{Stack};
+        IMemoryResource* m_UpstreamResource{DefaultAllocator::Get()};
+    };
 
     template <typename T = std::byte>
-    class IMemoryAllocator
+    class MemoryAllocator final
     {
         template <typename>
-        friend class IMemoryAllocator;
+        friend class MemoryAllocator;
 
     public:
         using value_type = T;
 
-        IMemoryAllocator() noexcept = default;
-        IMemoryAllocator(IMemoryResource* const resource) noexcept : m_Resource{resource} {
+        MemoryAllocator() noexcept = default;
+        MemoryAllocator(IMemoryResource* const resource) noexcept : m_Resource{resource} {
             HELENA_ASSERT(resource != nullptr, "Resource pointer cannot be nullptr");
         }
 
-        IMemoryAllocator(const IMemoryAllocator&) = default;
+        MemoryAllocator(const MemoryAllocator&) = default;
 
         template <typename Other>
-        IMemoryAllocator(const IMemoryAllocator<Other>& allocator) noexcept : m_Resource{allocator.m_Resource} {
+        MemoryAllocator(const MemoryAllocator<Other>& allocator) noexcept : m_Resource{allocator.m_Resource} {
             HELENA_ASSERT(allocator.m_Resource, "Resource pointer cannot be nullptr");
         }
 
-        IMemoryAllocator& operator=(const IMemoryAllocator&) = delete;
+        MemoryAllocator& operator=(const MemoryAllocator&) = delete;
 
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
         #ifdef HELENA_PLATFORM_WIN
@@ -246,11 +327,11 @@ namespace Helena::Types
 
         template <typename U>
         void delete_object(U* const ptr) noexcept {
-            std::allocator_traits<IMemoryAllocator>::destroy(*this, ptr);
+            std::allocator_traits<MemoryAllocator>::destroy(*this, ptr);
             deallocate_object(ptr);
         }
 
-        [[nodiscard]] IMemoryAllocator select_on_container_copy_construction() const noexcept {
+        [[nodiscard]] MemoryAllocator select_on_container_copy_construction() const noexcept {
             return {};
         }
 
@@ -259,14 +340,14 @@ namespace Helena::Types
         }
 
         template <typename U>
-        [[nodiscard]] IMemoryAllocator& operator==(const IMemoryAllocator<U>& other) const noexcept {
+        [[nodiscard]] MemoryAllocator& operator==(const MemoryAllocator<U>& other) const noexcept {
             HELENA_ASSERT(m_Resource, "Memory resource is nullptr");
             HELENA_ASSERT(other.m_Resource, "Memory resource is nullptr");
             return *m_Resource == *other.m_Resource;
         }
 
         template <typename U>
-        [[nodiscard]] IMemoryAllocator& operator!=(const IMemoryAllocator<U>& other) const noexcept {
+        [[nodiscard]] MemoryAllocator& operator!=(const MemoryAllocator<U>& other) const noexcept {
             return !(*this == other);
         }
 
