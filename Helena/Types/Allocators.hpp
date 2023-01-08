@@ -216,7 +216,7 @@ namespace Helena::Types
     };
 
     template <typename T = std::byte>
-    class MemoryAllocator final
+    class MemoryAllocator
     {
         template <typename>
         friend class MemoryAllocator;
