@@ -197,7 +197,7 @@ namespace Helena
                 ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.;
                 ctx.m_TimeElapsed += ctx.m_TimeDelta;
 
-                signal.operator()(Signals<
+                signal(Signals<
                     Events::Engine::PreInit,
                     Events::Engine::Init,
                     Events::Engine::PostInit,
@@ -209,7 +209,7 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
-                signal.operator()(Signals<
+                signal(Signals<
                     Events::Engine::PreTick,
                     Events::Engine::Tick,
                     Events::Engine::PostTick
@@ -218,14 +218,14 @@ namespace Helena
                 std::uint32_t accumulated{};
                 while(ctx.m_TimeElapsed >= ctx.m_Tickrate && accumulated++ < accumulator) {
                     ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    signal.operator()(Signals<
+                    signal(Signals<
                         Events::Engine::PreUpdate,
                         Events::Engine::Update,
                         Events::Engine::PostUpdate
                     >{}, ctx.m_Tickrate);
                 }
 
-                signal.operator()(Signals<
+                signal(Signals<
                     Events::Engine::PreRender,
                     Events::Engine::Render,
                     Events::Engine::PostRender
@@ -241,7 +241,7 @@ namespace Helena
 
             case Engine::EState::Shutdown: [[unlikely]]
             {
-                signal.operator()(Signals<
+                signal(Signals<
                     Events::Engine::PreFinalize,
                     Events::Engine::Finalize,
                     Events::Engine::PostFinalize,
