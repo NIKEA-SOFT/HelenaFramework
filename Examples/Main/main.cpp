@@ -391,6 +391,10 @@ void AnimationSpline::NonStaticFunc() {
     // Nop
 }
 
+struct BenchEvent {
+    std::size_t Value;
+};
+
 // Second method of intialization, using own Context
 class MyContext : public Helena::Engine::Context
 {
@@ -626,12 +630,14 @@ int main(int argc, char** argv)
 // TODO: Wrapper's for containers in Helena with allocators
 void test_allocators()
 {
-    using String = std::basic_string<char, std::char_traits<char>, Helena::Types::IMemoryAllocator<char>>;
-    using Vector = std::vector<String, Helena::Types::IMemoryAllocator<String>>;
+    using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
+    using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    Helena::Types::DefaultAllocator allocator;
-    Vector vec_of_string{&allocator};
+    Helena::Types::StackAllocator<4096> stack;
+    Vector vec_of_string{&stack}; vec_of_string.reserve(10);
 
-    vec_of_string.emplace_back("long message for got allocation", &allocator);
-    vec_of_string.emplace_back("long message for got allocation", &allocator);
+    vec_of_string.emplace_back("long message for got allocation", &stack);
+    vec_of_string.emplace_back("long message for got allocation", &stack);
+    vec_of_string.emplace_back("long message for got allocation", &stack);
+    vec_of_string.emplace_back("long message for got allocation", &stack);
 }
