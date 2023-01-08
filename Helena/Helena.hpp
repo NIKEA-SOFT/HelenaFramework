@@ -58,6 +58,7 @@
 #include <Helena/Types/Monostate.hpp>
 #include <Helena/Types/Mutex.hpp>
 #include <Helena/Types/ReferencePointer.hpp>
+#include <Helena/Types/RWLock.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Types/Spinlock.hpp>
 #include <Helena/Types/StateMachine.hpp>
