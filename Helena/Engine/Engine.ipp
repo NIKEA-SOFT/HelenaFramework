@@ -307,26 +307,41 @@ namespace Helena
     requires std::constructible_from<T, Args...>
     void Engine::RegisterSystem([[maybe_unused]] Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
         MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasSystem() {
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
         return MainContext().m_Systems.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnySystem() {
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
         return MainContext().m_Systems.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetSystem() {
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
         return MainContext().m_Systems.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveSystem() {
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
         MainContext().m_Systems.template Remove<T...>();
     }
 

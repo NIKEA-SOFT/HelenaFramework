@@ -8,6 +8,9 @@
 #include <Helena/Traits/Cacheline.hpp>
 #include <Helena/Traits/Remove.hpp>
 #include <Helena/Traits/SameAs.hpp>
+#if defined(HELENA_THREADSAFE_SYSTEMS)
+    #include <Helena/Types/Spinlock.hpp>
+#endif
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
@@ -143,6 +146,9 @@ namespace Helena
                 , m_Tickrate{DefaultTickrate}
                 , m_TimeDelta{}
                 , m_TimeElapsed{}
+            #if defined(HELENA_THREADSAFE_SYSTEMS)
+                , m_LockSystems{}
+            #endif
                 , m_State{EState::Undefined} {}
 
             virtual ~Context() {
@@ -172,6 +178,9 @@ namespace Helena
             double m_TimeDelta;
             double m_TimeElapsed;
 
+        #if defined(HELENA_THREADSAFE_SYSTEMS)
+            Types::Spinlock m_LockSystems;
+        #endif
             std::atomic<Engine::EState> m_State;
         };
 
