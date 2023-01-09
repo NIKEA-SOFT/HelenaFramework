@@ -68,6 +68,7 @@
 #include <Helena/Types/TaskScheduler.hpp>
 #include <Helena/Types/TimeSpan.hpp>
 #include <Helena/Types/TSVector.hpp>
+#include <Helena/Types/UndefinedContainer.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
