@@ -2,61 +2,65 @@
 
 ---
 
-# Introduction  
+## Introduction  
 
 `HelenaFramework` is a header-only, tiny and easy to use library for backend/frontend programming and much more written in **modern C++ 20**  
 
-# Description    
-``Background``  
-I was looking for solutions for developing game-oriented server applications, but most of the frameworks that I found did not meet my requirements, namely: flexibility, scalability, performance and cross-platform.
-A lot of what I found (frameworks) looked pretty good, at least they were frameworks, but I can't say that they were good frameworks, this is because I saw the performance gaps that developers make.
-After spending some time getting to know these frameworks, testing them, I came to the realization that if I want to get something really convenient and at the same time fast, then I have to do it myself.
-Of course, I wanted to save time, like all of you, because that's why you're here, right? But often we do not think about what we use. How often do you look at the implementation of the libraries that you plan to use in your project? I guess not very often. Most likely, you only look at the documentation or header files, but definitely do not conduct code reviews to evaluate how good the library is for your project.
-That is why a popular library does not mean a good library. A good library is STL or boost, but even using them incorrectly can lead to additional performance costs. For me, performance has always been and will always come first.  
-Therefore, I developed this framework primarily for myself, but I initially wanted to make it available to the community and therefore its architecture is so flexible. You can use it from scratch or integrate it into an existing project.
+## Description  
+Сollection of types aimed at solving everyday general-purpose tasks.   
+The framework itself provides the following features:
+- `Context` is the basic data structure that underlies the framework.  
+The context is used to store systems, signal and other fields.  
+The developer does not have access to the context fields, but you can inherit from it.  
+Also, the context serves to support across boundary.  
+- `Systems` (classes) are a set of classes following the principle of one class - one logic.  
+A similar approach is often practiced in the Gamedev direction, for example,  
+you may have a RenderingSystem that will take on the role of rendering-related tasks,  
+as well as a NetworkSystem that will deal with the network.  
+It is important to understand that the systems I am writing are not tied to the framework.  
+If you see a class (system), then most likely the framework itself does not need it to work.  
+All systems are separate logical elements, you connect only those that you need to solve your tasks.  
+- `Signals` are a simple and convenient mechanism for exchanging information between systems and functions.  
+Using signals, you can achieve a good code architecture and reduce dependency in the code.  
+- `Support across boundary.`  
+In short, it itself is an opportunity to use shared data between an executable process and dynamic libraries.  
+The framework itself does not provide the ability to load dynamic libraries (plugins), but it is focused on their support.  
+For more information, see the system: PluginManager (plugin support: load, unload, hot reload).  
+- `Ready-made sets` of types, traits and util functions.  
 
-Okay, after reading all of this, we might be wondering, what problems does this framework solve?  
-To answer this question, you first need to figure out what the framework is, let's figure it out.  
-The whole project consists of directories:  
-- `Helena`:  
-   - `Dependencies` fmt  
-   - `Engine` signals, systems, across bounadry  
-   - `Platform` cross-platform, macros, assert  
-   - `Traits` meta-headers
-   - `Types` ready-to-use types: Any, DateTime, RefPtr, StateMachine and other...  
-   - `Util` cast's, sleep, format, string length functions  
-Helena.hpp - Includes all headers in one file.  
+Above I have listed the main features thanks to which you get flexibility, scalability and high performance.  
+Using these mechanisms wisely, you can achieve the following results: write efficient code with minimal dependencies,  
+get rid of spaghetti code, get scalability and flexibility.  
 
-Now that we have a rough idea, we can already guess that the Engine takes on most of the work, and everything else is just ready-made tools for everyday tasks.  
-The engine itself gives us architecturally correct code, allowing us to write loosely coupled code between logical parts of the project.  
-This really allows you to write more universal code and thus not spend a lot of time refactoring in the future.  
-The engine itself does not give us anything to solve specific problems, it may seem strange, why do we need a engine that does not know how to do anything?
-In fact, the engine plays a key role, it is the engine that allows you to get type indexing even if you use dll/so and allows you to access systems
-from anywhere and moreover, we can simply connect these system classes and get additional logic in our project.  
-I didn't specifically use the OOP design so that you could feel how flexible it can be and not costly in terms of performance.  
-Why is the architecture exactly like this? Because we can expand it as we like and use only what is required by a particular developer.  
-Imagine that I only need a network, in this case, I can just take a ready-made system that is already available in the repository
-and just register it inside the framework, it's very simple. I made the engine flexible exactly so that in the future I could supply
-any logic without having to change the engine and moreover, I don't need to supply different systems to the developer if he needs only network system.  
-I have already implemented a small set of ready-made systems that you can already get and use.
-If at the moment there is no system to solve your problem, then just write it and I will add it to the repository
-so that other developers can use it and not waste time on it next time.  
-It's great, isn't it?
-If you have read this to the end, then take a look at the small example below, and also be sure to look in the Examples folder.  
+In my free time, I will also develop new systems to solve certain kinds of tasks.  
+So that you can save your time and simply connect these systems or plugins with one call.  
 
-P.S.: You can click on the text `Systems`.
-# [Systems](https://github.com/NIKEA-SOFT/HelenaSystems)  
+Status: Ready to use, but still developing.
 
-The Systems are classes that implement specific logic.  
-Systems can register and throw signals to interact with other systems.  
+## Features  
 
-# Features  
+* Header only
+* High Performance
+* Scalable and Flexible
+* Cross-Platform
+* Clean and Friendly API
 
-* Header only  
-* Cross-platform  
-* High performance  
-* Scalable and flexible  
-* Friendly API  
+## Platforms
+- Windows
+- Linux
+
+Other systems have not been tested or are not supported.
+
+## Compilers
+- Windows: MSVC, Clang
+- Linux: Clang, GCC
+
+| Compiler | Required flags |
+| ------ | ------ |
+| GCC | [-fno-gnu-unique](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) |
+| MSVC | [/Zc:preprocessor](https://learn.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-170) |
+
+Other compilers have not been tested.  
 
 ## Code Example
 ```cpp
@@ -124,11 +128,11 @@ public:
 int main(int argc, char** argv)
 {
     // Framework Initialize with default context
-    // Helena::Engine::Context::Initialize();
+    // Helena::Engine::Initialize();
 
     // or we can use own context:
     // class MyContext : public Helena::Engine::Context {}
-    Helena::Engine::Context::Initialize<MyContext>(/*args for ctor...*/);
+    Helena::Engine::Initialize<MyContext>(/*args for ctor...*/);
 
     // After initialization, we can register systems or listen for signals
     // You can register and remove systems anywhere
@@ -140,3 +144,7 @@ int main(int argc, char** argv)
     return 0;
 }
 ```
+
+## How to build
+- Use CMake
+- Use any build system (it's header only)
