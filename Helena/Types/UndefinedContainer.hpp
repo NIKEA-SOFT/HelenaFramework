@@ -20,8 +20,8 @@ namespace Helena::Types
 
         template <typename T>
         [[nodiscard]] static constexpr auto AlignmentOf() noexcept {
-            constexpr auto alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-            constexpr auto alignment_type = alignof(T);
+            constexpr std::size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+            constexpr std::size_t alignment_type = alignof(T);
             return std::align_val_t{(std::max)(alignment, alignment_type)};
         }
 
