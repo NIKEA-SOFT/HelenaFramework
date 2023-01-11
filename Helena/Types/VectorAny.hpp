@@ -71,7 +71,7 @@ namespace Helena::Types
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>{});
                 HELENA_ASSERT(m_Storage[index].template Equal<T...>(), "Type: {} type mismatch!", Traits::NameOf<T...>{});
 
-                return m_Storage[index].template Get<T...>();
+                return m_Storage[index].template Ref<T...>();
             } else {
                 return std::forward_as_tuple(Get<T>()...);
             }
@@ -89,7 +89,7 @@ namespace Helena::Types
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>{});
                 HELENA_ASSERT(m_Storage[index].template Equal<T...>(), "Type: {} type mismatch!", Traits::NameOf<T...>{});
 
-                return m_Storage[index].template Get<T...>();
+                return m_Storage[index].template Ref<T...>();
             } else {
                 return std::forward_as_tuple(Get<T>()...);
             }
