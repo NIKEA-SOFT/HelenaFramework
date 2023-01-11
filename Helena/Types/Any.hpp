@@ -8,6 +8,7 @@
 #include <Helena/Platform/Assert.hpp>
 
 #include <cstddef>
+#include <bit>
 #include <memory>
 #include <new>
 #include <utility>
@@ -169,6 +170,9 @@ namespace Helena::Types
     public:
         using hash_type = Hash<std::uint64_t>;
 
+        template <typename T>
+        static constexpr auto HashOf = hash_type::template From<T>();
+
     private:
         template<typename Type>
         static constexpr bool in_situ = Len && alignof(Type) <= alignof(Storage) && sizeof(Type) <= sizeof(Storage) && std::is_nothrow_move_constructible_v<Type>;
@@ -180,7 +184,7 @@ namespace Helena::Types
             const Type* element = nullptr;
 
             if constexpr(in_situ<Type>) {
-                element = value.Owner() ? reinterpret_cast<const Type*>(&value.storage) : static_cast<const Type*>(value.instance);
+                element = value.Owner() ? std::bit_cast<const Type*>(&value.storage) : static_cast<const Type*>(value.instance);
             } else {
                 element = static_cast<const Type*>(value.instance);
             }
@@ -245,7 +249,7 @@ namespace Helena::Types
             if constexpr(!std::is_void_v<Type>)
             {
                 vtable = VTableHandler<ValueType>;
-                key = hash_type::template From<ValueType>();
+                key = HashOf<ValueType>;
 
                 if constexpr(std::is_lvalue_reference_v<Type>) {
                     static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
@@ -282,7 +286,7 @@ namespace Helena::Types
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
-            , key{hash_type::template From<void>()}
+            , key{HashOf<void>}
             , vtable{}
             , mode{EPolicy::Owner} {}
 
@@ -466,7 +470,7 @@ namespace Helena::Types
                 vtable(EOperation::Destroy, *this, nullptr);
             }
 
-            key = hash_type::template From<void>();
+            key = HashOf<void>;
             vtable = nullptr;
             mode = EPolicy::Owner;
         }
@@ -475,7 +479,7 @@ namespace Helena::Types
          * @brief Returns false if a wrapper is empty, true otherwise.
          * @return False if the wrapper is empty, true otherwise.
          */
-        [[nodiscard]] explicit operator bool() const noexcept {
+        [[nodiscard]] operator bool() const noexcept {
             return vtable != nullptr;
         }
 
@@ -496,12 +500,12 @@ namespace Helena::Types
          * @brief Aliasing constructor.
          * @return A wrapper that shares a reference to an unmanaged object.
          */
-        [[nodiscard]] Any AsRef() noexcept {
+        [[nodiscard]] Any Ref() noexcept {
             return Any{*this, (mode == EPolicy::CRef ? EPolicy::CRef : EPolicy::Ref)};
         }
 
         /*! @copydoc as_ref */
-        [[nodiscard]] Any AsRef() const noexcept {
+        [[nodiscard]] Any Ref() const noexcept {
             return Any{*this, EPolicy::CRef};
         }
 
@@ -518,8 +522,8 @@ namespace Helena::Types
         * @return True if hash of T and hash of current object are equal, false otherwise.
         */
         template <typename T>
-        [[nodiscard]] bool EqualHash() const noexcept {
-            return key == hash_type::template From<std::remove_cvref_t<T>>();
+        [[nodiscard]] bool Equal() const noexcept {
+            return key == HashOf<std::remove_cvref_t<T>>;
         }
 
     private:
@@ -588,7 +592,7 @@ namespace Helena::Types
     /*! @copydoc AnyCast */
     template<typename Type, std::size_t Len, std::size_t Align>
     const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::hash_type::template From<std::remove_cvref_t<Type>>();
+        constexpr auto key = Any<>::HashOf<std::remove_cvref_t<Type>>;
         return static_cast<const Type*>(data->Data(key));
     }
 
@@ -599,7 +603,7 @@ namespace Helena::Types
           // last attempt to make wrappers for const references return their values
           return AnyCast<Type>(&std::as_const(*data));
       } else {
-          constexpr auto key = Any<>::hash_type::template From<std::remove_cvref_t<Type>>();
+          constexpr auto key = Any<>::HashOf<std::remove_cvref_t<Type>>;
           return static_cast<Type*>(data->Data(key));
       }
     }
