@@ -11,7 +11,7 @@
 
 namespace Helena::Types
 {
-    template <typename UniqueKey, std::size_t Capacity = sizeof(double)>
+    template <typename UniqueKey>
     class VectorAny final
     {
     public:

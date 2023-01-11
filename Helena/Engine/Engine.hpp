@@ -165,7 +165,7 @@ namespace Helena
             virtual bool Main() { return true; }
 
         private:
-            Types::VectorAny<UKSystems, Traits::Cacheline> m_Systems;
+            Types::VectorAny<UKSystems> m_Systems;
             Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
 
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
