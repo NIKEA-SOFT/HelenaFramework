@@ -1,5 +1,6 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Systems/PluginManager.hpp>
+#include <Systems/ResourceManager.hpp>
 
 class TestSystemA
 {
@@ -391,10 +392,6 @@ void AnimationSpline::NonStaticFunc() {
     // Nop
 }
 
-struct BenchEvent {
-    std::size_t Value;
-};
-
 // Second method of intialization, using own Context
 class MyContext : public Helena::Engine::Context
 {
@@ -409,6 +406,39 @@ private:
         // Register system's
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
+
+
+        /*
+        struct MyResource {
+            std::size_t value;
+        };
+
+        Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>();
+
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>>(+[]() {
+            HELENA_MSG_NOTICE("PreCreate");
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>>(+[](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
+            HELENA_MSG_NOTICE("PostCreate {}", ev.resource.value);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>>(+[](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
+            HELENA_MSG_NOTICE("PreRemove {}", ev.resource.value);
+        });
+
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>>(+[]() {
+            HELENA_MSG_NOTICE("PostRemove");
+        });
+
+        Helena::Systems::ResourceManager::Create<MyResource>(100);
+        [[maybe_unused]] auto has_result = Helena::Systems::ResourceManager::Has<MyResource>();
+        [[maybe_unused]] auto any_result = Helena::Systems::ResourceManager::Any<MyResource, int>();
+        [[maybe_unused]] auto& resource = Helena::Systems::ResourceManager::Get<MyResource>();
+        Helena::Systems::ResourceManager::Remove<MyResource>();
+
+        Helena::Engine::RemoveSystem<Helena::Systems::ResourceManager>();
+        */
 
         // Or Signals
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit>(+[]() {
