@@ -167,7 +167,6 @@ namespace Helena::Types
         void* Allocate(std::size_t bytes, std::size_t alignment) override {
             HELENA_MSG_FATAL("Allocate memory bytes: {}, alignment: {} failed, buffer overflowed!", bytes, alignment);
             throw std::bad_alloc{};
-            return nullptr;
         }
 
         void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override {}
