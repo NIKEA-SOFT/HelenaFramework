@@ -62,7 +62,7 @@ namespace Helena::Types
             return Allocate(bytes, alignment);
         }
 
-        void FreeMemory(void* ptr, std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
+        void FreeMemory(void* ptr, std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) noexcept {
             HELENA_ASSERT(IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
             alignment = PowerOf2(alignment);
             Free(ptr, bytes, alignment);
@@ -72,6 +72,15 @@ namespace Helena::Types
             return Equal(other);
         }
 
+        [[nodiscard]] bool operator==(const IMemoryResource& other) const noexcept {
+            return this == &other && Equal(other);
+        }
+
+        [[nodiscard]] bool operator!=(const IMemoryResource& other) const noexcept {
+            return !operator==(other);
+        }
+
+    protected:
         [[nodiscard]] static bool IsPowerOf2(std::size_t alignment) noexcept {
             return alignment && !(alignment & (alignment - 1));
         }
@@ -92,11 +101,10 @@ namespace Helena::Types
 
         [[nodiscard]] static void* Align(void* ptr, std::size_t& space, std::size_t size, std::size_t alignment) {
             const auto distance = AlignDistance(ptr, alignment);
-            const bool conditions[]{space < distance, (space - distance) < size};
-            void* const results[]{std::bit_cast<std::byte*>(ptr) + distance, nullptr};
-            const auto hasError = conditions[0] | conditions[1];
-            space -= (distance * !hasError);
-            return results[hasError];
+            const auto success = space >= (distance + size);
+            const auto result = std::bit_cast<void*>(std::bit_cast<std::uintptr_t>(ptr) * success + distance * success);
+            space -= distance * success;
+            return result;
         }
 
         [[nodiscard]] static void* AlignForward(void* ptr, std::size_t alignment) noexcept {
@@ -105,24 +113,16 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static std::size_t AlignDistance(void* ptr, void* alignedPtr) noexcept {
-            return std::bit_cast<std::uintptr_t>(ptr) - std::bit_cast<std::uintptr_t>(alignedPtr);
+            return std::bit_cast<std::uintptr_t>(alignedPtr) - std::bit_cast<std::uintptr_t>(ptr);
         }
 
         [[nodiscard]] static std::size_t AlignDistance(void* ptr, std::size_t alignment) noexcept {
             return AlignDistance(ptr, AlignForward(ptr, alignment));
         }
 
-        [[nodiscard]] bool operator==(const IMemoryResource& other) const noexcept {
-            return this == &other && Equal(other);
-        }
-
-        [[nodiscard]] bool operator!=(const IMemoryResource& other) const noexcept {
-            return !operator==(other);
-        }
-
     private:
         virtual void* Allocate(std::size_t bytes, std::size_t alignment) = 0;
-        virtual void Free(void* ptr, std::size_t bytes, std::size_t alignment) = 0;
+        virtual void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept = 0;
         virtual bool Equal(const IMemoryResource& other) const noexcept = 0;
     };
 
@@ -143,7 +143,7 @@ namespace Helena::Types
             return ::operator new(bytes);
         }
 
-        void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
+        void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override
         {
             HELENA_MSG_MEMORY("Free memory bytes: {}, alignment: {}", bytes, alignment);
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
@@ -158,10 +158,23 @@ namespace Helena::Types
         }
     };
 
-    [[nodiscard]] inline IMemoryResource* DefaultAllocator::Get() noexcept {
-        static DefaultAllocator allocator{};
-        return &allocator;
-    }
+    class NulledAllocator : public IMemoryResource {
+    public:
+        using IMemoryResource::IMemoryResource;
+
+        [[nodiscard]] static IMemoryResource* Get() noexcept;
+    private:
+        void* Allocate(std::size_t bytes, std::size_t alignment) override {
+            HELENA_MSG_FATAL("Allocate memory bytes: {}, alignment: {} failed, buffer overflowed!", bytes, alignment);
+            throw std::bad_alloc{};
+            return nullptr;
+        }
+
+        void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override {}
+        bool Equal(const IMemoryResource& other) const noexcept override {
+            return this == &other;
+        }
+    };
 
     template <std::size_t Stack>
     class StackAllocator : public IMemoryResource {
@@ -197,7 +210,7 @@ namespace Helena::Types
             return m_UpstreamResource->AllocateMemory(bytes, alignment);
         }
 
-        void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
+        void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override
         {
             if(std::cmp_less(std::bit_cast<std::uintptr_t>(ptr), std::bit_cast<std::uintptr_t>(static_cast<void*>(m_Buffer))) ||
                 std::cmp_greater_equal(std::bit_cast<std::uintptr_t>(ptr), std::bit_cast<std::uintptr_t>(m_Buffer + Stack))) {
@@ -210,7 +223,10 @@ namespace Helena::Types
         }
 
     private:
-        std::byte m_Buffer[Stack];
+        union {
+            std::byte m_Empty{};
+            std::byte m_Buffer[Stack];
+        };
         std::size_t m_Capacity{Stack};
         IMemoryResource* m_UpstreamResource{DefaultAllocator::Get()};
     };
@@ -363,5 +379,15 @@ namespace Helena::Types
     private:
         IMemoryResource* m_Resource;
     };
+
+    [[nodiscard]] inline IMemoryResource* DefaultAllocator::Get() noexcept {
+        static constinit DefaultAllocator allocator{};
+        return &allocator;
+    }
+
+    [[nodiscard]] inline IMemoryResource* NulledAllocator::Get() noexcept {
+        static constinit NulledAllocator allocator{};
+        return &allocator;
+    }
 }
 #endif // HELENA_TYPES_STACKALLOCATOR_HPP
