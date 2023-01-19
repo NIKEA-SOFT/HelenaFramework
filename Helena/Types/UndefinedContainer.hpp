@@ -27,14 +27,14 @@ namespace Helena::Types
 
     private:
         template <typename T, typename... Args>
-        [[nodiscard]] static constexpr void Placement(T* const ptr, Args&&... args) {
+        static constexpr void Placement(T* const ptr, Args&&... args) {
             if constexpr(std::constructible_from<T, Args...>) {
                 std::construct_at(ptr, std::forward<Args>(args)...);
             } else if constexpr(requires {T{std::forward<Args>(args)...};}) {
                 new (ptr) T{std::forward<Args>(args)...};
             } else []<auto Asserted = true>{
                 static_assert(!Asserted, "T not constructible from args pack");
-            };
+            }();
         }
 
         template <typename T, typename... Args>
@@ -63,11 +63,11 @@ namespace Helena::Types
             switch(op)
             {
                 case EOperation::Copy: {
-                    if constexpr(std::is_copy_constructible_v<T> || std::is_trivially_copy_constructible_v<T>) {
+                    if constexpr(std::is_copy_constructible_v<T>) {
                         ptr->m_Data = Construct<T>(*static_cast<T*>(other->m_Data));
                         ptr->m_VTable = other->m_VTable;
                         ptr->m_Hash = other->m_Hash;
-                    }
+                    } else HELENA_ASSERT(std::is_copy_constructible_v<T> == true, "Type: {} is not copy constructible!", Traits::NameOf<T>{});
                 } break;
 
                 case EOperation::Move: {
@@ -80,22 +80,16 @@ namespace Helena::Types
                 {
                     if(ptr->m_Hash == other->m_Hash)
                     {
-                        if constexpr(std::is_copy_assignable_v<T> || std::is_trivially_copy_assignable_v<T>) {
+                        if constexpr(std::is_copy_assignable_v<T>) {
                             *static_cast<T*>(ptr->m_Data) = *static_cast<T*>(other->m_Data);
-                        } else if constexpr(std::is_copy_constructible_v<T> || std::is_trivially_copy_constructible_v<T>) {
-                            Placement(static_cast<T*>(ptr->m_Data), *static_cast<T*>(other->m_Data));
-                        } else []<auto Asserted = true>{
-                            static_assert(!Asserted, "T is not copy assignable and not copy constructible");
-                        };
+                        } else HELENA_ASSERT(std::is_copy_assignable_v<T> == true, "Type: {} is not copy assignable!", Traits::NameOf<T>{});
+                    } else {
+                        if(ptr->m_VTable) {
+                            ptr->m_VTable(EOperation::Delete, ptr, nullptr);
+                        }
 
-                        return;
+                        other->m_VTable(EOperation::Copy, ptr, other);
                     }
-
-                    if(ptr->m_VTable) {
-                        ptr->m_VTable(EOperation::Delete, ptr, nullptr);
-                    }
-
-                    other->m_VTable(EOperation::Copy, ptr, other);
                 } break;
 
                 case EOperation::Transfer: {
@@ -109,6 +103,9 @@ namespace Helena::Types
                 } break;
 
                 case EOperation::Delete: {
+                    if constexpr(std::is_destructible_v<T>) {
+                        static_cast<T*>(ptr->m_Data)->~T();
+                    }
                     ::operator delete(ptr->m_Data, AlignmentOf<T>());
                     ptr->m_Data = nullptr;
                     ptr->m_VTable = nullptr;
