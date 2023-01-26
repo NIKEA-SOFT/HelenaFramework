@@ -2,56 +2,95 @@
 #define HELENA_TYPES_STATEMACHINE_HPP
 
 #include <Helena/Traits/AnyOf.hpp>
+#include <Helena/Traits/Overloads.hpp>
 
 #include <variant>
 #include <utility>
 
 namespace Helena::Types
 {
+    template <typename... States>
+    requires (std::is_class_v<States> && ...)
     class StateMachine
     {
-    public:
-        struct NoState {};
+        struct NoState {
+            void operator()(const NoState&) const noexcept {}
+        };
 
         template <typename... T>
-        using States = std::variant<NoState, T...>;
+        using FSMStates = std::variant<NoState, States...>;
 
     public:
-        StateMachine() noexcept = delete;
-        ~StateMachine() noexcept = delete;
-        StateMachine(const StateMachine&) = delete;
-        StateMachine(StateMachine&&) noexcept = delete;
-        StateMachine& operator=(const StateMachine&) = delete;
-        StateMachine& operator=(StateMachine&&) noexcept = delete;
+        StateMachine() = default;
+        ~StateMachine() = default;
+        StateMachine(const StateMachine&) = default;
+        StateMachine(StateMachine&&) noexcept = default;
+        StateMachine& operator=(const StateMachine&) = default;
+        StateMachine& operator=(StateMachine&&) noexcept = default;
 
-        template <typename State, typename... T, typename... Args>
-        requires Traits::AnyOf<State, T...> && std::is_constructible_v<State, Args...>
-        static constexpr void ChangeState(States<T...>& fsm, [[maybe_unused]] Args&&... args) noexcept(noexcept(
-            fsm.template emplace<State>(std::forward<Args>(args)...))) {
-            fsm.template emplace<State>(std::forward<Args>(args)...);
+        template <typename State, typename... Args>
+        requires (Traits::AnyOf<State, States...> && std::is_constructible_v<State, Args...>)
+        constexpr void SetState(Args&&... args)
+            noexcept(std::is_nothrow_constructible_v<State, Args...>) {
+            m_States.template emplace<State>(std::forward<Args>(args)...);
         }
 
-        template <typename State, typename... T>
-        requires Traits::AnyOf<State, T...>
-        [[nodiscard]] static constexpr bool CurrentState(States<T...>& fsm) noexcept {
-            return std::holds_alternative<State>(fsm);
+        template <typename... Fn>
+        constexpr void Visit(Fn&&... visitor) const noexcept {
+            std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
 
-        template <typename... T>
-        static constexpr void ResetState(States<T...>& fsm) noexcept {
-            fsm.template emplace<NoState>();
+        template <typename... Fn>
+        constexpr void Visit(Fn&&... visitor) noexcept {
+            std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
 
-        template <typename Dispatcher, typename... T>
-        static constexpr void Dispatch(States<T...>& fsm) {
-            std::visit([&fsm](auto& state) {
-                if constexpr(!std::is_same_v<std::remove_cvref_t<decltype(state)>, NoState>) {
-                    static_assert(std::is_invocable_v<Dispatcher, decltype(fsm), decltype(state)>,
-                        "Dispatcher does not support the operator() or state is not lvalue reference");
-                    Dispatcher{}(fsm, state);
+        template <typename T>
+        requires Traits::AnyOf<T, States...>
+        [[nodiscard]] constexpr auto GetIf() const noexcept {
+            return std::get_if<T>(&m_States);
+        }
+
+        template <typename T>
+        requires Traits::AnyOf<T, States...>
+        [[nodiscard]] constexpr auto GetIf() noexcept {
+            return std::get_if<T>(&m_States);
+        }
+
+        template <typename State>
+        requires Traits::AnyOf<State, States...>
+        [[nodiscard]] constexpr bool HasState() const noexcept {
+            return std::holds_alternative<State>(m_States);
+        }
+
+        [[nodiscard]] constexpr bool HasState() const noexcept {
+            return !std::holds_alternative<NoState>(m_States);
+        }
+
+        template <typename... State>
+        requires (sizeof...(State) > 1 && (Traits::AnyOf<State, States...> && ...))
+        [[nodiscard]] constexpr bool AnyState() const noexcept {
+            return (HasState<State>() || ...);
+        }
+
+        constexpr void ResetState() noexcept {
+            m_States.template emplace<NoState>();
+        }
+
+        template <typename Dispatcher>
+        requires (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+        constexpr void Dispatch() const {
+            std::visit([self = const_cast<StateMachine*>(this)](auto& state) {
+                if constexpr(!std::is_same_v<std::decay_t<decltype(state)>, NoState>) {
+                    static_assert(std::is_invocable_v<Dispatcher, StateMachine&, decltype(state)>,
+                        "Dispatcher does not support the operator(StateMachine<States...>&, State&)");
+                    Dispatcher{}(*self, state);
                 }
-            }, fsm);
+            }, const_cast<FSMStates<States...>&>(m_States));
         }
+
+    private:
+        FSMStates<States...> m_States;
     };
 }
 
