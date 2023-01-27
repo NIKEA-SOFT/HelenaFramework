@@ -29,7 +29,7 @@ For more information, see the system: PluginManager (plugin support: load, unloa
 - `Ready-made sets` of types, traits and util functions.  
 
 Above I have listed the main features thanks to which you get flexibility, scalability and high performance.  
-Using these mechanisms wisely, you can achieve the following results: write efficient code with minimal dependencies,  
+Using these mechanisms wisely, you can achieve the following results: write efficient code with minimal dependencies, 
 get rid of spaghetti code, get scalability and flexibility.  
 
 In my free time, I will also develop new systems to solve certain kinds of tasks.  
