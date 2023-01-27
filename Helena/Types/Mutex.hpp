@@ -35,7 +35,7 @@ namespace Helena::Types
         }
 
         void Unlock() noexcept {
-            m_Lock.clear(std::memory_order_relaxed);
+            m_Lock.clear(std::memory_order_release);
             m_Lock.notify_one();
         }
 
