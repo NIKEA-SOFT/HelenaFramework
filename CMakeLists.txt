@@ -8,6 +8,8 @@ option(HELENA_FLAG_TEST             "Build and run test"    OFF)
 option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
 option(HELENA_FLAG_COVERAGE         "GCC/Clang coverage"    OFF)
 option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
+option(HELENA_FLAG_VIEW_HELENA      "Helena folder show in target project" ON)
+option(HELENA_FLAG_BIN_DIR          "Enable bin directory of object and binary files" ON)
 
 #|--------------------------------
 #| Set default build type
@@ -46,14 +48,21 @@ set(HELENA_PROJECT_NAME ${PROJECT_NAME})
 set(HELENA_PROJECT_VERSION ${PROJECT_VERSION})
 set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 
+if(CMAKE_VERSION VERSION_LESS 3.21)
+  get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
+  if(NOT not_top)
+    set(PROJECT_IS_TOP_LEVEL true)
+  endif()
+endif()
+
 #|--------------------------------
 #| Helena Framework Configuration
 #|--------------------------------
-set(HELENA_PROJECT_DIR ${CMAKE_SOURCE_DIR})
-set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
+set(HELENA_PROJECT_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(HELENA_PROJECT_BIN_DIR ${CMAKE_SOURCE_DIR}/Bin)
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
 
-set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
+
 if(DEFINED CMAKE_BUILD_TYPE)
     if(CMAKE_BUILD_TYPE IN_LIST HELENA_SUPPORTED_BUILD_TYPES)
         set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
@@ -63,9 +72,8 @@ if(DEFINED CMAKE_BUILD_TYPE)
     endif()
 endif()
 
-message(STATUS "Helena Binary Dir: ${HELENA_PROJECT_OUTDIR}")
+message(STATUS "Helena Binary Dir: ${HELENA_PROJECT_BIN_DIR}")
 message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${CMAKE_CXX_STANDARD}] [${CMAKE_BUILD_TYPE}]")
-
 
 #|---------------------------------------------
 #| Helena Framework Interface target and alias
@@ -76,6 +84,30 @@ add_library(Helena::Helena ALIAS Helena)
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
+
+if(NOT PROJECT_IS_TOP_LEVEL)
+    if(HELENA_FLAG_VIEW_HELENA)
+        macro(HELENA_FUNCTION_SOURCE_GROUP SourceFiles ConcatDir)
+            foreach(FILE ${SourceFiles})
+                get_filename_component(ABSOLUTE_PATH ${FILE} ABSOLUTE)
+                get_filename_component(PARENT_DIR ${ABSOLUTE_PATH} DIRECTORY)
+
+                string(REPLACE ${ConcatDir} "" GROUP ${PARENT_DIR})
+                string(REPLACE "/" "\\" GROUP ${GROUP})
+                string(REGEX REPLACE "^(\\\\)" "" GROUP ${GROUP})
+                source_group(TREE ${ConcatDir} PREFIX ${GROUP} FILES ${FILE})
+            endforeach()
+        endmacro()
+
+        file(GLOB_RECURSE HELENA_PROJECT_HEADERS
+            ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.h
+            ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.hpp
+            ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.ipp)
+        HELENA_FUNCTION_SOURCE_GROUP("${HELENA_PROJECT_HEADERS}" "${HELENA_PROJECT_DIR}")
+        target_sources(Helena INTERFACE ${HELENA_PROJECT_HEADERS})
+    endif()
+endif()
+
 target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR})
 if(HELENA_FLAG_USE_BUNDLED_DEPS)
     target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
@@ -108,15 +140,17 @@ else()
     message(FATAL_ERROR "Current platform is not supported!")
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
+if(HELENA_FLAG_BIN_DIR)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
 
-link_directories(${HELENA_PROJECT_OUTDIR})
+    link_directories(${HELENA_PROJECT_BIN_DIR})
+endif()
 
 #|--------------------------------
 #| Build with test
