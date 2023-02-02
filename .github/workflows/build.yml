@@ -1,5 +1,4 @@
 name: Build
-
 on: [push]
 
 jobs:
@@ -24,6 +23,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: true
       - name: Install compiler
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
@@ -34,16 +35,14 @@ jobs:
       - name: Configure
         env:
           CXX: ${{ matrix.binary }}
-        run: |
-          cmake . -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+        run:  cmake . -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
       - name: Build
-        run: |
-          cmake --build Build
+        run:  cmake --build Build
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
-          path: ${{ github.workspace }}/Bin/Bin/HelenaMain
+          path: ${{ github.workspace }}/Bin/HelenaMain
           if-no-files-found: error
   windows:
     name: "Windows"
@@ -60,25 +59,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: true
       - name: Enable Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1.10.0
+        uses: ilammy/msvc-dev-cmd@v1.12.0
       - name: Configure
-        run: |
-          cmake -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
+        run:  cmake -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
       - name: Build
-        run: |
-          cmake --build Build --config ${{ matrix.build }}
+        run:  cmake --build Build --config ${{ matrix.build }}
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
-          path: ${{ github.workspace }}/Bin/Bin/HelenaMain.exe
+          path: ${{ github.workspace }}/Bin/HelenaMain.exe
           if-no-files-found: error
-
-
-
-
-
-
-
-
