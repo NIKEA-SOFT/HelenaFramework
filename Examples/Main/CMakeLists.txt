@@ -35,4 +35,20 @@ elseif(UNIX)
     endif()
 endif()
 
+file(GLOB_RECURSE HELENA_PROJECT_HEADERS
+    ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.h
+    ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.hpp
+    ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/*.ipp)
+
+foreach(FILE ${HELENA_PROJECT_HEADERS})
+    get_filename_component(ABSOLUTE_PATH ${FILE} ABSOLUTE)
+    get_filename_component(PARENT_DIR ${ABSOLUTE_PATH} DIRECTORY)
+
+    string(REPLACE ${HELENA_PROJECT_DIR} "" GROUP ${PARENT_DIR})
+    string(REPLACE "/" "\\" GROUP ${GROUP})
+    string(REGEX REPLACE "^(\\\\)" "" GROUP ${GROUP})
+    source_group(${GROUP} FILES ${FILE})
+endforeach()
+
+target_sources(${HELENA_APP} PRIVATE ${HELENA_PROJECT_HEADERS})
 target_link_libraries(${HELENA_APP} Helena::Helena)
