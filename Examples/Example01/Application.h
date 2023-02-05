@@ -1,4 +1,7 @@
-﻿#include <Helena/Engine/Engine.hpp>
+﻿#ifndef APPLICATION_HPP
+#define APPLICATION_HPP
+
+#include <Helena/Engine/Engine.hpp>
 
 namespace Example01
 {
@@ -155,3 +158,5 @@ namespace Example01
 		std::uint32_t m_ArgsCount{};
     };
 }
+
+#endif // APPLICATION_HPP
