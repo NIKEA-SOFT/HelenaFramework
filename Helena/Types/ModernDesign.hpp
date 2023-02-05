@@ -22,6 +22,10 @@ namespace Helena::Types
             HELENA_ASSERT(Engine::HasSystem<T>(), "System: {} not registered!", Traits::NameOf<T>{});
             return Engine::GetSystem<T>();
         }
+
+        [[nodiscard]] static bool HasSystem() {
+            return Engine::HasSystem<T>();
+        }
     };
 }
 
