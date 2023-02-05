@@ -32,30 +32,29 @@ namespace Helena
     {
         const auto dateTime = Types::DateTime::FromLocalTime();
         const auto dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
-            dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
-            dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
+                                dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
+                                dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
-        const HANDLE hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ|GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-            NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        const auto hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
         if(!hFile || hFile == INVALID_HANDLE_VALUE) {
-            Log::Console<Log::Exception>("Create file for dump failed, error: {}", GetLastError());
+            HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
             return EXCEPTION_EXECUTE_HANDLER;
         }
 
-        const HANDLE hProcess = ::GetCurrentProcess();
-        const DWORD processId = ::GetProcessId(hProcess);
-        const MINIDUMP_TYPE flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
-        MINIDUMP_EXCEPTION_INFORMATION exceptionInfo {
+        const auto hProcess     = ::GetCurrentProcess();
+        const auto processId    = ::GetProcessId(hProcess);
+        const auto flag         = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
+        auto exceptionInfo      = MINIDUMP_EXCEPTION_INFORMATION {
             .ThreadId = ::GetCurrentThreadId(),
             .ExceptionPointers = pException,
             .ClientPointers = TRUE
         };
 
-        const BOOL result = ::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, NULL, NULL);
-        if(!result) {
+        if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
             (void)::DeleteFileA(dumpName.c_str());
-            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", GetLastError());
+            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", ::GetLastError());
         } else {
             HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName);
         }
@@ -104,7 +103,7 @@ namespace Helena
             : ::GetTickCount64();
 #else
         struct timeval te;
-        ::gettimeofday(&te, NULL);
+        ::gettimeofday(&te, nullptr);
         std::uint64_t ms = te.tv_sec * 1000LL + te.tv_usec / 1000;
 #endif
         return ms;
@@ -112,7 +111,7 @@ namespace Helena
 
     template <std::derived_from<Engine::Context> T, typename... Args>
     requires std::constructible_from<T, Args...>
-    void Engine::Initialize([[maybe_unused]] Args&&... args)
+    void Engine::Initialize(Args&&... args)
     {
         HELENA_ASSERT(!HasContext(), "Context already initialized!");
         InitContext(ContextStorage{new (std::nothrow) T, +[](Context* ctx) {
@@ -145,7 +144,7 @@ namespace Helena
     }
 
     template <std::derived_from<Engine::Context> T>
-    [[nodiscard]] inline T& Engine::GetContext() noexcept {
+    [[nodiscard]] T& Engine::GetContext() noexcept {
         return static_cast<T&>(MainContext());
     }
 
@@ -281,7 +280,7 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
+    void Engine::Shutdown(const Types::LocationString& msg, Args&&... args)
     {
         auto& ctx = MainContext();
         const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
@@ -305,7 +304,7 @@ namespace Helena
 
     template <typename T, typename... Args>
     requires std::constructible_from<T, Args...>
-    void Engine::RegisterSystem([[maybe_unused]] Args&&... args) {
+    void Engine::RegisterSystem(Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
     #if defined(HELENA_THREADSAFE_SYSTEMS)
         const std::lock_guard lock{MainContext().m_LockSystems};
@@ -347,7 +346,7 @@ namespace Helena
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::SubscribeEvent(void (*callback)([[maybe_unused]] Args...))
+    void Engine::SubscribeEvent(void (*callback)(Args...))
     {
         using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
         using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
@@ -367,7 +366,7 @@ namespace Helena
 
     template <typename Event, typename System, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...))
+    void Engine::SubscribeEvent(void (System::*callback)(Args...))
     {
         using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
         using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
@@ -413,7 +412,7 @@ namespace Helena
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::SignalEvent([[maybe_unused]] Args&&... args)
+    void Engine::SignalEvent(Args&&... args)
     {
         if constexpr(std::is_empty_v<Event>) {
             union { Event event; };
@@ -462,7 +461,7 @@ namespace Helena
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...)) {
+    void Engine::UnsubscribeEvent(void (*callback)(Args...)) {
         UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });
@@ -470,7 +469,7 @@ namespace Helena
 
     template <typename Event, typename System, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::UnsubscribeEvent(void (System::* callback)([[maybe_unused]] Args...)) {
+    void Engine::UnsubscribeEvent(void (System::* callback)(Args...)) {
         UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });

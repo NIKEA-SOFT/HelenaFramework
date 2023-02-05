@@ -20,7 +20,7 @@ namespace Helena::Types
         SubsystemDesign& operator=(SubsystemDesign&&) noexcept = delete;
 
         template <typename Subsystem, typename... Args>
-        void RegisterSubsystem([[maybe_unused]] Args&&... args) {
+        void RegisterSubsystem(Args&&... args) {
             if(!HasSubsystem<Subsystem>()) {
                 m_Subsystems.template Create<Subsystem>(std::forward<Args>(args)...);
             }

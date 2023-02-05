@@ -60,7 +60,7 @@ namespace Helena::Types
         }
 
         template <typename... Args>
-        [[nodiscard]] static ReferencePointer Create([[maybe_unused]] Args&&... args) noexcept {
+        [[nodiscard]] static ReferencePointer Create(Args&&... args) noexcept {
             return ReferencePointer{std::in_place, std::forward<Args>(args)...};
         }
 

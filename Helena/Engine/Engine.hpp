@@ -60,12 +60,12 @@ namespace Helena
             using Callback = void (*)(const Storage&, void* const);
 
             template <typename Ret, typename... Args>
-            CallbackStorage(Ret (*callback)(Args...), Callback cb) : m_Callback{cb} {
+            CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
             template <typename Ret, typename T, typename... Args>
-            CallbackStorage(Ret (T::*callback)(Args...), Callback cb) : m_Callback{cb} {
+            CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
@@ -215,7 +215,7 @@ namespace Helena
         */
         template <std::derived_from<Engine::Context> T = Context, typename... Args>
         requires std::constructible_from<T, Args...>
-        static void Initialize([[maybe_unused]] Args&&... args);
+        static void Initialize(Args&&... args);
 
         /**
         * @brief Initialize the engine context for sharing between the executable and plugins
@@ -300,7 +300,7 @@ namespace Helena
         * @warning If there is no console, the message will not be displayed
         */
         template <typename... Args>
-        static void Shutdown(const Types::LocationString& msg = {}, [[maybe_unused]] Args&&... args);
+        static void Shutdown(const Types::LocationString& msg = {}, Args&&... args);
 
         /**
         * @brief Returns the last shutdown reason
@@ -324,7 +324,7 @@ namespace Helena
         */
         template <typename T, typename... Args>
         requires std::constructible_from<T, Args...>
-        static void RegisterSystem([[maybe_unused]] Args&&... args);
+        static void RegisterSystem(Args&&... args);
 
         /**
         * @brief Check the exist of system
@@ -418,7 +418,7 @@ namespace Helena
         */
         template <typename Event, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SubscribeEvent(void (*callback)([[maybe_unused]] Args...));
+        static void SubscribeEvent(void (*callback)(Args...));
 
         /**
         * @brief Listening to the event
@@ -439,7 +439,7 @@ namespace Helena
         */
         template <typename Event, typename System, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
+        static void SubscribeEvent(void (System::*callback)(Args...));
 
         /**
         * @brief Trigger an event for all listeners
@@ -459,7 +459,7 @@ namespace Helena
         */
         template <typename Event, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SignalEvent([[maybe_unused]] Args&&... args);
+        static void SignalEvent(Args&&... args);
 
         /**
         * @brief Trigger an event for all listeners
@@ -490,7 +490,7 @@ namespace Helena
         */
         template <typename Event, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...));
+        static void UnsubscribeEvent(void (*callback)(Args...));
 
         /**
         * @brief Stop listening to the event
@@ -512,7 +512,7 @@ namespace Helena
         */
         template <typename Event, typename System, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
+        static void UnsubscribeEvent(void (System::*callback)(Args...));
 
     private:
         template <typename Event, typename Callback, typename SignalFunctor>

@@ -45,7 +45,7 @@ namespace Helena::Types
         BasicLogger& operator=(BasicLogger&&) noexcept = delete;
 
         template <Traits::DefinitionLogger Logger, typename... Args>
-        static void PrintConsole(const Log::Formater<Logger> format, [[maybe_unused]] Args&&... args)
+        static void PrintConsole(const Log::Formater<Logger> format, Args&&... args)
         {
             HELENA_ASSERT(format.m_Location.GetFile());
             HELENA_ASSERT(format.m_Location.GetFunction());
