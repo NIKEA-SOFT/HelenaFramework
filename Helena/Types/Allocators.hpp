@@ -169,7 +169,7 @@ namespace Helena::Types
             throw std::bad_alloc{};
         }
 
-        void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override {}
+        void Free(void*, std::size_t, std::size_t) noexcept override {}
         bool Equal(const IMemoryResource& other) const noexcept override {
             return this == &other;
         }
