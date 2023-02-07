@@ -30,18 +30,23 @@ namespace Helena::Types
 
         template <typename State, typename... Args>
         requires (Traits::AnyOf<State, States...> && std::is_constructible_v<State, Args...>)
-        constexpr void SetState(Args&&... args)
-            noexcept(std::is_nothrow_constructible_v<State, Args...>) {
+        constexpr void SetState(Args&&... args) noexcept(std::is_nothrow_constructible_v<State, Args...>) {
             m_States.template emplace<State>(std::forward<Args>(args)...);
         }
 
+        template <typename State>
+        requires (Traits::AnyOf<State, States...> && std::is_constructible_v<std::decay_t<State>, State>)
+        constexpr void SetState(State&& state) noexcept(std::is_nothrow_constructible_v<std::decay_t<State>, State>) {
+            m_States.template emplace<std::decay_t<State>>(std::forward<State>(state));
+        }
+
         template <typename... Fn>
-        constexpr void Visit(Fn&&... visitor) const noexcept {
+        constexpr void Visit(Fn&&... visitor) const {
             std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
 
         template <typename... Fn>
-        constexpr void Visit(Fn&&... visitor) noexcept {
+        constexpr void Visit(Fn&&... visitor) {
             std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
 
