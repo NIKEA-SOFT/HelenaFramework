@@ -1,10 +1,19 @@
+﻿// ╔═╗  ╔═╗ ╔══════╗ ╔═╗      ╔══════╗ ╔══╗   ╔═╗  ╔════╗
+// ║ ║  ║ ║ ║ ╔════╝ ║ ║      ║ ╔════╝ ║  ╚╗  ║ ║ ╔╝╔══╗╚╗
+// ║ ╚══╝ ║ ║ ╚══╗   ║ ║      ║ ╚══╗   ║ ╔╗╚╗ ║ ║ ║ ╚══╝ ║
+// ║ ╔══╗ ║ ║ ╔══╝   ║ ║      ║ ╔══╝   ║ ║╚╗╚╗║ ║ ║ ╔══╗ ║
+// ║ ║  ║ ║ ║ ╚════╗ ║ ╚════╗ ║ ╚════╗ ║ ║ ╚╗╚╝ ║ ║ ║  ║ ║
+// ╚═╝  ╚═╝ ╚══════╝ ╚══════╝ ╚══════╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝
+// Author: NSOFT
+// GitHub: https://github.com/NIKEA-SOFT
+
 #ifndef HELENA_HPP
 #define HELENA_HPP
 
 // Version
-#define HELENA_VERSION_MAJOR 1
+#define HELENA_VERSION_MAJOR 2
 #define HELENA_VERSION_MINOR 0
-#define HELENA_VERSION_PATCH 2
+#define HELENA_VERSION_PATCH 0
 
 // Platform
 #include <Helena/Platform/Assert.hpp>
