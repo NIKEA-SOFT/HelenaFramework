@@ -34,11 +34,12 @@
 #include <Helena/Traits/Cacheline.hpp>
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constness.hpp>
+#include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/FNV1a.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Traits/Identity.hpp>
-#include <Helena/Traits/IntegralConstant.hpp>
 #include <Helena/Traits/NameOf.hpp>
+#include <Helena/Traits/Overloads.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Traits/Remove.hpp>
 #include <Helena/Traits/SameAll.hpp>
@@ -46,6 +47,7 @@
 #include <Helena/Traits/ScopedEnum.hpp>
 #include <Helena/Traits/Select.hpp>
 #include <Helena/Traits/Specialization.hpp>
+#include <Helena/Traits/TypeCounter.hpp>
 #include <Helena/Traits/Underlying.hpp>
 
 // Types
