@@ -51,11 +51,11 @@ namespace Helena::Traits
     public:
         static constexpr auto Value = Name<T>();
 
-        constexpr operator const char*() const noexcept {
+        [[nodiscard]] constexpr operator const char*() const noexcept {
             return Value.data();
         }
 
-        constexpr operator std::string_view() const noexcept {
+        [[nodiscard]] constexpr operator std::string_view() const noexcept {
             return Value;
         }
     };
