@@ -33,7 +33,7 @@ namespace Helena::Types
             } else if constexpr(requires {T{std::forward<Args>(args)...};}) {
                 new (ptr) T{std::forward<Args>(args)...};
             } else []<auto Asserted = true>{
-                static_assert(!Asserted, "T not constructible from args pack");
+                static_assert(!Asserted, "T not constructible from args pack or narrowing cast!");
             }();
         }
 
