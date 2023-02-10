@@ -5,9 +5,9 @@
 
 namespace Helena::Traits {
 #ifdef __cpp_lib_hardware_interference_size
-    static constexpr inline std::size_t Cacheline = std::hardware_destructive_interference_size;
+    inline constexpr std::size_t Cacheline = std::hardware_destructive_interference_size;
 #else
-    static constexpr inline std::size_t Cacheline = 64;
+    inline constexpr std::size_t Cacheline = 64;
 #endif
 }
 

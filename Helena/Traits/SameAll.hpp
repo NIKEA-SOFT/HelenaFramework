@@ -5,7 +5,7 @@
 
 namespace Helena::Traits {
     template <typename First, typename... Other>
-    static constexpr auto SameAll = std::conjunction_v<std::is_same<First, Other>...>;
+    inline constexpr auto SameAll = std::conjunction_v<std::is_same<First, Other>...>;
 }
 
 #endif // HELENA_TRAITS_SAMEALL_HPP
