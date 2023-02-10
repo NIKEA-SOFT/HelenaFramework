@@ -418,10 +418,10 @@ namespace Helena
             union { Event event; };
             SignalEvent(event);
         } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
-            auto event = Event(std::forward<Args>(args)...);
+            Event event(std::forward<Args>(args)...);
             SignalEvent(event);
         } else if constexpr(requires {Event{std::forward<Args>(args)...};}) {
-            auto event = Event{std::forward<Args>(args)...};
+            Event event{std::forward<Args>(args)...};
             SignalEvent(event);
         } else {
             []<bool constructible = false>() {

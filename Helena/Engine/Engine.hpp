@@ -124,6 +124,8 @@ namespace Helena
             Shutdown
         };
 
+        static constexpr struct {} NoSignal{};
+
         //! Context for storage framework data
         class Context
         {
