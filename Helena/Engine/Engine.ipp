@@ -157,7 +157,7 @@ namespace Helena
     }
 
     [[nodiscard]] inline double Engine::GetTickrate() noexcept {
-        return MainContext().m_Tickrate;
+        return 1. / MainContext().m_Tickrate;
     }
 
     [[nodiscard]] inline std::uint64_t Engine::GetTimeElapsed() noexcept {

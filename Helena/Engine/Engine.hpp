@@ -135,7 +135,7 @@ namespace Helena
                 Types::SourceLocation m_Location;
             };
 
-            static constexpr auto DefaultTickrate = 1.f / 30.f;
+            static constexpr auto DefaultTickrate = 1. / 30.;
 
         public:
             Context() noexcept
