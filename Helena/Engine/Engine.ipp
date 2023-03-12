@@ -208,6 +208,10 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
+                for(const auto& message : ctx.m_Messages) {
+                    message();
+                } ctx.m_Messages.clear();
+
                 signal(Signals<
                     Events::Engine::PreTick,
                     Events::Engine::Tick,
@@ -249,7 +253,7 @@ namespace Helena
                     Events::Engine::PostShutdown
                 >{});
 
-                ctx.m_Events.Clear();
+                ctx.m_Signals.Clear();
                 ctx.m_Systems.Clear();
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
                     Log::Console(Log::Formater<Log::Shutdown>{
@@ -395,24 +399,24 @@ namespace Helena
     void Engine::SubscribeEvent(Callback&& callback, SignalFunctor&& fn)
     {
         auto& ctx = MainContext();
-        if(!ctx.m_Events.template Has<Event>()) {
-            ctx.m_Events.template Create<Event>();
+        if(!ctx.m_Signals.template Has<Event>()) {
+            ctx.m_Signals.template Create<Event>();
         }
 
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.cbegin(), eventPool.cend(),
+        auto& pool = ctx.m_Signals.template Get<Event>();
+#if defined(HELENA_DEBUG)
+        const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
             [callback = std::forward<Callback>(callback)](const auto& storage) {
                 return storage == callback;
         });
         HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>{});
-
-        if(!empty) [[unlikely]] return;
-        eventPool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
+#endif
+        pool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
     }
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::SignalEvent(Args&&... args)
+    void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
         if constexpr(std::is_empty_v<Event>) {
             union { Event event; };
@@ -435,12 +439,12 @@ namespace Helena
     void Engine::SignalEvent(Event& event)
     {
         auto& ctx = MainContext();
-        if(auto poolStorage = ctx.m_Events.GetStorage<Event>())
+        if(auto poolStorage = ctx.m_Signals.template Ptr<Event>())
         {
-            auto& eventPool = *poolStorage;
-            for(std::size_t pos = eventPool.size(); pos; --pos)
+            auto& pool = *poolStorage;
+            for(std::size_t pos = pool.size(); pos; --pos)
             {
-                const auto& [callback, storage] = eventPool[pos - 1];
+                const auto& [callback, storage] = pool[pos - 1];
                 if constexpr(std::is_empty_v<Event>) {
                     std::invoke(callback, storage, nullptr);
                 } else {
@@ -454,9 +458,17 @@ namespace Helena
                 Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
                 Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
                 Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
-                eventPool.clear();
+                pool.clear();
             }
         }
+    }
+
+    template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::EnqueueSignal(Args&&... args) {
+        MainContext().m_Messages.emplace_back([... args = std::forward<Args>(args)]() mutable {
+            Helena::Engine::SignalEvent<Event>(std::forward<Args>(args)...);
+        });
     }
 
     template <typename Event, typename... Args>
@@ -478,13 +490,14 @@ namespace Helena
     template <typename Event, typename Comparator>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::UnsubscribeEvent(Comparator&& comparator) {
-        if(const auto poolStorage = MainContext().m_Events.GetStorage<Event>()) {
+        if(const auto poolStorage = MainContext().m_Signals.template Ptr<Event>()) {
             if(const auto it = std::find_if(poolStorage->cbegin(), poolStorage->cend(), std::forward<Comparator>(comparator));
                 it != poolStorage->cend()) {
                 poolStorage->erase(it);
             };
         }
     }
+
 }
 
 #endif // HELENA_ENGINE_ENGINE_IPP

@@ -21,6 +21,7 @@
 #include <functional>
 #include <string>
 #include <utility>
+#include <queue>
 
 namespace Helena
 {
@@ -30,11 +31,11 @@ namespace Helena
         template <std::size_t Value> 
         struct IUniqueKey {};
 
-        //! Unique key for storage events type index
-        using UKEventStorage = IUniqueKey<0>;
-
         //! Unique key for storage systems type index
-        using UKSystems = IUniqueKey<1>;
+        using UKSystems = IUniqueKey<0>;
+
+        //! Unique key for storage signals type index
+        using UKSignals = IUniqueKey<1>;
 
         //! Event callback storage with type erasure
         struct CallbackStorage
@@ -129,6 +130,10 @@ namespace Helena
         //! Context for storage framework data
         class Context
         {
+            template <typename T>
+            using Pool = std::vector<T>;
+            using MessagePool = Pool<std::function<void ()>>;
+
             friend class Engine;
             struct ShutdownMessage {
                 std::string m_Message;
@@ -140,7 +145,8 @@ namespace Helena
         public:
             Context() noexcept
                 : m_Systems{}
-                , m_Events{}
+                , m_Signals{}
+                , m_Messages{}
                 , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
                 , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
@@ -154,7 +160,7 @@ namespace Helena
                 , m_State{EState::Undefined} {}
 
             virtual ~Context() {
-                m_Events.Clear();
+                m_Signals.Clear();
                 m_Systems.Clear();
             }
 
@@ -168,7 +174,8 @@ namespace Helena
 
         private:
             Types::VectorAny<UKSystems> m_Systems;
-            Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
+            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
+            MessagePool m_Messages;
 
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
 
@@ -461,7 +468,7 @@ namespace Helena
         */
         template <typename Event, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SignalEvent(Args&&... args);
+        static void SignalEvent([[maybe_unused]] Args&&... args);
 
         /**
         * @brief Trigger an event for all listeners
@@ -472,6 +479,10 @@ namespace Helena
         template <typename Event>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SignalEvent(Event& event);
+
+        template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void EnqueueSignal(Args&&... args);
 
         /**
         * @brief Stop listening to the event
