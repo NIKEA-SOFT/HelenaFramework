@@ -23,10 +23,9 @@ namespace Helena::Types
         VectorAny& operator=(VectorAny&&) noexcept = delete;
 
         template <typename T, typename... Args>
+        requires Traits::SameAs<T, Traits::RemoveCVRP<T>>
         void Create(Args&&... args)
         {
-            static_assert(Traits::SameAs<T, Traits::RemoveCVRP<T>>, "Type is const/ptr/ref");
-
             const auto index = m_TypeIndexer.template Get<T>();
             if(index >= m_Storage.size()) {
                 m_Storage.resize(index + 1);
@@ -37,78 +36,74 @@ namespace Helena::Types
         }
 
         template <typename... T>
-        [[nodiscard]] bool Has() const
-        {
-            static_assert(!Traits::Arguments<T...>::Orphan, "Pack is empty!");
-            static_assert((Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...), "Type is const/ptr/ref");
-
+        requires (!Traits::Arguments<T...>::Orphan && (Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...))
+        [[nodiscard]] bool Has() const {
             if constexpr(Traits::Arguments<T...>::Single) {
                 const auto index = m_TypeIndexer.template Get<T...>();
-                return index < m_Storage.size() && m_Storage[index];
-            } else {
-                return (Has<T>() && ...);
-            }
+                return index < m_Storage.size() && m_Storage[index].template Equal<T...>();
+            } else return (Has<T>() && ...);
         }
 
         template <typename... T>
-        [[nodiscard]] bool Any() const
-        {
-            static_assert(Traits::Arguments<T...>::Size > 1, "Exclusion-only Type are not supported");
-            static_assert((Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...), "Type is const/ptr/ref");
-
+        requires (Traits::Arguments<T...>::Size > 1 && (Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...))
+        [[nodiscard]] bool Any() const {
             return (Has<T>() || ...);
         }
 
+        template <typename T>
+        requires Traits::SameAs<T, Traits::RemoveCVRP<T>>
+        [[nodiscard]] bool Contain() const {
+            const auto index = m_TypeIndexer.template Get<T>();
+            return m_Storage[index].template Equal<T>();
+        }
+
         template <typename... T>
+        requires (!Traits::Arguments<T...>::Orphan && (Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...))
         [[nodiscard]] decltype(auto) Get()
         {
-            static_assert(!Traits::Arguments<T...>::Orphan, "Pack is empty!");
-            static_assert((Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...), "Type is const/ptr/ref");
-
-            if constexpr(Traits::Arguments<T...>::Single) {
+            if constexpr(Traits::Arguments<T...>::Single && Traits::Arguments<T...>::Single) {
                 const auto index = m_TypeIndexer.template Get<T...>();
-
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>{});
                 HELENA_ASSERT(m_Storage[index].template Equal<T...>(), "Type: {} type mismatch!", Traits::NameOf<T...>{});
-
                 return m_Storage[index].template Ref<T...>();
-            } else {
-                return std::forward_as_tuple(Get<T>()...);
-            }
+            } else return std::forward_as_tuple(Get<T>()...);
         }
 
         template <typename... T>
+        requires (!Traits::Arguments<T...>::Orphan && (Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...))
         [[nodiscard]] decltype(auto) Get() const
         {
-            static_assert(!Traits::Arguments<T...>::Orphan, "Pack is empty!");
-            static_assert((Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...), "Type is const/ptr/ref");
-
-            if constexpr(Traits::Arguments<T...>::Single) {
+            if constexpr(Traits::Arguments<T...>::Single && Traits::Arguments<T...>::Single) {
                 const auto index = m_TypeIndexer.template Get<T...>();
-
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>{});
                 HELENA_ASSERT(m_Storage[index].template Equal<T...>(), "Type: {} type mismatch!", Traits::NameOf<T...>{});
-
                 return m_Storage[index].template Ref<T...>();
-            } else {
-                return std::forward_as_tuple(Get<T>()...);
-            }
+            } else return std::forward_as_tuple(Get<T>()...);
+        }
+
+        template <typename T>
+        requires Traits::SameAs<T, Traits::RemoveCVRP<T>>
+        [[nodiscard]] decltype(auto) Ptr() {
+            const auto index = m_TypeIndexer.template Get<T>();
+            return index < m_Storage.size() ? m_Storage[index].template Ptr<T>() : nullptr;
+        }
+
+        template <typename T>
+        requires Traits::SameAs<T, Traits::RemoveCVRP<T>>
+        [[nodiscard]] decltype(auto) Ptr() const {
+            const auto index = m_TypeIndexer.template Get<T>();
+            return index < m_Storage.size() ? m_Storage[index].template Ptr<T>() : nullptr;
         }
 
         template <typename... T>
+        requires (!Traits::Arguments<T...>::Orphan && (Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...))
         void Remove()
         {
-            static_assert(!Traits::Arguments<T...>::Orphan, "Pack is empty!");
-            static_assert((Traits::SameAs<T, Traits::RemoveCVRP<T>> && ...), "Type is const/ptr/ref");
-
             if constexpr(Traits::Arguments<T...>::Single) {
                 const auto index = m_TypeIndexer.template Get<T...>();
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T...>{});
-
                 m_Storage[index].Reset();
-            } else {
-                (Remove<T>(), ...);
-            }
+            } else (Remove<T>(), ...);
         }
 
         void Clear() noexcept
