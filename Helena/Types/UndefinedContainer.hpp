@@ -5,6 +5,7 @@
 #include <Helena/Types/Hash.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <memory>
 #include <utility>
 
@@ -186,15 +187,21 @@ namespace Helena::Types
             return *static_cast<TypeOf<T>*>(m_Data);
         }
 
+        [[nodiscard]] void* Data() noexcept {
+            return m_Data;
+        }
+
+        [[nodiscard]] const void* Data() const noexcept {
+            return m_Data;
+        }
+
         template <typename T>
         [[nodiscard]] T* Ptr() noexcept {
-            HELENA_ASSERT(m_Hash == HashOf<TypeOf<T>>, "Undefined behaviour detected");
             return m_Hash == HashOf<TypeOf<T>> ? static_cast<TypeOf<T>*>(m_Data) : nullptr;
         }
 
         template <typename T>
         [[nodiscard]] const T* Ptr() const noexcept {
-            HELENA_ASSERT(m_Hash == HashOf<TypeOf<T>>, "Undefined behaviour detected");
             return m_Hash == HashOf<TypeOf<T>> ? static_cast<const TypeOf<T>*>(m_Data) : nullptr;
         }
 
