@@ -143,7 +143,7 @@ namespace Helena::Types
             return ::operator new(bytes);
         }
 
-        void Free(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override
+        void Free(void* ptr, [[maybe_unused]] std::size_t bytes, std::size_t alignment) noexcept override
         {
             HELENA_MSG_MEMORY("Free memory bytes: {}, alignment: {}", bytes, alignment);
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
