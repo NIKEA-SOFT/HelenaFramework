@@ -1,13 +1,7 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
-#include <Helena/Engine/Events.hpp>
 #include <Helena/Platform/Platform.hpp>
-#include <Helena/Platform/Defines.hpp>
-#include <Helena/Platform/Assert.hpp>
-#include <Helena/Traits/Cacheline.hpp>
-#include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAs.hpp>
 #if defined(HELENA_THREADSAFE_SYSTEMS)
     #include <Helena/Types/Spinlock.hpp>
 #endif
@@ -15,13 +9,10 @@
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
 
-#include <algorithm>
 #include <atomic>
-#include <memory>
 #include <functional>
 #include <string>
 #include <utility>
-#include <queue>
 
 namespace Helena
 {

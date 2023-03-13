@@ -2,6 +2,7 @@
 #define HELENA_ENGINE_ENGINE_IPP
 
 #include <Helena/Engine/Engine.hpp>
+#include <Helena/Engine/Events.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Util/Format.hpp>
