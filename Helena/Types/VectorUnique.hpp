@@ -121,7 +121,7 @@ namespace Helena::Types
         }
 
     private:
-        Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
+        UniqueIndexer<UniqueKey> m_TypeIndexer;
         std::vector<std::unique_ptr<Type>> m_Storage;
     };
 }

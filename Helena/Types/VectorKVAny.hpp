@@ -108,7 +108,7 @@ namespace Helena::Types
         }
 
     private:
-        Types::UniqueIndexer<UniqueKey> m_TypeIndexer;
+        UniqueIndexer<UniqueKey> m_TypeIndexer;
         std::vector<UndefinedContainer> m_Storage;
     };
 }
