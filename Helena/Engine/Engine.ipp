@@ -154,11 +154,11 @@ namespace Helena
     }
 
     inline void Engine::SetTickrate(double tickrate) noexcept {
-        MainContext().m_Tickrate = 1. / (std::max)(tickrate, 1.);
+        MainContext().m_TickRate = 1. / (std::max)(tickrate, 1.);
     }
 
     [[nodiscard]] inline double Engine::GetTickrate() noexcept {
-        return 1. / MainContext().m_Tickrate;
+        return 1. / MainContext().m_TickRate;
     }
 
     [[nodiscard]] inline std::uint64_t Engine::GetTimeElapsed() noexcept {
@@ -209,9 +209,9 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
-                for(const auto& message : ctx.m_Messages) {
+                for(const auto& message : ctx.m_SignalsPool) {
                     message();
-                } ctx.m_Messages.clear();
+                } ctx.m_SignalsPool.clear();
 
                 signal(Signals<
                     Events::Engine::PreTick,
@@ -220,20 +220,20 @@ namespace Helena
                 >{}, ctx.m_TimeDelta);
 
                 std::uint32_t accumulated{};
-                while(ctx.m_TimeElapsed >= ctx.m_Tickrate && accumulated++ < accumulator) {
-                    ctx.m_TimeElapsed -= ctx.m_Tickrate;
+                while(ctx.m_TimeElapsed >= ctx.m_TickRate && accumulated++ < accumulator) {
+                    ctx.m_TimeElapsed -= ctx.m_TickRate;
                     signal(Signals<
                         Events::Engine::PreUpdate,
                         Events::Engine::Update,
                         Events::Engine::PostUpdate
-                    >{}, ctx.m_Tickrate);
+                    >{}, ctx.m_TickRate);
                 }
 
                 signal(Signals<
                     Events::Engine::PreRender,
                     Events::Engine::Render,
                     Events::Engine::PostRender
-                >{}, ctx.m_TimeElapsed / ctx.m_Tickrate, ctx.m_TimeDelta);
+                >{}, ctx.m_TimeElapsed / ctx.m_TickRate, ctx.m_TimeDelta);
 
             #ifndef HELENA_ENGINE_NOSLEEP
                 if(!accumulated) {
@@ -350,7 +350,7 @@ namespace Helena
     }
 
     template <typename Event, typename... Args>
-    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    requires Engine::RequiresCallback<Event, Args...>
     void Engine::SubscribeEvent(void (*callback)(Args...))
     {
         using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
@@ -358,11 +358,8 @@ namespace Helena
 
         SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
             if constexpr(std::is_empty_v<Event>) {
-                static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
                 std::invoke(storage.As<decltype(callback)>());
             } else {
-                static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                static_assert((Traits::SameAs<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
                 std::invoke(storage.As<decltype(callback)>(), *static_cast<Traits::RemoveRef<
                     typename Traits::Arguments<Args...>::template Get<0>>*>(data));
             }
@@ -370,7 +367,7 @@ namespace Helena
     }
 
     template <typename Event, typename System, typename... Args>
-    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    requires Engine::RequiresCallback<Event, Args...>
     void Engine::SubscribeEvent(void (System::*callback)(Args...))
     {
         using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
@@ -384,11 +381,8 @@ namespace Helena
             }
 
             if constexpr(std::is_empty_v<Event>) {
-                static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
                 std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>());
             } else {
-                static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                static_assert((Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
                 std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>(),
                     *static_cast<Traits::RemoveRef<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
             }
@@ -443,14 +437,9 @@ namespace Helena
         if(auto poolStorage = ctx.m_Signals.template Ptr<Event>())
         {
             auto& pool = *poolStorage;
-            for(std::size_t pos = pool.size(); pos; --pos)
-            {
+            for(std::size_t pos = pool.size(); pos; --pos) {
                 const auto& [callback, storage] = pool[pos - 1];
-                if constexpr(std::is_empty_v<Event>) {
-                    std::invoke(callback, storage, nullptr);
-                } else {
-                    std::invoke(callback, storage, static_cast<void*>(&event));
-                }
+                std::invoke(callback, storage, &event);
             }
 
             if constexpr(Traits::AnyOf<Event,
@@ -467,7 +456,7 @@ namespace Helena
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::EnqueueSignal(Args&&... args) {
-        MainContext().m_Messages.emplace_back([... args = std::forward<Args>(args)]() mutable {
+        MainContext().m_SignalsPool.emplace_back([... args = std::forward<Args>(args)]() mutable {
             Helena::Engine::SignalEvent<Event>(std::forward<Args>(args)...);
         });
     }

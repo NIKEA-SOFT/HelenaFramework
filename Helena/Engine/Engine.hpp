@@ -2,6 +2,7 @@
 #define HELENA_ENGINE_ENGINE_HPP
 
 #include <Helena/Platform/Platform.hpp>
+#include <Helena/Traits/Conditional.hpp>
 #if defined(HELENA_THREADSAFE_SYSTEMS)
     #include <Helena/Types/Spinlock.hpp>
 #endif
@@ -12,7 +13,6 @@
 #include <atomic>
 #include <functional>
 #include <string>
-#include <utility>
 
 namespace Helena
 {
@@ -27,6 +27,16 @@ namespace Helena
 
         //! Unique key for storage signals type index
         using UKSignals = IUniqueKey<1>;
+
+        //! Unique key for storage messages type index
+        using UKMessages = IUniqueKey<2>;
+
+        template <typename Event, typename... Args>
+        static constexpr auto RequiresCallback = Traits::Conditional<std::is_empty_v<Event>,
+            Traits::Conditional<Traits::Arguments<Args...>::Orphan, std::true_type, std::false_type>,
+            Traits::Conditional<Traits::Arguments<Args...>::Single && (Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...),
+                std::true_type, std::false_type>
+        >::value && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>;
 
         //! Event callback storage with type erasure
         struct CallbackStorage
@@ -49,7 +59,7 @@ namespace Helena
                     return fn;
                 }
             };
-            using Callback = void (*)(const Storage&, void* const);
+            using Callback = void (*)(const Storage&, void*);
 
             template <typename Ret, typename... Args>
             CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
@@ -123,7 +133,7 @@ namespace Helena
         {
             template <typename T>
             using Pool = std::vector<T>;
-            using MessagePool = Pool<std::function<void ()>>;
+            using SignalsPool = Pool<std::function<void ()>>;
 
             friend class Engine;
             struct ShutdownMessage {
@@ -131,18 +141,18 @@ namespace Helena
                 Types::SourceLocation m_Location;
             };
 
-            static constexpr auto DefaultTickrate = 1. / 30.;
+            static constexpr auto m_DefaultTickRate = 1. / 30.;
 
         public:
             Context() noexcept
                 : m_Systems{}
                 , m_Signals{}
-                , m_Messages{}
+                , m_SignalsPool{}
                 , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
                 , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
                 , m_TimePrev{}
-                , m_Tickrate{DefaultTickrate}
+                , m_TickRate{m_DefaultTickRate}
                 , m_TimeDelta{}
                 , m_TimeElapsed{}
             #if defined(HELENA_THREADSAFE_SYSTEMS)
@@ -164,24 +174,32 @@ namespace Helena
             virtual bool Main() { return true; }
 
         private:
+            // Systems
             Types::VectorAny<UKSystems> m_Systems;
-            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
-            MessagePool m_Messages;
 
+            // Signals
+            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
+            SignalsPool m_SignalsPool;
+
+            // Reason
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
 
+            // Timers for Heartbeat
             std::uint64_t m_TimeStart;
             std::uint64_t m_TimeNow;
             std::uint64_t m_TimePrev;
 
-            double m_Tickrate;
+            double m_TickRate;
             double m_TimeDelta;
             double m_TimeElapsed;
 
         #if defined(HELENA_THREADSAFE_SYSTEMS)
+            // Thread safe systems
             Types::Spinlock m_LockSystems;
         #endif
-            std::atomic<Engine::EState> m_State;
+
+            // Engine state
+            std::atomic<EState> m_State;
         };
 
     private:
@@ -417,7 +435,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        requires Engine::RequiresCallback<Event, Args...>
         static void SubscribeEvent(void (*callback)(Args...));
 
         /**
@@ -438,7 +456,7 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        requires Engine::RequiresCallback<Event, Args...>
         static void SubscribeEvent(void (System::*callback)(Args...));
 
         /**
@@ -471,6 +489,13 @@ namespace Helena
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SignalEvent(Event& event);
 
+        /**
+        * @brief Push signal event in queue for call in next Engine tick
+        *
+        * @tparam Event Type of event
+        * @tparam Args Types of arguments
+        * @param args Arguments for construct the event or lvalue of event
+        */
         template <typename Event, typename... Args>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void EnqueueSignal(Args&&... args);
