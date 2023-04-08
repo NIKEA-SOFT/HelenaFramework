@@ -112,10 +112,10 @@ namespace Helena
 
     template <std::derived_from<Engine::Context> T, typename... Args>
     requires std::constructible_from<T, Args...>
-    void Engine::Initialize(Args&&... args)
+    void Engine::Initialize([[maybe_unused]] Args&&... args)
     {
         HELENA_ASSERT(!HasContext(), "Context already initialized!");
-        InitContext(ContextStorage{new (std::nothrow) T, +[](Context* ctx) {
+        InitContext(ContextStorage{new (std::nothrow) T, +[](const Context* ctx) {
             delete ctx;
         }});
         HELENA_ASSERT(HasContext(), "Initialize Context failed!");
@@ -141,7 +141,7 @@ namespace Helena
         HELENA_ASSERT(!HasContext(), "Context already initialized");
     #endif
 
-        InitContext(ContextStorage{std::addressof(ctx), +[](Context*){}});
+        InitContext(ContextStorage{std::addressof(ctx), +[](const Context*){}});
     }
 
     template <std::derived_from<Engine::Context> T>
@@ -169,11 +169,11 @@ namespace Helena
     {
         auto& ctx = MainContext();
         const auto state = GetState();
-        const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, Args&&... args) {
+        const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, [[maybe_unused]] Args&&... args) {
             (SignalEvent<Events>(args...), ...);
         };
 
-    #if defined(HELENA_PLATFORM_WIN)
+    #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         __try {
     #endif
         switch(state)
@@ -267,7 +267,7 @@ namespace Helena
             }
         }
 
-    #if defined(HELENA_PLATFORM_WIN)
+    #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         } __except (MiniDumpSEH(GetExceptionInformation())) {
             if(GetState() == EState::Shutdown) {
                 return false;
@@ -285,7 +285,7 @@ namespace Helena
     }
 
     template <typename... Args>
-    void Engine::Shutdown(const Types::LocationString& msg, Args&&... args)
+    void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
     {
         auto& ctx = MainContext();
         const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);

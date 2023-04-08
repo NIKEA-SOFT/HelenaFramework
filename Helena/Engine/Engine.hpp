@@ -203,7 +203,7 @@ namespace Helena
         };
 
     private:
-        using ContextDeleter = void (*)(Context*);
+        using ContextDeleter = void (*)(const Context*);
         using ContextStorage = std::unique_ptr<Context, ContextDeleter>;
         inline static ContextStorage m_Context{nullptr, nullptr};
 
@@ -233,7 +233,7 @@ namespace Helena
         */
         template <std::derived_from<Engine::Context> T = Context, typename... Args>
         requires std::constructible_from<T, Args...>
-        static void Initialize(Args&&... args);
+        static void Initialize([[maybe_unused]] Args&&... args);
 
         /**
         * @brief Initialize the engine context for sharing between the executable and plugins
@@ -318,7 +318,7 @@ namespace Helena
         * @warning If there is no console, the message will not be displayed
         */
         template <typename... Args>
-        static void Shutdown(const Types::LocationString& msg = {}, Args&&... args);
+        static void Shutdown(const Types::LocationString& msg = {}, [[maybe_unused]] Args&&... args);
 
         /**
         * @brief Returns the last shutdown reason

@@ -4,10 +4,18 @@
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <array>
-#include <cmath>
 #include <ctime>
 #include <charconv>
 #include <chrono>
+
+// #define HELENA_ZONED_TIME -> enable use of zoned_time forcibly
+
+// Decided to deprecate zoned_time for the following reasons:
+// Linux: temporarily not supported by compilers
+// Windows: no backwards compatible with Windows 7 and 8
+// If your Linux already has a compiler with zoned_time support,
+// and the lack of backward compatibility on Windows 7 and 8 doesn't bother you,
+// you can enable the macro HELENA_ZONED_TIME
 
 namespace Helena::Types
 {
@@ -65,26 +73,46 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static DateTime FromUTCTime() {
-        #if defined(HELENA_PLATFORM_WIN)
-            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_sys_time().time_since_epoch()).count());
-        #else   // Linux not support C++20 chrono :(
-            auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            const auto tm = std::gmtime(&time_now);
-            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday)
-                + TimeToTicks(tm->tm_hour, tm->tm_min, tm->tm_sec)};
+        // Decided to deprecate zoned_time for the following reasons:
+        // Linux: temporarily not supported by compilers
+        // Windows: no backwards compatible with Windows 7 and 8
+        #if defined(HELENA_ZONED_TIME)
+            const auto timeZone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
+            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(timeZone.get_sys_time().time_since_epoch()).count());
+        #else
+            const auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            std::tm tm;
+            #if defined(HELENA_PLATFORM_WIN)
+                (void)::gmtime_s(&tm, &timeNow);
+            #elif defined(HELENA_PLATFORM_LINUX)
+                (void)::gmtime_r(&timeNow, &tm);
+            #else
+                #error Unknown platform detected!
+            #endif
+            return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec)};
         #endif
         }
 
         [[nodiscard]] static DateTime FromLocalTime() {
-        #if defined(HELENA_PLATFORM_WIN)
-            const auto time_zone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(time_zone.get_local_time().time_since_epoch()).count());
-        #else   // Linux not support C++20 chrono :(
-            auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            const auto tm = std::localtime(&timeNow);
-            return DateTime{DateToTicks(1900 + tm->tm_year, ++tm->tm_mon, tm->tm_mday)
-                + TimeToTicks(tm->tm_hour, tm->tm_min, tm->tm_sec)};
+        // Decided to deprecate zoned_time for the following reasons:
+        // Linux: temporarily not supported by compilers
+        // Windows: no backwards compatible with Windows 7 and 8
+        #if defined(HELENA_ZONED_TIME)
+            const auto timeZone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
+            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(timeZone.get_local_time().time_since_epoch()).count());
+        #else
+            const auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            std::tm tm;
+            #if defined(HELENA_PLATFORM_WIN)
+                (void)::localtime_s(&tm, &timeNow);
+            #elif defined(HELENA_PLATFORM_LINUX)
+                (void)::localtime_r(&timeNow, &tm);
+            #else
+                #error Unknown platform detected!
+            #endif
+            return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec)};
         #endif
         }
 

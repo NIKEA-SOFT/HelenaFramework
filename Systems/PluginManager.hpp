@@ -4,6 +4,7 @@
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/ModernDesign.hpp>
 
+#include <bit>
 #include <filesystem>
 
 namespace Helena::Events::PluginManager
@@ -53,15 +54,22 @@ namespace Helena::Systems
         using EntryPoint = void (EState, Engine::Context&);
 
     public:
-        PluginManager(const std::filesystem::path& directory) : m_Directory{directory}
+        PluginManager(std::filesystem::path directory)
         {
-            [[maybe_unused]] std::error_code err;
-            m_Directory = std::filesystem::absolute(std::filesystem::canonical(m_Directory, err));
-            HELENA_ASSERT(std::filesystem::is_directory(directory, err),
-                "Path: \"{}\" is not directory, error: {}, message: {}", m_Directory.string(), err.value(), err.message());
-
             Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
+
+            std::error_code err;
+            if(!std::filesystem::is_directory(directory, err)) {
+                HELENA_MSG_ERROR("Path: \"{}\" is not directory!", directory.string());
+	            return;
+            }
+
+            if(m_Directory = std::filesystem::absolute(directory, err); err) {
+	            HELENA_MSG_ERROR("Path: \"{}\" failed cast to absolute path, error: {}, message: {}", directory.string(), err.value(), err.message());
+	            return;
+            }
         }
+
         ~PluginManager() {
             Helena::Engine::UnsubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
         }
@@ -79,18 +87,17 @@ namespace Helena::Systems
                 return false;
             }
 
+            if(self.m_Directory.empty()) {
+                HELENA_MSG_ERROR("Invalid plugin directory path: \"{}\" specified in constructor!", self.m_Directory.string());
+                return false;
+            }
+
             if(self.m_Plugins.contains(pluginName)) {
                 HELENA_MSG_ERROR("Plugin: \"{}\" already loaded", pluginName);
                 return false;
             }
 
             std::error_code err;
-            if(!std::filesystem::is_directory(self.m_Directory, err)) {
-                HELENA_MSG_ERROR("Path: \"{}\" is not directory, error: {}, message: {}",
-                    self.m_Directory.string(), err.value(), err.message());
-                return false;
-            }
-
             auto plugin = std::string{pluginName} + HELENA_MODULE_EXTENSION;
             auto pluginPath = self.m_Directory / plugin; plugin.resize(plugin.size() - (sizeof(HELENA_MODULE_EXTENSION) - 1 /*null*/));
             if(!std::filesystem::is_regular_file(pluginPath, err)) {
@@ -117,7 +124,7 @@ namespace Helena::Systems
             }
 
             Engine::SignalEvent<Events::PluginManager::PreLoad>(pluginName);
-            auto [it, _] = self.m_Plugins.emplace(std::piecewise_construct, std::forward_as_tuple(std::move(plugin)), std::forward_as_tuple(handle));
+            const auto [it, _] = self.m_Plugins.emplace(std::piecewise_construct, std::forward_as_tuple(std::move(plugin)), std::forward_as_tuple(handle));
             if(!PluginMain(handle, EState::Load)) {
                 Engine::SignalEvent<Events::PluginManager::PostLoad>(pluginName, /*error*/ true);
                 UnloadPlugin(handle);
@@ -184,7 +191,7 @@ namespace Helena::Systems
 
         static auto PluginMain(HELENA_MODULE_HANDLE handle, EState state) -> EntryPoint*
         {
-            if(const auto ep = reinterpret_cast<EntryPoint*>(HELENA_MODULE_GETSYM(handle, m_EntryPoint))) {
+            if(const auto ep = std::bit_cast<EntryPoint*>(HELENA_MODULE_GETSYM(handle, m_EntryPoint))) {
                 ep(state, Engine::GetContext<Engine::Context>());
                 return ep;
             }

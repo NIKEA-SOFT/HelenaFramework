@@ -254,7 +254,7 @@ namespace Helena::Types
         MemoryAllocator& operator=(const MemoryAllocator&) = delete;
 
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
-        #ifdef HELENA_PLATFORM_WIN
+        #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         // The allocator declaration specifier can be applied to custom memory-allocation functions
         // to make the allocations visible via Event Tracing for Windows (ETW).
         // URL: https://learn.microsoft.com/en-us/cpp/cpp/allocator?view=msvc-170
@@ -278,7 +278,7 @@ namespace Helena::Types
         }
 
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
-        #ifdef HELENA_PLATFORM_WIN
+        #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         // The allocator declaration specifier can be applied to custom memory-allocation functions
         // to make the allocations visible via Event Tracing for Windows (ETW).
         // URL: https://learn.microsoft.com/en-us/cpp/cpp/allocator?view=msvc-170
@@ -296,7 +296,7 @@ namespace Helena::Types
 
         template <typename U>
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
-        #ifdef HELENA_PLATFORM_WIN
+        #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         // The allocator declaration specifier can be applied to custom memory-allocation functions
         // to make the allocations visible via Event Tracing for Windows (ETW).
         // URL: https://learn.microsoft.com/en-us/cpp/cpp/allocator?view=msvc-170
@@ -306,7 +306,7 @@ namespace Helena::Types
         {
             if(HasOverflow(count, sizeof(U))) [[unlikely]] {
                 HELENA_MSG_EXCEPTION("The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>{}, count);
-                HELENA_ASSERT(!HasOverflow<sizeof(U)>(count), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>{}, count);
+                HELENA_ASSERT(!HasOverflow(count, sizeof(U)), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>{}, count);
                 return nullptr;
             }
 
@@ -320,7 +320,7 @@ namespace Helena::Types
 
         template <typename U, typename... Args>
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
-        #ifdef HELENA_PLATFORM_WIN
+        #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         // The allocator declaration specifier can be applied to custom memory-allocation functions
         // to make the allocations visible via Event Tracing for Windows (ETW).
         // URL: https://learn.microsoft.com/en-us/cpp/cpp/allocator?view=msvc-170
