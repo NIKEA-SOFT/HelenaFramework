@@ -16,12 +16,13 @@ source_group("Source" FILES ${HELENA_APP_SOURCE})
 source_group("Headers" FILES ${HELENA_APP_HEADERS})
 
 if(WIN32)
-    set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
-elseif(UNIX)
-    set_target_properties(${HELENA_APP} PROPERTIES PREFIX "" COMPILE_FLAGS "-fvisibility=hidden")
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        set_target_properties(${HELENA_APP} PROPERTIES COMPILE_FLAGS "-fno-gnu-unique")
-    endif()
-
+	# Ignore this is the flag I use them to get .pdb files
+	# I use it to analyze code performance when i reverse engineer a binary file
+	if(NOT MINGW)
+		set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /PDBSTRIPPED:${HELENA_APP}.pdb")
+	else()
+		set_target_properties(${HELENA_APP} PROPERTIES PREFIX "")
+	endif()
 endif()
+
 target_link_libraries(${HELENA_APP} Helena::Helena)

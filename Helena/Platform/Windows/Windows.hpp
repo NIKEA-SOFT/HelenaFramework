@@ -25,11 +25,15 @@
         #undef max
     #endif
 
-    #pragma comment(lib, "winmm.lib")
-    #pragma comment(lib, "dbghelp.lib")
-    #pragma comment(lib, "ws2_32.lib")
-    #pragma comment(lib, "iphlpapi.lib")
-    #pragma comment(lib, "userenv.lib")
+    #if !defined(HELENA_COMPILER_MINGW)
+        #pragma comment(lib, "winmm.lib")
+        #pragma comment(lib, "dbghelp.lib")
+        #pragma comment(lib, "ws2_32.lib")
+        #pragma comment(lib, "iphlpapi.lib")
+        #pragma comment(lib, "userenv.lib")
+    #else
+        #pragma message("Current compiler does not support #pragma comment, linking libs: winmm.lib, dbghelp.lib, ws2_32.lib, iphlpapi.lib, userenv.lib")
+    #endif
 
     #if defined(HELENA_COMPILER_MSVC)
         #if _MSC_VER >= 1910

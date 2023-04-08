@@ -35,7 +35,13 @@ source_group("Headers" FILES ${HELENA_APP_HEADERS})
 source_group("Systems" FILES ${HELENA_APP_SYSTEMS})
 
 if(WIN32)
-    set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /SUBSYSTEM:WINDOWS /PDBSTRIPPED:${HELENA_APP}.pdb")
+	# Ignore this is the flag I use them to get .pdb files
+	# I use it to analyze code performance when i reverse engineer a binary file
+	if(NOT MINGW)
+		set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "/DEBUG /SUBSYSTEM:WINDOWS /PDBSTRIPPED:${HELENA_APP}.pdb")
+	else()
+		set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "-Wl,-subsystem,windows -municode")
+	endif()
 endif()
 
 target_link_libraries(${HELENA_APP} Helena::Helena)

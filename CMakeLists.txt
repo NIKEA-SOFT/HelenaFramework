@@ -6,7 +6,6 @@ project(HelenaFramework VERSION 1.0.2 LANGUAGES CXX)
 #|--------------------------------
 option(HELENA_FLAG_TEST             "Build and run test"    OFF)
 option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
-option(HELENA_FLAG_COVERAGE         "GCC/Clang coverage"    OFF)
 option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
 option(HELENA_FLAG_VIEW_HELENA      "Helena folder show in target project" ON)
 option(HELENA_FLAG_BIN_DIR          "Enable bin directory of object and binary files" ON)
@@ -122,22 +121,31 @@ endif()
 #|--------------------------------
 #| Helena Framework Build
 #|--------------------------------
-if(WIN32)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        target_compile_options(Helena INTERFACE /Zc:preprocessor)
-    endif()
-elseif(UNIX)
-    target_compile_options(Helena INTERFACE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
+if(NOT UNIX AND NOT WIN32)
+    message(FATAL_ERROR "Current platform is not supported!")
+endif()
+
+if(UNIX OR MINGW)
+	target_compile_options(Helena INTERFACE -Wall -Wextra -fvisibility=hidden
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
         $<$<CONFIG:Release>:-O3>
-    )
+	)
+endif()
 
-    if(HELENA_FLAG_COVERAGE)
-        target_compile_options(Helena INTERFACE -fprofile-arcs -ftest-coverage -lgcov --coverage)
-	message(STATUS "Build Helena with coverage")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(Helena INTERFACE -fno-gnu-unique)
+    if(MINGW)
+        target_compile_options(Helena INTERFACE -Wno-interference-size)
     endif()
-else()
-    message(FATAL_ERROR "Current platform is not supported!")
+endif()
+
+if(WIN32)
+    if(MINGW)
+        target_link_libraries(Helena INTERFACE -static -static-libgcc -static-libstdc++ winpthread)
+    else()
+        target_compile_options(Helena INTERFACE /Zc:preprocessor)
+    endif()
+    target_link_libraries(Helena INTERFACE winmm.lib dbghelp.lib ws2_32.lib iphlpapi.lib userenv.lib)
 endif()
 
 if(HELENA_FLAG_BIN_DIR)
@@ -167,11 +175,4 @@ endif()
 if(HELENA_FLAG_EXAMPLES)
     message(STATUS "Building examples...")
     add_subdirectory(Examples)
-endif()
-
-#|--------------------------------
-#| Build with coverage
-#|--------------------------------
-if(HELENA_FLAG_COVERAGE)
-    find_package(codecov)
 endif()

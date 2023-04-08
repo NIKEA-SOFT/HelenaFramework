@@ -2,6 +2,10 @@
 #define HELENA_PLATFORM_COMPILER_HPP
 
 /* ----------- [Compiler detect] ----------- */
+#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
+    #define HELENA_COMPILER_MINGW
+#endif
+
 #if defined(__clang__)
     #define HELENA_COMPILER_NAME    "Clang"
     #define HELENA_STANDARD_VER     __cplusplus
