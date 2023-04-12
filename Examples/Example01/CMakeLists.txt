@@ -4,35 +4,14 @@
 cmake_minimum_required(VERSION 3.14)
 
 set(HELENA_APP Example01)
-
 project(${HELENA_APP})
 
-file(GLOB_RECURSE HELENA_APP_SOURCE
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
-)
+HELENA_SOURCE_PRETTY()
+HELENA_SOURCE_GLOB(HELENA_APP_SOURCE "${CMAKE_CURRENT_LIST_DIR}" cpp cc c h hpp ipp)
+HELENA_SOURCE_GROUP("${CMAKE_CURRENT_LIST_DIR}" "${HELENA_APP_SOURCE}")
 
-file(GLOB_RECURSE HELENA_APP_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.ipp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-)
-
-file(GLOB_RECURSE HELENA_APP_SYSTEMS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.ipp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Systems/*.h"
-)
-
-add_executable(${HELENA_APP} ${HELENA_APP_SOURCE} ${HELENA_APP_HEADERS})
-
-source_group("Source" FILES ${HELENA_APP_SOURCE})
-source_group("Headers" FILES ${HELENA_APP_HEADERS})
-source_group("Systems" FILES ${HELENA_APP_SYSTEMS})
+add_executable(${HELENA_APP} ${HELENA_APP_SOURCE})
+target_link_libraries(${HELENA_APP} PRIVATE Helena::Helena)
 
 if(WIN32)
 	# Ignore this is the flag I use them to get .pdb files
@@ -43,5 +22,3 @@ if(WIN32)
 		set_target_properties(${HELENA_APP} PROPERTIES LINK_FLAGS "-Wl,-subsystem,windows -municode")
 	endif()
 endif()
-
-target_link_libraries(${HELENA_APP} Helena::Helena)

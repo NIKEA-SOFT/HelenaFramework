@@ -4,16 +4,14 @@
 cmake_minimum_required(VERSION 3.14)
 
 set(HELENA_APP HelenaPlugin)
-
 project(${HELENA_APP})
 
-file(GLOB_RECURSE HELENA_APP_SOURCE *.cpp *.cc *.c)
-file(GLOB_RECURSE HELENA_APP_HEADERS *.h *.hpp *.ipp)
+HELENA_SOURCE_PRETTY()
+HELENA_SOURCE_GLOB(HELENA_APP_SOURCE "${CMAKE_CURRENT_LIST_DIR}" cpp cc c h hpp ipp)
+HELENA_SOURCE_GROUP("${CMAKE_CURRENT_LIST_DIR}" "${HELENA_APP_SOURCE}")
 
 add_library(${HELENA_APP} SHARED ${HELENA_APP_SOURCE} ${HELENA_APP_HEADERS})
-
-source_group("Source" FILES ${HELENA_APP_SOURCE})
-source_group("Headers" FILES ${HELENA_APP_HEADERS})
+target_link_libraries(${HELENA_APP} PRIVATE Helena::Helena)
 
 if(WIN32)
 	# Ignore this is the flag I use them to get .pdb files
@@ -24,5 +22,3 @@ if(WIN32)
 		set_target_properties(${HELENA_APP} PROPERTIES PREFIX "")
 	endif()
 endif()
-
-target_link_libraries(${HELENA_APP} Helena::Helena)
