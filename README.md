@@ -1,4 +1,4 @@
-![HelenaFramework](https://user-images.githubusercontent.com/57288440/116739956-00ca2580-a9fd-11eb-9c5d-367f21606456.png)
+![HelenaFramework](https://user-images.githubusercontent.com/57288440/231351795-b1588eeb-c3ad-4c6a-bb47-76bd68a211f6.png)
 
 ---
 
@@ -52,8 +52,9 @@ Status: Ready to use, but still developing.
 Other systems have not been tested or are not supported.
 
 ## Compilers
-- Windows: MSVC, Clang
+- Windows: MSVC, Clang, MSYS2 MinGW/Clang/UCRT
 - Linux: Clang, GCC
+- Standard: C++20
 
 | Compiler | Required flags |
 | ------ | ------ |
@@ -146,5 +147,76 @@ int main(int argc, char** argv)
 ```
 
 ## How to build
-- Use CMake
-- Use any build system (it's header only)
+---
+#### CMake
+
+| Helena Framework Flags | Default | Description |
+| ------ | ------ | ------ |
+| HELENA_FLAG_TEST | OFF | Tests, temporarily unavailable |
+| HELENA_FLAG_EXAMPLES | ON | Examples of using |
+| HELENA_FLAG_USE_BUNDLED_DEPS | ON | Use the bundled FMT, when `OFF` used `find_package(fmt REQUIRED)` |
+| HELENA_FLAG_VIEW_HELENA | OFF | Display Helena header files in your project |
+| HELENA_FLAG_BIN_DIR | ON | Changes output directories for binaries to `${CMAKE_SOURCE_DIR}/Bin` |  
+
+> `Note:` recommend disable `HELENA_FLAG_EXAMPLES` and `HELENA_FLAG_BIN_DIR` if you want to use the library in your project.  
+If you want to display header files, I recommend also calling `HELENA_SOURCE_PRETTY()` in your CMakeLists,  
+this will group the files so they don't get scattered around your project.  
+Usage flags in cmake: `-DHELENA_FLAG_...=ON/OFF`   
+
+| Helena Framework Util Functions | Description |
+| ------ | ------ |
+| HELENA_SOURCE_PRETTY | Group the framework header files in the "Helena" catalog, has effect only when flag `HELENA_FLAG_VIEW_HELENA` is `ON` |
+| HELENA_SOURCE_GROUP | Group your own files |
+| HELENA_SOURCE_GLOB | Recursively search for files with extensions in a directory |  
+
+> `Note:` see examples of usage in Examples! 
+
+```sh
+    > # Open yout project dependencies dir
+    > cd YourProject/Dependencies
+    > git pull https://github.com/NIKEA-SOFT/HelenaFramework.git
+    > # Edit your project CMakeLists.txt and add:
+    > # add_subdirectory(${CMAKE_CURRENT_LIST_DIR)/Dependencies/HelenaFramework)
+    > # Open your project dir
+    > cd YourProject
+
+    ---------------> [Build: Visual Studio 2022 MSVC/Clang] <------------
+    > # Start x86/x64 Native Tools Command Prompt and execute:
+    > cmake -B Build -G "Visual Studio 17" -DHELENA_FLAG_EXAMPLES=OFF -DHELENA_FLAG_BIN_DIR=OFF
+    > # Open solution in Visual Studion
+    ---------------------------------------------------------------------
+
+    ---------------> [Build: MSYS2 MinGW/Clang/UCRT] <-------------------
+    > # Start MSYS2 MinGW/Clang/UCRT console
+    > # WARNING:
+    > # 1. Make sure you have installed all required MSYS2 packages for each compiler (console) version you are using
+    > # 2. You can use Debug or Release build type and g++ or clang++ compiler
+    > # 3. Other generators besides Ninja are also supported
+    > cmake -G Ninja -B Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++ -DHELENA_FLAG_EXAMPLES=OFF -DHELENA_FLAG_BIN_DIR=OFF
+    > # Build
+    > cmake --build Build
+    ---------------------------------------------------------------------
+
+    --------------------> [Build: Linux GCC/Clang] <---------------------
+    > # Start MSYS2 MinGW/Clang/UCRT console
+    > # WARNING:
+    > # 1. You can use Debug or Release build type and g++ or clang++ compiler
+    > # 2. Other generators besides Ninja are also supported
+    > cmake -G Ninja -B Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++ -DHELENA_FLAG_EXAMPLES=OFF -DHELENA_FLAG_BIN_DIR=OFF
+    > # Build
+    > cmake --build Build
+    ---------------------------------------------------------------------
+```
+  
+#### No build systems
+```
+    Installing:
+    1. Download ZIP archive from repository
+    2. Open your "Project/Dependencies" directory
+    3. Copy "Helena" dir from ZIP to "Project/Dependencies" dir
+    4. Copy "fmt" dir from "Dependencies" in ZIP to "Project/Dependencies" dir
+    5. Add "Project/Dependencies" into "include directories" of your project!
+    Done!
+
+    WARNING: Make sure you remember to add the flags listed in the "Compilers" section of the README
+```
