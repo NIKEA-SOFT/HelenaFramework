@@ -52,6 +52,7 @@
 
 // Types
 #include <Helena/Types/AlignedStorage.hpp>
+#include <Helena/Types/AlignedStorageV2.hpp>
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
 #include <Helena/Types/BasicLogger.hpp>
