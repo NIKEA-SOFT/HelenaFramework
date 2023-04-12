@@ -2,68 +2,65 @@
 #define HELENA_ENGINE_ENGINE_IPP
 
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Traits/Arguments.hpp>
-#include <Helena/Traits/Remove.hpp>
-#include <Helena/Traits/SameAS.hpp>
+#include <Helena/Engine/Events.hpp>
+#include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Sleep.hpp>
 
 namespace Helena
 {
-#if defined(HELENA_PLATFORM_WIN)
-    inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType)
-    {
-        const auto ctx = Engine::Context::Get();
-        if(ctx)
-        {
-            if(ctx->m_State == Engine::EState::Init) {
-                Engine::Shutdown();
-            }
-        }
+    inline void Engine::InitContext(ContextStorage context) noexcept {
+        m_Context = std::move(context);
+    }
 
+    [[nodiscard]] inline bool Engine::HasContext() noexcept {
+        return static_cast<bool>(m_Context);
+    }
+
+    [[nodiscard]] inline Engine::Context& Engine::MainContext() noexcept {
+        HELENA_ASSERT(m_Context, "Context not initialized!");
+        return *m_Context;
+    }
+
+#if defined(HELENA_PLATFORM_WIN)
+    inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType) {
+        if(GetState() == EState::Init) Shutdown();
         return TRUE;
     }
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
-        std::string_view appName = Engine::Context::GetInstance().GetAppName();
-        if(appName.empty()) {
-            appName = "Helena";
-        }
-
         const auto dateTime = Types::DateTime::FromLocalTime();
-        const auto dumpName = Util::Format("{}_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
-            appName,
-            dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
-            dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
+        const auto dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
+                                dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
+                                dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
-        HANDLE hFile = CreateFileA(dumpName.c_str(), GENERIC_READ|GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-            NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        const auto hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
         if(!hFile || hFile == INVALID_HANDLE_VALUE) {
-            Log::Console<Log::Exception>("Create file for dump failed, error: {}", GetLastError());
+            HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
             return EXCEPTION_EXECUTE_HANDLER;
         }
 
-        HANDLE hProcess = GetCurrentProcess();
-        const DWORD processId = GetProcessId(hProcess);
-        const MINIDUMP_TYPE flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
-        MINIDUMP_EXCEPTION_INFORMATION exceptionInfo {
-            .ThreadId = GetCurrentThreadId(),
+        const auto hProcess     = ::GetCurrentProcess();
+        const auto processId    = ::GetProcessId(hProcess);
+        const auto flag         = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
+        auto exceptionInfo      = MINIDUMP_EXCEPTION_INFORMATION {
+            .ThreadId = ::GetCurrentThreadId(),
             .ExceptionPointers = pException,
             .ClientPointers = TRUE
         };
 
-        const BOOL result = MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, NULL, NULL);
-        if(!result) {
-            Log::Console<Log::Exception>("Create dump failed, error: {}", GetLastError());
-            DeleteFileA(dumpName.c_str());
+        if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
+            (void)::DeleteFileA(dumpName.c_str());
+            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", ::GetLastError());
         } else {
-            Log::Console<Log::Exception>("SEH Handler Dump: \"{}\" created!", dumpName.c_str());
+            HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName);
         }
 
-        CloseHandle(hFile);
+        (void)::CloseHandle(hFile);
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
@@ -71,27 +68,20 @@ namespace Helena
     {
         static ULONG stackSize = 64 * 1024;
 
-        SetThreadStackGuarantee(&stackSize);
-        SetConsoleCtrlHandler(CtrlHandler, TRUE);
-        SetUnhandledExceptionFilter(MiniDumpSEH);
+        ::SetThreadStackGuarantee(&stackSize);
+        ::SetConsoleCtrlHandler(CtrlHandler, TRUE);
+        ::SetUnhandledExceptionFilter(MiniDumpSEH);
 
         // Disable X button
-        if(HWND hWnd = GetConsoleWindow(); hWnd) {
-            HMENU hMenu = GetSystemMenu(hWnd, FALSE);
-            EnableMenuItem(hMenu, SC_CLOSE, MF_DISABLED | MF_BYCOMMAND);
+        if(HWND hWnd = ::GetConsoleWindow(); hWnd) {
+            HMENU hMenu = ::GetSystemMenu(hWnd, FALSE);
+            ::EnableMenuItem(hMenu, SC_CLOSE, MF_DISABLED | MF_BYCOMMAND);
         }
     }
 
 #elif defined(HELENA_PLATFORM_LINUX)
-    inline void Engine::SigHandler([[maybe_unused]] int signal)
-    {
-        const auto ctx = Engine::Context::Get();
-        if(ctx)
-        {
-            if(ctx->m_State == Engine::EState::Init) {
-                Engine::Shutdown();
-            }
-        }
+    inline void Engine::SigHandler([[maybe_unused]] int signal) {
+        if(GetState() == EState::Init) Shutdown();
     }
 
     inline void Engine::RegisterHandlers() {
@@ -103,129 +93,187 @@ namespace Helena
     }
 #endif
 
-    [[nodiscard]] inline bool Engine::Heartbeat()
+    [[nodiscard]] inline std::uint64_t Engine::GetTickTime() noexcept
     {
-        auto& ctx = Engine::Context::GetInstance();
-        const auto state = ctx.m_State.load(std::memory_order_relaxed);
-        const auto fnGetTimeMS = []() noexcept {
-            std::uint64_t ms {};
-        #if defined(HELENA_PLATFORM_WIN)
-            static LARGE_INTEGER s_frequency;
-            static BOOL s_use_qpc = QueryPerformanceFrequency(&s_frequency);
-            LARGE_INTEGER now;
-            if(s_use_qpc && QueryPerformanceCounter(&now)) {
-                ms = (1000LL * now.QuadPart) / s_frequency.QuadPart;
-            } else {
-                ms = GetTickCount64();
+#if defined(HELENA_PLATFORM_WIN)
+        static LARGE_INTEGER s_frequency;
+        static BOOL s_use_qpc = ::QueryPerformanceFrequency(&s_frequency);
+        LARGE_INTEGER now;
+        std::uint64_t ms = s_use_qpc && ::QueryPerformanceCounter(&now)
+            ? ((1000LL * now.QuadPart) / s_frequency.QuadPart)
+            : ::GetTickCount64();
+#else
+        struct timeval te;
+        ::gettimeofday(&te, nullptr);
+        std::uint64_t ms = te.tv_sec * 1000LL + te.tv_usec / 1000;
+#endif
+        return ms;
+    }
+
+    template <std::derived_from<Engine::Context> T, typename... Args>
+    requires std::constructible_from<T, Args...>
+    void Engine::Initialize([[maybe_unused]] Args&&... args)
+    {
+        HELENA_ASSERT(!HasContext(), "Context already initialized!");
+        InitContext(ContextStorage{new (std::nothrow) T, +[](const Context* ctx) {
+            delete ctx;
+        }});
+        HELENA_ASSERT(HasContext(), "Initialize Context failed!");
+
+        if(!MainContext().Main())
+        {
+            constexpr const auto message = "Initialize Main of Context: {} failed!";
+            if(GetState() != EState::Shutdown) {
+                Shutdown(message, Traits::NameOf<T>{});
+                return;
             }
-        #else
-            struct timeval te;
-            gettimeofday(&te, NULL);
-            ms = te.tv_sec * 1000LL + te.tv_usec / 1000;
-        #endif
-            return ms;
+
+            HELENA_MSG_FATAL(message, Traits::NameOf<T>{});
+        }
+    }
+
+    inline void Engine::Initialize(Context& ctx) noexcept {
+    #if defined(HELENA_COMPILER_GCC)
+        // WARNING: For plugins compiled on GCC, you must provide the flag: -fno-gnu-unique
+        // Otherwise, false positives of the assert are possible.
+        HELENA_ASSERT(!HasContext(), "Context already initialized or compiler flag: -fno-gnu-unique not used!");
+    #else
+        HELENA_ASSERT(!HasContext(), "Context already initialized");
+    #endif
+
+        InitContext(ContextStorage{std::addressof(ctx), +[](const Context*){}});
+    }
+
+    template <std::derived_from<Engine::Context> T>
+    [[nodiscard]] T& Engine::GetContext() noexcept {
+        return static_cast<T&>(MainContext());
+    }
+
+    [[nodiscard]] inline Engine::EState Engine::GetState() noexcept {
+        return MainContext().m_State.load(std::memory_order_acquire);
+    }
+
+    inline void Engine::SetTickrate(double tickrate) noexcept {
+        MainContext().m_TickRate = 1. / (std::max)(tickrate, 1.);
+    }
+
+    [[nodiscard]] inline double Engine::GetTickrate() noexcept {
+        return 1. / MainContext().m_TickRate;
+    }
+
+    [[nodiscard]] inline std::uint64_t Engine::GetTimeElapsed() noexcept {
+        return GetTickTime() - MainContext().m_TimeStart;
+    }
+
+    [[nodiscard]] inline bool Engine::Heartbeat(std::size_t sleepMS, std::uint8_t accumulator)
+    {
+        auto& ctx = MainContext();
+        const auto state = GetState();
+        const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, [[maybe_unused]] Args&&... args) {
+            (SignalEvent<Events>(args...), ...);
         };
 
-    #if defined(HELENA_PLATFORM_WIN)
+    #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         __try {
     #endif
         switch(state)
         {
-            case Engine::EState::Undefined: [[unlikely]]
+            case EState::Undefined: [[unlikely]]
             {
                 RegisterHandlers();
 
-                ctx.m_ShutdownMessage.m_Location = {};
-                ctx.m_ShutdownMessage.m_Message.clear();
-
-                ctx.m_State     = Engine::EState::Init;
-                ctx.m_TimeStart = fnGetTimeMS();
+                ctx.m_TimeStart = GetTickTime();
                 ctx.m_TimeNow   = ctx.m_TimeStart;
                 ctx.m_TimePrev  = ctx.m_TimeStart;
-
-                if(ctx.m_Callback) {
-                    ctx.m_Callback();
-                }
-
-                if(Running()) SignalEvent<Events::Engine::Init>();
-                if(Running()) SignalEvent<Events::Engine::Config>();
-                if(Running()) SignalEvent<Events::Engine::Execute>();
-
+                ctx.m_ShutdownMessage->m_Location = {};
+                ctx.m_ShutdownMessage->m_Message.clear();
+                ctx.m_State.store(EState::Init, std::memory_order_release);
             } break;
 
-            case Engine::EState::Init: [[likely]]
+            case EState::Init: [[likely]]
             {
                 ctx.m_TimePrev  = ctx.m_TimeNow;
-                ctx.m_TimeNow   = fnGetTimeMS();
-                ctx.m_DeltaTime = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.f;
+                ctx.m_TimeNow   = GetTickTime();
+                ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.;
+                ctx.m_TimeElapsed += ctx.m_TimeDelta;
 
-                ctx.m_TimeElapsed += ctx.m_DeltaTime;
+                signal(Signals<
+                    Events::Engine::PreInit,
+                    Events::Engine::Init,
+                    Events::Engine::PostInit,
+                    Events::Engine::PreConfig,
+                    Events::Engine::Config,
+                    Events::Engine::PostConfig,
+                    Events::Engine::PreExecute,
+                    Events::Engine::Execute,
+                    Events::Engine::PostExecute
+                >{});
 
-                static std::uint32_t accumulator = 0;
-                static constexpr std::uint32_t accumulatorMax = 2;
+                for(const auto& message : ctx.m_SignalsPool) {
+                    message();
+                } ctx.m_SignalsPool.clear();
 
-                // Base signal called only once for new listeners
-                SignalEvent<Events::Engine::Init>();
-                SignalEvent<Events::Engine::Config>();
-                SignalEvent<Events::Engine::Execute>();
-                SignalEvent<Events::Engine::Tick>(ctx.m_DeltaTime);
+                signal(Signals<
+                    Events::Engine::PreTick,
+                    Events::Engine::Tick,
+                    Events::Engine::PostTick
+                >{}, ctx.m_TimeDelta);
 
-                while(ctx.m_TimeElapsed >= ctx.m_Tickrate)
-                {
-                    ctx.m_TimeElapsed -= ctx.m_Tickrate;
-                    if(accumulatorMax < accumulator++) {
-                        accumulator = 0;
-                        break;
-                    }
-
-                    SignalEvent<Events::Engine::Update>(ctx.m_Tickrate);
+                std::uint32_t accumulated{};
+                while(ctx.m_TimeElapsed >= ctx.m_TickRate && accumulated++ < accumulator) {
+                    ctx.m_TimeElapsed -= ctx.m_TickRate;
+                    signal(Signals<
+                        Events::Engine::PreUpdate,
+                        Events::Engine::Update,
+                        Events::Engine::PostUpdate
+                    >{}, ctx.m_TickRate);
                 }
 
-                SignalEvent<Events::Engine::Render>(ctx.m_TimeElapsed / ctx.m_Tickrate);
+                signal(Signals<
+                    Events::Engine::PreRender,
+                    Events::Engine::Render,
+                    Events::Engine::PostRender
+                >{}, ctx.m_TimeElapsed / ctx.m_TickRate, ctx.m_TimeDelta);
 
             #ifndef HELENA_ENGINE_NOSLEEP
-                Util::Sleep(std::chrono::milliseconds{1});
+                if(!accumulated) {
+                    Util::Sleep(std::chrono::milliseconds{sleepMS});
+                }
             #endif
 
             } break;
 
             case Engine::EState::Shutdown: [[unlikely]]
             {
-                SignalEvent<Events::Engine::Finalize>();
-                SignalEvent<Events::Engine::Shutdown>();
+                signal(Signals<
+                    Events::Engine::PreFinalize,
+                    Events::Engine::Finalize,
+                    Events::Engine::PostFinalize,
+                    Events::Engine::PreShutdown,
+                    Events::Engine::Shutdown,
+                    Events::Engine::PostShutdown
+                >{});
 
-                ctx.m_Events.Clear();
+                ctx.m_Signals.Clear();
                 ctx.m_Systems.Clear();
-                ctx.m_State = Engine::EState::Undefined;
-
-                if(!ctx.m_ShutdownMessage.m_Message.empty())
-                {
-                    struct Shutdown
-                    {
-                        [[nodiscard]] static constexpr auto GetPrefix() noexcept {
-                            return Log::CreatePrefix("[SHUTDOWN]");
-                        }
-
-                        [[nodiscard]] static constexpr auto GetStyle() noexcept {
-                            return Log::CreateStyle(Log::Color::BrightWhite, Log::Color::Red);
-                        }
-                    };
-
-                    const auto format = Log::Formater<Shutdown>{ctx.m_ShutdownMessage.m_Message, ctx.m_ShutdownMessage.m_Location};
-                    Log::Console(format);
+                if(!ctx.m_ShutdownMessage->m_Message.empty()) {
+                    Log::Console(Log::Formater<Log::Shutdown>{
+                        ctx.m_ShutdownMessage->m_Message,
+                        ctx.m_ShutdownMessage->m_Location});
                 }
 
+                ctx.m_State.store(EState::Undefined, std::memory_order_release);
                 return false;
             }
         }
 
-    #if defined(HELENA_PLATFORM_WIN)
+    #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         } __except (MiniDumpSEH(GetExceptionInformation())) {
-            if(ctx.m_State == Engine::EState::Shutdown) {
+            if(GetState() == EState::Shutdown) {
                 return false;
             }
 
-            Engine::Shutdown("Unhandled Exception");
+            Shutdown("Unhandled Exception");
         }
     #endif
 
@@ -233,213 +281,213 @@ namespace Helena
     }
 
     [[nodiscard]] inline bool Engine::Running() noexcept {
-        return GetState() == Engine::EState::Init;
-    }
-
-    [[nodiscard]] inline Engine::EState Engine::GetState() noexcept {
-        return Engine::Context::GetInstance().m_State.load(std::memory_order_relaxed);
+        return GetState() == EState::Init;
     }
 
     template <typename... Args>
     void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
     {
-        auto& ctx = Engine::Context::GetInstance();
-        const std::lock_guard lock{ctx.m_ShutdownMessage.m_Mutex};
-
-        if(ctx.m_State != Engine::EState::Shutdown) {
-            ctx.m_State = Engine::EState::Shutdown;
-
-            if(!msg.m_Msg.empty()) {
-                ctx.m_ShutdownMessage.m_Location = msg.m_Location;
-                ctx.m_ShutdownMessage.m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
-            }
+        auto& ctx = MainContext();
+        const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
+        if(state != EState::Shutdown) {
+            ctx.m_ShutdownMessage->m_Location = msg.m_Location;
+            ctx.m_ShutdownMessage->m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
         }
     }
 
     [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
-    {
-        const auto& ctx = Engine::Context::GetInstance();
-        if(ctx.m_State == EState::Shutdown) {
-            const auto& msg = ctx.m_ShutdownMessage.m_Message;
-            const auto& location = ctx.m_ShutdownMessage.m_Location;
+    {;
+        if(GetState() == EState::Shutdown) {
+            auto& ctx = MainContext();
+            const auto& msg = ctx.m_ShutdownMessage->m_Message;
+            const auto& location = ctx.m_ShutdownMessage->m_Location;
             return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), msg);
         }
+
         return std::string{};
     }
 
     template <typename T, typename... Args>
-    void Engine::RegisterSystem([[maybe_unused]] Args&&... args) {
-        Engine::Context::GetInstance().m_Systems.template Create<T>(std::forward<Args>(args)...);
+    requires std::constructible_from<T, Args...>
+    void Engine::RegisterSystem(Args&&... args) {
+        if(GetState() == EState::Shutdown) [[unlikely]] return;
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
+        MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasSystem() {
-        return Engine::Context::GetInstance().m_Systems.template Has<T...>();
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
+        return MainContext().m_Systems.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnySystem() {
-        return Engine::Context::GetInstance().m_Systems.template Any<T...>();
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
+        return MainContext().m_Systems.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetSystem() {
-        return Engine::Context::GetInstance().m_Systems.template Get<T...>();
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
+        return MainContext().m_Systems.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveSystem() {
-        Engine::Context::GetInstance().m_Systems.template Remove<T...>();
+    #if defined(HELENA_THREADSAFE_SYSTEMS)
+        const std::lock_guard lock{MainContext().m_LockSystems};
+    #endif
+        MainContext().m_Systems.template Remove<T...>();
     }
 
     template <typename Event, typename... Args>
-    void Engine::SubscribeEvent(void (*callback)([[maybe_unused]] Args...))
+    requires Engine::RequiresCallback<Event, Args...>
+    void Engine::SubscribeEvent(void (*callback)(Args...))
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
+        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
 
-        auto& ctx = Engine::Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            ctx.m_Events.template Create<Event>();
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
-            return storage == callback;
+        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
+            if constexpr(std::is_empty_v<Event>) {
+                std::invoke(storage.As<decltype(callback)>());
+            } else {
+                std::invoke(storage.As<decltype(callback)>(), *static_cast<Traits::RemoveRef<
+                    typename Traits::Arguments<Args...>::template Get<0>>*>(data));
+            }
         });
-        HELENA_ASSERT(empty, "Listener already registered!");
-
-        if(empty)
-        {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
-            {
-                if constexpr(std::is_empty_v<Event>) {
-                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
-
-                    storage.m_Callback();
-                } else {
-                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAS<Event, Traits::RemoveCVR<Args>> && ...), "Args type incorrect");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_Callback){storage.m_Callback};
-                    fn(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-                }
-            });
-        }
     }
 
     template <typename Event, typename System, typename... Args>
-    void Engine::SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...))
+    requires Engine::RequiresCallback<Event, Args...>
+    void Engine::SubscribeEvent(void (System::*callback)(Args...))
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
+        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
 
-        auto& ctx = Engine::Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            ctx.m_Events.template Create<Event>();
-        }
+        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
+            auto& ctx = MainContext();
+            if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
+                UnsubscribeEvent<Event>(storage.As<decltype(callback)>());
+                return;
+            }
 
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto empty = eventPool.cend() == std::find_if(eventPool.begin(), eventPool.end(), [callback](const auto& storage) {
-            return storage == callback;
+            if constexpr(std::is_empty_v<Event>) {
+                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>());
+            } else {
+                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>(),
+                    *static_cast<Traits::RemoveRef<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
+            }
         });
-        HELENA_ASSERT(empty, "Listener already registered!");
+    }
 
-        if(empty)
-        {
-            eventPool.emplace_back(callback, +[](CallbackStorage::Storage& storage, [[maybe_unused]] void* data) 
-            {
-                auto& ctx = Engine::Context::GetInstance();
-                if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    UnsubscribeEvent<Event>(fn);
-                    return;
-                }
-
-                if constexpr(std::is_empty_v<Event>) {
-                    static_assert(Traits::Arguments<Args...>::Orphan, "Args should be dropped for optimization");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    (ctx.m_Systems.template Get<System>().*fn)();
-                } else {
-                    static_assert(Traits::Arguments<Args...>::Single, "Args incorrect");
-                    static_assert((Traits::SameAS<Event, Traits::RemoveCVRP<Args>> && ...), "Args type incorrect");
-
-                    decltype(callback) fn{}; new (&fn) decltype(storage.m_CallbackMember){storage.m_CallbackMember};
-                    (ctx.m_Systems.template Get<System>().*fn)(*static_cast<Traits::RemoveCVR<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-                }
-            });
+    template <typename Event, typename Callback, typename SignalFunctor>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::SubscribeEvent(Callback&& callback, SignalFunctor&& fn)
+    {
+        auto& ctx = MainContext();
+        if(!ctx.m_Signals.template Has<Event>()) {
+            ctx.m_Signals.template Create<Event>();
         }
+
+        auto& pool = ctx.m_Signals.template Get<Event>();
+#if defined(HELENA_DEBUG)
+        const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
+            [callback = std::forward<Callback>(callback)](const auto& storage) {
+                return storage == callback;
+        });
+        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>{});
+#endif
+        pool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
     }
 
     template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+        if constexpr(std::is_empty_v<Event>) {
+            union { Event event; };
+            SignalEvent(event);
+        } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
+            Event event(std::forward<Args>(args)...);
+            SignalEvent(event);
+        } else if constexpr(requires {Event{std::forward<Args>(args)...};}) {
+            Event event{std::forward<Args>(args)...};
+            SignalEvent(event);
+        } else {
+            []<bool constructible = false>() {
+                static_assert(constructible, "Event type not constructible from args");
+            }();
+        }
+    }
 
-        auto& ctx = Engine::Context::GetInstance();
-        if(ctx.m_Events.template Has<Event>())
+    template <typename Event>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::SignalEvent(Event& event)
+    {
+        auto& ctx = MainContext();
+        if(auto poolStorage = ctx.m_Signals.template Ptr<Event>())
         {
-            auto& eventPool = ctx.m_Events.template Get<Event>();
-            for(std::size_t pos = eventPool.size(); pos; --pos)
-            {
-                if constexpr(std::is_empty_v<Event>) {
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, nullptr);
-                } else if constexpr(std::is_aggregate_v<Event>) {
-                    auto event = Event{std::forward<Args>(args)...};
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
-                } else {
-                    auto event = Event(std::forward<Args>(args)...);
-                    eventPool[pos - 1].m_Callback(eventPool[pos - 1].m_Storage, static_cast<void*>(&event));
-                }
+            auto& pool = *poolStorage;
+            for(std::size_t pos = pool.size(); pos; --pos) {
+                const auto& [callback, storage] = pool[pos - 1];
+                std::invoke(callback, storage, &event);
             }
 
-            if constexpr(Traits::IsAnyOf<Event,
-                Events::Engine::Init,
-                Events::Engine::Config,
-                Events::Engine::Execute,
-                Events::Engine::Finalize,
-                Events::Engine::Shutdown>::value) {
-                eventPool.clear();
+            if constexpr(Traits::AnyOf<Event,
+                Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
+                Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
+                Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
+                Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
+                Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
+                pool.clear();
             }
         }
     }
 
     template <typename Event, typename... Args>
-    void Engine::UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::EnqueueSignal(Args&&... args) {
+        MainContext().m_SignalsPool.emplace_back([... args = std::forward<Args>(args)]() mutable {
+            Helena::Engine::SignalEvent<Event>(std::forward<Args>(args)...);
+        });
+    }
 
-        auto& ctx = Engine::Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            return;
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+    template <typename Event, typename... Args>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::UnsubscribeEvent(void (*callback)(Args...)) {
+        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });
-
-        if(it != eventPool.cend()) {
-            eventPool.erase(it);
-        }
     }
 
     template <typename Event, typename System, typename... Args>
-    void Engine::UnsubscribeEvent(void (System::* callback)([[maybe_unused]] Args...)) {
-        static_assert(Traits::SameAS<Event, Traits::RemoveCVRP<Event>>, "Event type incorrect");
-
-        auto& ctx = Engine::Context::GetInstance();
-        if(!ctx.m_Events.template Has<Event>()) {
-            return;
-        }
-
-        auto& eventPool = ctx.m_Events.template Get<Event>();
-        const auto it = std::find_if(eventPool.cbegin(), eventPool.cend(), [callback](const auto& storage) noexcept {
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::UnsubscribeEvent(void (System::* callback)(Args...)) {
+        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
             return storage == callback;
         });
+    }
 
-        if(it != eventPool.cend()) {
-            eventPool.erase(it);
+    template <typename Event, typename Comparator>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::UnsubscribeEvent(Comparator&& comparator) {
+        if(const auto poolStorage = MainContext().m_Signals.template Ptr<Event>()) {
+            if(const auto it = std::find_if(poolStorage->cbegin(), poolStorage->cend(), std::forward<Comparator>(comparator));
+                it != poolStorage->cend()) {
+                poolStorage->erase(it);
+            };
         }
     }
+
 }
 
 #endif // HELENA_ENGINE_ENGINE_IPP

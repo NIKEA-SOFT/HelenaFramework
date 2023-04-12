@@ -1,12 +1,20 @@
 cmake_minimum_required(VERSION 3.14)
-project(HelenaFramework VERSION 1.0.2 LANGUAGES CXX)
+
+set(HELENA_VERSION_REGEX "#define HELENA_VERSION_.*[ \t]+(.+)")
+file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/Helena/Helena.hpp" HELENA_VERSION REGEX ${HELENA_VERSION_REGEX})
+list(TRANSFORM HELENA_VERSION REPLACE ${HELENA_VERSION_REGEX} "\\1")
+string(JOIN "." HELENA_VERSION ${HELENA_VERSION})
+
+project(HelenaFramework VERSION ${HELENA_VERSION} LANGUAGES CXX)
 
 #|--------------------------------
 #| Helena Framework Options
 #|--------------------------------
-option(HELENA_FLAG_TEST         "Build and run test"    OFF)
-option(HELENA_FLAG_EXAMPLES     "Build examples"        ON)
-option(HELENA_FLAG_COVERAGE     "GCC/Clang coverage"    OFF)
+option(HELENA_FLAG_TEST             "Build and run test"    OFF)
+option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
+option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
+option(HELENA_FLAG_VIEW_HELENA      "Helena folder show in target project" OFF)
+option(HELENA_FLAG_BIN_DIR          "Enable bin directory of object and binary files" ON)
 
 #|--------------------------------
 #| Set default build type
@@ -18,24 +26,9 @@ if(UNIX)
 endif()
 
 #|--------------------------------
-#| Set CMAKE_MACOSX_RPATH
+#| Set supported build types
 #|--------------------------------
-#if(APPLE)
-#    set(CMAKE_MACOSX_RPATH 1)
-#endif()
-
-#|--------------------------------
-#| CMake 3.9 and newer remove any effect the following settings may have on the install_name of a target on macOS:
-#|
-#| BUILD_WITH_INSTALL_RPATH target property
-#| SKIP_BUILD_RPATH target property
-#| CMAKE_SKIP_RPATH variable
-#| CMAKE_SKIP_INSTALL_RPATH variable
-#|--------------------------------
-#if(APPLE AND (${CMAKE_MAJOR_VERSION} GREATER_EQUAL 3 AND ${CMAKE_MINOR_VERSION} GREATER_EQUAL 9))
-    #message("CMake version is ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}")
-#    option(MACOS_NO_RPATH "CMake 3.9 and newer remove any effect of RPATH" ON)
-#endif()
+set(HELENA_SUPPORTED_BUILD_TYPES Debug Release)
 
 #|--------------------------------
 #| Config compiler
@@ -44,7 +37,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_SUPPRESS_REGENERATION OFF)
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "${HELENA_SUPPORTED_BUILD_TYPES}" CACHE STRING "" FORCE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 
@@ -60,66 +53,218 @@ set(HELENA_PROJECT_NAME ${PROJECT_NAME})
 set(HELENA_PROJECT_VERSION ${PROJECT_VERSION})
 set(HELENA_PROJECT_FRAMEWORK_DIR "Helena")
 
+if(CMAKE_VERSION VERSION_LESS 3.21)
+  get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
+  if(NOT not_top)
+    set(PROJECT_IS_TOP_LEVEL true)
+  endif()
+endif()
+
 #|--------------------------------
 #| Helena Framework Configuration
 #|--------------------------------
-set(HELENA_PROJECT_DIR ${CMAKE_SOURCE_DIR})
-set(HELENA_PROJECT_OUTDIR ${HELENA_PROJECT_DIR}/Bin/Bin)
+set(HELENA_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}")
+set(HELENA_PROJECT_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin")
 message(STATUS "Helena Project Dir: ${HELENA_PROJECT_DIR}")
-#message(STATUS "Include Dir: ${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}")
 
-set(HELENA_PROJECT_BINDIR ${HELENA_PROJECT_DIR}/Bin)
+if(HELENA_FLAG_BIN_DIR)
+	message(STATUS "Helena Project Bin Dir: ${HELENA_PROJECT_BIN_DIR}")
+endif()
+
 if(DEFINED CMAKE_BUILD_TYPE)
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
+    if(CMAKE_BUILD_TYPE IN_LIST HELENA_SUPPORTED_BUILD_TYPES)
         set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Debug")
-    elseif(CMAKE_BUILD_TYPE MATCHES Release)
-        set(HELENA_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-        message(STATUS "Build type: Release")
+	message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
     else()
-    message(FATAL_ERROR "Error: unknown build type")
+        message(FATAL_ERROR "Error: unknown build type \"${CMAKE_BUILD_TYPE}\"")
     endif()
 endif()
 
-message(STATUS "Helena Binary Dir: ${HELENA_PROJECT_OUTDIR}")
 message(STATUS "Build ${HELENA_PROJECT_NAME} [${HELENA_PROJECT_VERSION}] [C++${CMAKE_CXX_STANDARD}] [${CMAKE_BUILD_TYPE}]")
+
+#|---------------------------------------------
+#| Helena Framework Interface target and alias
+#|---------------------------------------------
+add_library(Helena INTERFACE)
+add_library(Helena::Helena ALIAS Helena)
+
+target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR})
+target_compile_features(Helena INTERFACE cxx_std_20)
+
+target_include_directories(Helena INTERFACE
+	$<BUILD_INTERFACE:${HELENA_PROJECT_DIR}>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+if(HELENA_FLAG_VIEW_HELENA)
+	set(HELENA_PROJECT_HEADERS
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Dependencies/Fmt.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Engine.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Engine.ipp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Events.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Log.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Log.ipp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Helena.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Assert.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Compiler.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Defines.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Linux/Linux.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Platform.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Processor.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Windows/Windows.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Add.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/AnyOf.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Arguments.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Cacheline.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Conditional.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Constness.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Constructible.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/FNV1a.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Function.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Identity.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/NameOf.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Overloads.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/PowerOf2.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Remove.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/SameAll.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/SameAs.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/ScopedEnum.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Select.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Specialization.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/TypeCounter.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Underlying.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/AlignedStorage.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/AlignedStorageV2.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Allocators.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Any.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/BasicLogger.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/BasicLoggersDef.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/BenchmarkScoped.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/CompressedPair.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/DateTime.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Delegate.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/EncryptedString.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/FixedBuffer.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Format.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Hash.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/LocationString.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/ModernDesign.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Monostate.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Mutex.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/RWLock.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/ReferencePointer.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/SourceLocation.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Spinlock.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/StateMachine.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/StaticVector.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Storage.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Subsystems.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TSVector.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TaskScheduler.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TimeSpan.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/UndefinedContainer.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/UniqueIndexer.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorAny.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorKVAny.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorUnique.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Cast.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Format.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Length.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Sleep.hpp"
+	)
+
+	target_sources(Helena INTERFACE ${HELENA_PROJECT_HEADERS})
+endif()
 
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-include_directories(${HELENA_PROJECT_DIR})
-include_directories(${HELENA_PROJECT_DIR}/Dependencies)
+if(HELENA_FLAG_USE_BUNDLED_DEPS)
+    target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
+else()
+    find_package(fmt REQUIRED)
+    if(HELENA_FLAG_TEST)
+        find_package(GTest REQUIRED)
+    endif()
+    target_link_libraries(Helena INTERFACE fmt::fmt-header-only)
+endif()
 
 #|--------------------------------
 #| Helena Framework Build
 #|--------------------------------
-if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING")
-elseif(UNIX)
-    set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -ggdb -Wall -Wextra -D_DEBUG -fPIC")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra -DNDEBUG -fPIC")
-
-    add_definitions(-Wno-unused-parameter -Wno-unused-variable -Wno-unused-function)
-    if(HELENA_FLAG_COVERAGE)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-        set(CMAKE_CXX_FLAGS_DEBUG "-lgcov --coverage")
-        set(CMAKE_CXX_FLAGS_RELEASE "-lgcov --coverage")
-        message(STATUS "Build coverage")
-        add_compile_options(--coverage -O0)
-    endif()
-else()
-    message(FATAL_ERROR "Current platform not support!")
+if(NOT UNIX AND NOT WIN32)
+    message(FATAL_ERROR "Current platform is not supported!")
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_OUTDIR}")
+if(UNIX OR MINGW)
+	target_compile_options(Helena INTERFACE -Wall -Wextra -fvisibility=hidden
+        $<$<CONFIG:Debug>:-O0 -g -ggdb>
+        $<$<CONFIG:Release>:-O3>
+	)
+endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_OUTDIR}")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(Helena INTERFACE -fno-gnu-unique)
+    if(MINGW)
+        target_compile_options(Helena INTERFACE -Wno-interference-size)
+    endif()
+endif()
 
-link_directories(${HELENA_PROJECT_OUTDIR})
+if(WIN32)
+    if(MINGW)
+        target_link_libraries(Helena INTERFACE -static -static-libgcc -static-libstdc++ winpthread)
+    else()
+        target_compile_options(Helena INTERFACE /Zc:preprocessor)
+    endif()
+    target_link_libraries(Helena INTERFACE winmm.lib dbghelp.lib ws2_32.lib iphlpapi.lib userenv.lib)
+endif()
+
+if(HELENA_FLAG_BIN_DIR)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${HELENA_PROJECT_BIN_DIR}")
+
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${HELENA_PROJECT_BIN_DIR}")
+
+    link_directories(${HELENA_PROJECT_BIN_DIR})
+endif()
+
+#|--------------------------------
+#| Helena Frameowk Util functions
+#|--------------------------------
+
+# This function groups the header files of the framework into the directory "Helena" in your Project
+# The function has no effect if the HELENA_FLAG_VIEW_HELENA flag is disabled.
+function(HELENA_SOURCE_PRETTY)
+	if(HELENA_FLAG_VIEW_HELENA)
+		foreach(FILE ${HELENA_PROJECT_HEADERS})
+			source_group(TREE "${HELENA_PROJECT_DIR}" FILES "${FILE}")
+		endforeach()
+	endif()
+endfunction()
+
+# Group your own files
+# Example:
+# HELENA_SOURCE_GLOB(APP_SOURCE "${CMAKE_CURRENT_LIST_DIR}" cpp hpp ipp h)
+# HELENA_SOURCE_GROUP("${CMAKE_CURRENT_LIST_DIR}" "${APP_SOURCE}")
+function(HELENA_SOURCE_GROUP ARG_PROJECT_SOURCE_DIR ARG_PROJECT_SOURCE_FILES)
+    foreach(FILE ${ARG_PROJECT_SOURCE_FILES})
+        source_group(TREE "${ARG_PROJECT_SOURCE_DIR}" FILES "${FILE}")
+    endforeach()
+endfunction()
+
+# Search for files recursively with the given extensions in the given directory
+# Example: HELENA_SOURCE_GLOB(APP_SOURCE "${CMAKE_CURRENT_LIST_DIR}" cpp hpp ipp h)
+function(HELENA_SOURCE_GLOB ARG_PROJECT_SOURCE_OUT ARG_PROJECT_SOURCE_DIR)
+	set(TEMP_FILE_LIST "")
+	foreach(FILE_EXT ${ARGN})
+		file(GLOB_RECURSE TEMP_FILE "${ARG_PROJECT_SOURCE_DIR}/*.${FILE_EXT}")
+		list(APPEND TEMP_FILE_LIST ${TEMP_FILE})
+	endforeach()
+    set(${ARG_PROJECT_SOURCE_OUT} ${TEMP_FILE_LIST} PARENT_SCOPE)
+endfunction()
 
 #|--------------------------------
 #| Build with test
@@ -127,7 +272,6 @@ link_directories(${HELENA_PROJECT_OUTDIR})
 if(HELENA_FLAG_TEST)
     message(STATUS "Buiding tests ...")
     enable_testing()
-    #include(CTest)
     add_subdirectory(Test)
 endif()
 
@@ -137,11 +281,4 @@ endif()
 if(HELENA_FLAG_EXAMPLES)
     message(STATUS "Building examples...")
     add_subdirectory(Examples)
-endif()
-
-#|--------------------------------
-#| Build with coverage
-#|--------------------------------
-if(HELENA_FLAG_COVERAGE)
-    find_package(codecov)
 endif()

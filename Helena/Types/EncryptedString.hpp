@@ -16,7 +16,7 @@ namespace Helena::Types
         template <typename, std::size_t>
         friend class DecryptedString;
 
-        static constexpr auto m_Secret = Helena::Types::Hash<std::uint64_t>::template Get<decltype([] {})>();
+        static constexpr auto m_Secret = Hash<std::uint64_t>::template From<decltype([] {})>();
         static constexpr auto m_Capacity = N;
 
     public:
@@ -25,7 +25,7 @@ namespace Helena::Types
         {
         public:
         HELENA_OPTIMIZATION_DISABLE
-            DecryptedString(const volatile R(&data)[Size]) noexcept : m_Data{} {
+            DecryptedString(const volatile R(&data)[Size]) noexcept {
                 for(std::size_t i = 0; i < N; ++i) {
                     m_Data[i] = data[i] ^ ((m_Secret >> i * 8 % std::numeric_limits<std::uint64_t>::digits) & 0xFF);
                 }
@@ -34,6 +34,10 @@ namespace Helena::Types
 
             [[nodiscard]] operator const R* () const noexcept {
                 return m_Data;
+            }
+
+            [[nodiscard]] operator std::basic_string_view<R>() const noexcept {
+                return std::basic_string_view<R>{m_Data};
             }
 
         private:

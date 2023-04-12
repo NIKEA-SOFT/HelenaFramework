@@ -8,7 +8,7 @@
 
 namespace Helena::Types
 {
-    class Spinlock
+    class Spinlock final
     {
         template <typename Mutex>
         friend class std::unique_lock;

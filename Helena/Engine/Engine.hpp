@@ -1,24 +1,18 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
-#include <Helena/Engine/Events.hpp>
-#include <Helena/Engine/Log.hpp>
 #include <Helena/Platform/Platform.hpp>
-#include <Helena/Platform/Defines.hpp>
-#include <Helena/Platform/Assert.hpp>
+#include <Helena/Traits/Conditional.hpp>
+#if defined(HELENA_THREADSAFE_SYSTEMS)
+    #include <Helena/Types/Spinlock.hpp>
+#endif
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
-#include <Helena/Types/Mutex.hpp>
 
-#include <algorithm>
-#include <cstring>
+#include <atomic>
 #include <functional>
-#include <memory>
 #include <string>
-#include <tuple>
-#include <type_traits>
-#include <utility>
 
 namespace Helena
 {
@@ -28,11 +22,21 @@ namespace Helena
         template <std::size_t Value> 
         struct IUniqueKey {};
 
-        //! Unique key for storage events type index
-        using UKEventStorage = IUniqueKey<0>;
-
         //! Unique key for storage systems type index
-        using UKSystems = IUniqueKey<1>;
+        using UKSystems = IUniqueKey<0>;
+
+        //! Unique key for storage signals type index
+        using UKSignals = IUniqueKey<1>;
+
+        //! Unique key for storage messages type index
+        using UKMessages = IUniqueKey<2>;
+
+        template <typename Event, typename... Args>
+        static constexpr auto RequiresCallback = Traits::Conditional<std::is_empty_v<Event>,
+            Traits::Conditional<Traits::Arguments<Args...>::Orphan, std::true_type, std::false_type>,
+            Traits::Conditional<Traits::Arguments<Args...>::Single && (Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...),
+                std::true_type, std::false_type>
+        >::value && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>;
 
         //! Event callback storage with type erasure
         struct CallbackStorage
@@ -42,16 +46,28 @@ namespace Helena
             union alignas(16) Storage {
                 Function m_Callback;
                 MemberFunction m_CallbackMember;
+
+                template <typename T>
+                [[nodiscard]] T As() const noexcept
+                {
+                    T fn{};
+                    if constexpr(std::is_member_function_pointer_v<T>) {
+                        new (&fn) decltype(m_CallbackMember){m_CallbackMember};
+                    } else {
+                        new (&fn) decltype(m_Callback){m_Callback};
+                    }
+                    return fn;
+                }
             };
-            using Callback = void (*)(Storage&, void*);
+            using Callback = void (*)(const Storage&, void*);
 
             template <typename Ret, typename... Args>
-            CallbackStorage(Ret (*callback)(Args...), Callback cb) : m_Callback{cb} {
+            CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
             template <typename Ret, typename T, typename... Args>
-            CallbackStorage(Ret (T::*callback)(Args...), Callback cb) : m_Callback{cb} {
+            CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
                 new (&m_Storage) decltype(callback){callback};
             }
 
@@ -94,10 +110,13 @@ namespace Helena
                 return !(*this == callback);
             }
 
-            Storage m_Storage;
             Callback m_Callback;
+            Storage m_Storage;
         };
-        
+
+        template <typename...>
+        struct Signals {};
+
     public:
         //! Engine states
         enum class EState : std::uint8_t
@@ -107,162 +126,90 @@ namespace Helena
             Shutdown
         };
 
+        static constexpr struct {} NoSignal{};
+
         //! Context for storage framework data
         class Context
         {
-            friend class Engine;
+            template <typename T>
+            using Pool = std::vector<T>;
+            using SignalsPool = Pool<std::function<void ()>>;
 
+            friend class Engine;
             struct ShutdownMessage {
                 std::string m_Message;
                 Types::SourceLocation m_Location;
-                Types::Mutex m_Mutex;
             };
 
-            static constexpr auto DefaultTickrate = 1.f / 30.f;
-
-        protected:
-            using Callback = std::function<void ()>;
-
-            template <typename T = Context>
-            static T& GetInstance() noexcept {
-                HELENA_ASSERT(m_Context, "Context not initilized");
-                return *static_cast<T*>(m_Context.get());
-            }
+            static constexpr auto m_DefaultTickRate = 1. / 30.;
 
         public:
             Context() noexcept
                 : m_Systems{}
-                , m_Events{}
-                , m_Callback{}
-                , m_ShutdownMessage{}
-                , m_ApplicationName{}
-                , m_Tickrate{DefaultTickrate}
-                , m_DeltaTime{}
-                , m_TimeElapsed{}
-                , m_TimeStart{}
+                , m_Signals{}
+                , m_SignalsPool{}
+                , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
+                , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
                 , m_TimePrev{}
+                , m_TickRate{m_DefaultTickRate}
+                , m_TimeDelta{}
+                , m_TimeElapsed{}
+            #if defined(HELENA_THREADSAFE_SYSTEMS)
+                , m_LockSystems{}
+            #endif
                 , m_State{EState::Undefined} {}
-            ~Context() {
-                m_Events.Clear();
+
+            virtual ~Context() {
+                m_Signals.Clear();
                 m_Systems.Clear();
             }
+
             Context(const Context&) = delete;
             Context(Context&&) noexcept = delete;
             Context& operator=(const Context&) = delete;
             Context& operator=(Context&&) noexcept = delete;
 
-            /**
-            * @brief Initialize context of Engine
-            * @tparam T Context type
-            * @tparam Args Types of arguments used to construct
-            * @param args Arguments for context initialization
-            * @note The context can be inherited
-            */
-            template <typename T = Context, typename... Args>
-            requires std::is_base_of_v<Context, T> && std::is_constructible_v<T, Args...>
-            static void Initialize([[maybe_unused]] Args&&... args) {
-                HELENA_ASSERT(!m_Context, "Context already initialized!");
-                m_Context = std::make_shared<T>(std::forward<Args>(args)...);
-            }
-
-            /**
-            * @brief Initialize the engine context for sharing between the executable and plugins
-            * @tparam T Context type
-            * @param ctx Context object for support shared memory and across boundary
-            * @note This overload is used to share the context object between the executable and plugins
-            */
-            template <typename T = Context>
-            requires std::is_base_of_v<Context, T>
-            static void Initialize(const std::shared_ptr<T>& ctx) noexcept {
-                HELENA_ASSERT(ctx, "Context is empty!");
-                HELENA_ASSERT(!m_Context || (ctx && m_Context == ctx), "Context already initialized!");
-                m_Context = ctx;
-            }
-
-            /**
-            * @brief Return a context object
-            * @tparam T Context type
-            * @return Return a shared pointer to a context object
-            */
-            template <typename T = Context>
-            requires std::is_base_of_v<Context, T>
-            [[nodiscard]] static std::shared_ptr<T> Get() noexcept {
-                HELENA_ASSERT(m_Context, "Context not initialized");
-                return std::static_pointer_cast<T>(m_Context);
-            }
-
-            /**
-            * @brief Set the application name
-            * @param name Application name
-            * @note You can set any name and use it in your code
-            */
-            static void SetAppName(std::string name) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_ApplicationName = std::move(name);
-            }
-
-            /**
-            * @brief Set the update tickrate for the engine "Update" event
-            * @param tickrate Update frequency
-            * @note By default, 30 frames per second
-            */
-            static void SetTickrate(float tickrate) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_Tickrate = 1.f / (std::max)(tickrate, 1.f);
-            }
-
-            /**
-            * @brief Set the entry point for the engine
-            * @param Callback Callback function
-            * @note 
-            * Use the entry point to work with the framework
-            * After calling the entry point, engine events are called for listeners
-            */
-            static void SetMain(Callback callback) noexcept {
-                auto& ctx = GetInstance();
-                ctx.m_Callback = std::move(callback);
-            }
-
-            /**
-            * @brief Return the application name
-            * @return String view object to the application name
-            */
-            [[nodiscard]] static std::string_view GetAppName() noexcept {
-                const auto& ctx = GetInstance();
-                return ctx.m_ApplicationName;
-            }
-
-            /**
-            * @brief Returns the current engine tickrate
-            * @return Tickrate in float
-            */
-            [[nodiscard]] static float GetTickrate() noexcept {
-                const auto& ctx = GetInstance();
-                return ctx.m_Tickrate;
-            }
+        private:
+            virtual bool Main() { return true; }
 
         private:
+            // Systems
             Types::VectorAny<UKSystems> m_Systems;
-            Types::VectorUnique<UKEventStorage, std::vector<CallbackStorage>> m_Events;
 
-            Callback m_Callback;
+            // Signals
+            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
+            SignalsPool m_SignalsPool;
 
-            ShutdownMessage m_ShutdownMessage;
-            std::string m_ApplicationName;
+            // Reason
+            std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
 
-            float m_Tickrate;
-            float m_DeltaTime;
-            float m_TimeElapsed;
-
+            // Timers for Heartbeat
             std::uint64_t m_TimeStart;
             std::uint64_t m_TimeNow;
             std::uint64_t m_TimePrev;
 
-            std::atomic<Engine::EState> m_State;
+            double m_TickRate;
+            double m_TimeDelta;
+            double m_TimeElapsed;
 
-            inline static std::shared_ptr<Context> m_Context;
+        #if defined(HELENA_THREADSAFE_SYSTEMS)
+            // Thread safe systems
+            Types::Spinlock m_LockSystems;
+        #endif
+
+            // Engine state
+            std::atomic<EState> m_State;
         };
+
+    private:
+        using ContextDeleter = void (*)(const Context*);
+        using ContextStorage = std::unique_ptr<Context, ContextDeleter>;
+        inline static ContextStorage m_Context{nullptr, nullptr};
+
+        static void InitContext(ContextStorage context) noexcept;
+        [[nodiscard]] static bool HasContext() noexcept;
+        [[nodiscard]] static Context& MainContext() noexcept;
 
     private:
     #if defined(HELENA_PLATFORM_WIN)
@@ -274,22 +221,79 @@ namespace Helena
     #endif
 
         static void RegisterHandlers();
+        [[nodiscard]] static std::uint64_t GetTickTime() noexcept;
 
     public:
         /**
+        * @brief Initialize context of Engine
+        * @tparam T Context type
+        * @tparam Args Types of arguments used to construct
+        * @param args Arguments for context initialization
+        * @note The context can be inherited
+        */
+        template <std::derived_from<Engine::Context> T = Context, typename... Args>
+        requires std::constructible_from<T, Args...>
+        static void Initialize([[maybe_unused]] Args&&... args);
+
+        /**
+        * @brief Initialize the engine context for sharing between the executable and plugins
+        * @param ctx Context object for support shared memory and across boundary
+        * @note This overload is used to share the context object between the executable and plugins
+        */
+        static void Initialize(Context& ctx) noexcept;
+
+        /**
+        * @brief Get context of Engine
+        * @return Return a reference to context
+        */
+        template <std::derived_from<Engine::Context> T>
+        [[nodiscard]] static T& GetContext() noexcept;
+
+        /**
+        * @brief Return the current state of the engine
+        * @return EState state flag
+        */
+        [[nodiscard]] static EState GetState() noexcept;
+
+        /**
+        * @brief Set the update tickrate for the engine "Update" event
+        * @param tickrate Update frequency
+        * @note By default, 30 frames per second
+        */
+        static void SetTickrate(double tickrate) noexcept;
+
+        /**
+        * @brief Returns the current engine tickrate
+        * @return Tickrate in float
+        */
+        [[nodiscard]] static double GetTickrate() noexcept;
+
+        /**
+        * @brief Get time elapsed since Initialize
+        * @return Return a time elapsed since Initialize
+        */
+        [[nodiscard]] static std::uint64_t GetTimeElapsed() noexcept;
+
+        /**
         * @brief Heartbeat of the engine
-        * 
+        * @param sleepMS Sleep time in milliseconds
+        * @param accumulator Count of steps to reduce accumulated time in Update events
         * @code{.cpp}
         * while(Helena::Engine::Heartbeat()) {}
         * @endcode
         * 
         * @return True if successful or false if an error is detected or called shutdown
         * @note 
-        * You have to call heartbeat in a loop to keep the framework running
-        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep by 1 ms
+        * - Heartbeat: You have to call heartbeat in a loop to keep the framework running
+        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep.
         * The thread will not sleep if your operations consume a lot of CPU time
+        * - Accumulator: if your loop is too busy, then there may be an accumulation of delta time
+        * that cannot be repaid by a single Update call, which will cause more Update calls to
+        * follow immediately to reduce the accumulated time.
+        * It is not recommended to use a large value, your thread may get stuck in a loop.
+        * The correct solution is to offload the thread by finding a performance bottleneck.
         */
-        [[nodiscard]] static bool Heartbeat();
+        [[nodiscard]] static bool Heartbeat(std::size_t sleepMS = 1, std::uint8_t accumulator = 5);
 
         /**
         * @brief Check if the engine is currently running
@@ -297,12 +301,6 @@ namespace Helena
         * @note This function is similar to calling GetState() == EState::Init;
         */
         [[nodiscard]] static bool Running() noexcept;
-
-        /**
-        * @brief Return the current state of the engine
-        * @return EState state flag
-        */
-        [[nodiscard]] static EState GetState() noexcept;
 
         /**
         * @brief Shutdown the engine (thread safe)
@@ -343,7 +341,8 @@ namespace Helena
         * @param args Arguments for system initialization
         */
         template <typename T, typename... Args>
-        static void RegisterSystem([[maybe_unused]] Args&&... args);
+        requires std::constructible_from<T, Args...>
+        static void RegisterSystem(Args&&... args);
 
         /**
         * @brief Check the exist of system
@@ -436,7 +435,8 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void SubscribeEvent(void (*callback)([[maybe_unused]] Args...));
+        requires Engine::RequiresCallback<Event, Args...>
+        static void SubscribeEvent(void (*callback)(Args...));
 
         /**
         * @brief Listening to the event
@@ -456,7 +456,8 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void SubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
+        requires Engine::RequiresCallback<Event, Args...>
+        static void SubscribeEvent(void (System::*callback)(Args...));
 
         /**
         * @brief Trigger an event for all listeners
@@ -475,7 +476,29 @@ namespace Helena
         * @param args Arguments for construct the event
         */
         template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SignalEvent([[maybe_unused]] Args&&... args);
+
+        /**
+        * @brief Trigger an event for all listeners
+        *
+        * @tparam Event Type of event
+        * @param event Event of signal (by reference)
+        */
+        template <typename Event>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void SignalEvent(Event& event);
+
+        /**
+        * @brief Push signal event in queue for call in next Engine tick
+        *
+        * @tparam Event Type of event
+        * @tparam Args Types of arguments
+        * @param args Arguments for construct the event or lvalue of event
+        */
+        template <typename Event, typename... Args>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void EnqueueSignal(Args&&... args);
 
         /**
         * @brief Stop listening to the event
@@ -495,7 +518,8 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename... Args>
-        static void UnsubscribeEvent(void (*callback)([[maybe_unused]] Args...));
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void UnsubscribeEvent(void (*callback)(Args...));
 
         /**
         * @brief Stop listening to the event
@@ -516,7 +540,17 @@ namespace Helena
         * @param callback Callback function
         */
         template <typename Event, typename System, typename... Args>
-        static void UnsubscribeEvent(void (System::*callback)([[maybe_unused]] Args...));
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void UnsubscribeEvent(void (System::*callback)(Args...));
+
+    private:
+        template <typename Event, typename Callback, typename SignalFunctor>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void SubscribeEvent(Callback&& callback, SignalFunctor&& fn);
+
+        template <typename Event, typename Comparator>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void UnsubscribeEvent(Comparator&& comparator);
     };
 }
 

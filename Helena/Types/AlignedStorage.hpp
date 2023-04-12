@@ -1,17 +1,14 @@
 #ifndef HELENA_TYPES_ALIGNEDSTORAGE_HPP
 #define HELENA_TYPES_ALIGNEDSTORAGE_HPP
 
-#include <cstddef>
-#include <memory>
-#include <iterator>
-#include <type_traits>
-#include <tuple>
-#include <utility>
-
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/Specialization.hpp>
+
+#include <memory>
+#include <iterator>
+#include <utility>
 
 namespace Helena::Types
 {
@@ -90,10 +87,10 @@ namespace Helena::Types
         template <typename T, typename... Args>
         requires std::conjunction_v<std::is_array<T>>
         static void Construct(Storage<T>& storage, std::piecewise_construct_t, Args&&... tuples)
-            requires(((Helena::Traits::Specialization<Args, std::tuple>
+            requires(((Traits::Specialization<Args, std::tuple>
                 && Constructible<std::remove_extent_t<T>, Args>) && ...)
-                && Helena::Traits::Arguments<Args...>::Size <= std::extent_v<T>) {
-            if constexpr(Helena::Traits::Arguments<Args...>::Size) {
+                && Traits::Arguments<Args...>::Size <= std::extent_v<T>) {
+            if constexpr(Traits::Arguments<Args...>::Size) {
                 std::size_t index{};
                 (std::apply([&storage, &index]<typename... Ts>(Ts&&... args) {
                     Create<T>(storage, index++, std::forward<Ts>(args)...);

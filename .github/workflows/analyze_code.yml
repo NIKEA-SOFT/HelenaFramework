@@ -1,0 +1,30 @@
+name: Analyze Code
+on: [push, pull_request]
+
+jobs:
+  analyze:
+    name: "Analyze Code"
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Generate Solution
+        run:  cmake -B Build -G "Visual Studio 17 2022" -A x64
+      - name: Inspect Code
+        uses: muno92/resharper_inspectcode@1.6.7
+        with:
+          include: |
+            **.h
+            **.hpp
+            **.ipp
+            **.cpp
+            **.cxx
+          exclude: |
+            "**/Dependencies/**.*"
+            "**/Examples/**.*"
+            "**/Test/**.*"
+          failOnIssue: 0
+          solutionPath: |
+            ${{github.workspace}}/Build/HelenaFramework.sln

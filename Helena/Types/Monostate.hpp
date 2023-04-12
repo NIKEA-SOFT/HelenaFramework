@@ -5,7 +5,7 @@
 
 namespace Helena::Types
 {
-    template <Types::FixedBuffer Key>
+    template <FixedBuffer Key>
     struct Monostate
     {
         template <typename Type>

@@ -1,4 +1,7 @@
-﻿#include <Helena/Engine/Engine.hpp>
+﻿#ifndef APPLICATION_HPP
+#define APPLICATION_HPP
+
+#include <Helena/Engine/Engine.hpp>
 
 namespace Example01
 {
@@ -8,10 +11,10 @@ namespace Example01
 		{
 			std::string path;
 
-		#ifdef HELENA_PLATFORM_WIN
+		#if defined(HELENA_PLATFORM_WIN)
 			path.resize(MAX_PATH);
 			(void)GetModuleFileNameA(nullptr, path.data(), MAX_PATH);
-		#elif HELENA_PLATFORM_LINUX
+		#elif defined(HELENA_PLATFORM_LINUX)
 			path.resize(PATH_MAX);
 			(void)readlink("/proc/self/exe", path.data(), PATH_MAX);
 		#endif
@@ -42,68 +45,75 @@ namespace Example01
 		}
 
 	public:
-		static void OnInitialize() 
+		bool Main() override
 		{
-			auto& ctx = GetInstance<Application>();
+			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
+			m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
+			m_WindowClassEx.cbClsExtra = 0;
+			m_WindowClassEx.cbWndExtra = 0;
+			m_WindowClassEx.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+			m_WindowClassEx.hbrBackground = (HBRUSH)COLOR_WINDOW;
+			m_WindowClassEx.hIcon = ::LoadIcon(0, IDI_APPLICATION);
+			m_WindowClassEx.hIconSm = ::LoadIcon(0, IDI_APPLICATION);
+			m_WindowClassEx.lpszClassName = "WND_CL";
+			m_WindowClassEx.lpszMenuName = nullptr;
+			m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
+			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
-			ctx.m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
-			ctx.m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
-			ctx.m_WindowClassEx.cbClsExtra = 0;
-			ctx.m_WindowClassEx.cbWndExtra = 0;
-			ctx.m_WindowClassEx.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
-			ctx.m_WindowClassEx.hbrBackground = (HBRUSH)COLOR_WINDOW;
-			ctx.m_WindowClassEx.hIcon = ::LoadIcon(0, IDI_APPLICATION);
-			ctx.m_WindowClassEx.hIconSm = ::LoadIcon(0, IDI_APPLICATION);
-			ctx.m_WindowClassEx.lpszClassName = "WND_CL";
-			ctx.m_WindowClassEx.lpszMenuName = nullptr;
-			ctx.m_WindowClassEx.hInstance = ::GetModuleHandle(NULL);
-			ctx.m_WindowClassEx.lpfnWndProc = &WindowProc;
+			Helena::Engine::SetTickrate(60.);
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+				auto reason = Helena::Engine::ShutdownReason();
+				if(!reason.empty()) {
+					reason = Helena::Util::Format("Error:\n{}", reason);
+					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
+				}
+			});
 
-			if(!::RegisterClassEx(&ctx.m_WindowClassEx)) {
-				Helena::Engine::Shutdown("RegisterClass window failure!");
-				return;
+			if(!::RegisterClassEx(&m_WindowClassEx)) {
+				HELENA_MSG_ERROR("RegisterClass window failure!");
+				return false;
 			}
 
-			ctx.m_WindowHWND = ::CreateWindow(ctx.m_WindowClassEx.lpszClassName, ctx.GetAppName().data(),
-				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, ctx.m_WindowWidth, ctx.m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
+			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
+				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
 
-			if(!ctx.m_WindowHWND) {
-				Helena::Engine::Shutdown("CreateWindows failure!");
-				return;
+			if(!m_WindowHWND) {
+				HELENA_MSG_ERROR("CreateWindows failure!");
+				return false;
 			}
 
-			::ShowWindow(ctx.m_WindowHWND, SW_SHOW);
-			::UpdateWindow(ctx.m_WindowHWND);
+			::ShowWindow(m_WindowHWND, SW_SHOW);
+			::UpdateWindow(m_WindowHWND);
+
+			return true;
 		};
 
 		static void OnTick(Helena::Events::Engine::Tick) 
 		{
 			MSG msg {};
 			if(::PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
-				TranslateMessage(&msg);
+				::TranslateMessage(&msg);
 				::DispatchMessage(&msg);
 			}
 		}
 
 		static void SetWindowSize(std::int32_t width, std::int32_t height) {
-			auto& ctx = GetInstance<Application>();
+			auto& ctx = Helena::Engine::GetContext<Application>();
 			ctx.m_WindowWidth = width;
 			ctx.m_WindowHeight = height;
 		}
 
 		static void SetArgs(std::int32_t argc, char** argv) noexcept {
-			auto& ctx = GetInstance<Application>();
-			ctx.m_ArgsCount = argc;
+			Helena::Engine::GetContext<Application>().m_ArgsCount = argc;
 		}
 
 		[[nodiscard]] static const std::string_view GetArgs(std::uint32_t index) noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_Args[index];
+			return Helena::Engine::GetContext<Application>().m_Args[index];
 		}
 
 		[[nodiscard]] static std::uint32_t GetArgsCount() noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_ArgsCount;
+			return Helena::Engine::GetContext<Application>().m_ArgsCount;
 		}
 
 		[[nodiscard]] static std::string GetPath(const std::string& path) {
@@ -111,22 +121,20 @@ namespace Example01
 		}
 
 		[[nodiscard]] static const std::string& GetPathExec() noexcept {
-			auto& ctx = GetInstance<Application>();
+			auto& ctx = Helena::Engine::GetContext<Application>();
 			return !ctx.m_CurrentPath.empty() ? ctx.m_CurrentPath : ctx.m_CurrentPath = GetExecPath();
 		}
 
 		static void SetPathConfig(const std::string& path) {
-			auto& ctx = GetInstance<Application>();
-			ctx.m_ConfigPath = GetPathExec() + HELENA_SEPARATOR + path;
+			Helena::Engine::GetContext<Application>().m_ConfigPath = GetPathExec() + HELENA_SEPARATOR + path;
 		}
 
 		[[nodiscard]] static const std::string& GetPathConfig() noexcept {
-			const auto& ctx = GetInstance<Application>();
-			return ctx.m_ConfigPath;
+			return Helena::Engine::GetContext<Application>().m_ConfigPath;
 		}
 
 		[[nodiscard]] static std::string GetPathConfig(const std::string& path) noexcept {
-			const auto& ctx = GetInstance<Application>();
+			const auto& ctx = Helena::Engine::GetContext<Application>();
 			HELENA_ASSERT(!ctx.m_ConfigPath.empty(), "Config path is empty!");
 			return ctx.m_ConfigPath + HELENA_SEPARATOR + path;
 		}
@@ -137,6 +145,7 @@ namespace Example01
 		}
 
 	private:
+		std::string m_AppName{"Example01"};
 		WNDCLASSEX m_WindowClassEx{};
 		HWND m_WindowHWND{};
 		std::int32_t m_WindowWidth{960};
@@ -149,3 +158,5 @@ namespace Example01
 		std::uint32_t m_ArgsCount{};
     };
 }
+
+#endif // APPLICATION_HPP

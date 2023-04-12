@@ -5,7 +5,7 @@
 #include <Helena/Platform/Processor.hpp>
 
 /* ----------- [Debug detect] ----------- */
-#if defined(DEBUG) || defined(_DEBUG)
+#if !defined(NDEBUG)
     #define HELENA_DEBUG
 #endif
 
@@ -14,7 +14,7 @@
     #define HELENA_DIAGNOSTIC_CLANG_PUSH        _Pragma("clang diagnostic push")
     #define HELENA_DIAGNOSTIC_CLANG_POP         _Pragma("clang diagnostic pop")
     #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)  _Pragma("clang diagnostic ignored " #id)
-#else 
+#else
     #define HELENA_DIAGNOSTIC_CLANG_PUSH
     #define HELENA_DIAGNOSTIC_CLANG_POP
     #define HELENA_DIAGNOSTIC_CLANG_IGNORE(id)
@@ -52,22 +52,22 @@
     #define HELENA_DIAGNOSTIC_PUSH              HELENA_DIAGNOSTIC_MSVC_PUSH
     #define HELENA_DIAGNOSTIC_POP               HELENA_DIAGNOSTIC_MSVC_POP
     #define HELENA_DIAGNOSTIC_IGNORE(id)        HELENA_DIAGNOSTIC_MSVC_IGNORE(id)
-#else 
+#else
     #define HELENA_DIAGNOSTIC_PUSH
     #define HELENA_DIAGNOSTIC_POP
     #define HELENA_DIAGNOSTIC_IGNORE(id)
 #endif
 
 /* ----------- [Features] ----------- */
-//#if defined(HELENA_DEBUG)
-//    #if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-//        #define HELENA_FORCEINLINE              __attribute__((always_inline)
-//    #elif defined(HELENA_COMPILER_MSVC)
-//        #define HELENA_FORCEINLINE              __forceinline
-//    #endif
-//#else
-//    #define HELENA_FORCEINLINE
-//#endif
+#if defined(HELENA_DEBUG)
+    #if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+        #define HELENA_FORCEINLINE              __attribute__((always_inline)
+    #elif defined(HELENA_COMPILER_MSVC)
+        #define HELENA_FORCEINLINE              __forceinline
+    #endif
+#else
+    #define HELENA_FORCEINLINE
+#endif
 
 #if defined(HELENA_COMPILER_CLANG) || defined(HELENA_COMPILER_GCC)
     #define HELENA_FUNCTION             __PRETTY_FUNCTION__
@@ -76,7 +76,7 @@
 #endif
 
 #if defined(HELENA_COMPILER_CLANG) || defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_MSVC)
-    #define HELENA_RESTRICT __restrict
+    #define HELENA_RESTRICT             __restrict
 #else
     #define HELENA_RESTRICT
 #endif
@@ -96,48 +96,50 @@
     #define HELENA_OPTIMIZATION_DISABLE
 #endif
 
-//#if __has_cpp_attribute(likely)
-//    #define HELENA_LIKELY               [[likely]]
-//#else
-//    #define HELENA_LIKELY
-//#endif
+#if __has_cpp_attribute(likely)
+    #define HELENA_LIKELY               [[likely]]
+#else
+    #define HELENA_LIKELY
+#endif
 
-//#if __has_cpp_attribute(unlikely)
-//    #define HELENA_UNLIKELY             [[unlikely]]
-//#else
-//    #define HELENA_UNLIKELY
-//#endif
+#if __has_cpp_attribute(unlikely)
+    #define HELENA_UNLIKELY             [[unlikely]]
+#else
+    #define HELENA_UNLIKELY
+#endif
 
-//#if __has_cpp_attribute(no_unique_address)
-//    #define HELENA_NO_UNIQUE_ADDRESS    [[no_unique_address]]
-//#else
-//    #define HELENA_NO_UNIQUE_ADDRESS
-//#endif
+#if defined(_MSC_VER) && (_MSC_VER >= 1929)
+    #define HELENA_NO_UNIQUE_ADDRESS    [[msvc::no_unique_address]]
+#elif __has_cpp_attribute(no_unique_address)
+    #define HELENA_NO_UNIQUE_ADDRESS    [[no_unique_address]]
+#else
+    #define HELENA_NO_UNIQUE_ADDRESS
+#endif
 
 //#if defined(HELENA_STANDARD_CPP11_OR_GREATER)
-//    #define HELENA_NOEXCEPT             noexcept
-//    #define HELENA_CONSTEXPR            constexpr
-//    #define HELENA_FINAL                final
+//    #define HELENA_NOEXCEPT           noexcept
+//    #define HELENA_CONSTEXPR          constexpr
+//    #define HELENA_FINAL              final
 //#else
-//    #define HELENA_NOEXCEPT             throw()
+//    #define HELENA_NOEXCEPT           throw()
 //    #define HELENA_CONSTEXPR
 //    #define HELENA_FINAL
 //#endif
-//
+
 //#if defined(HELENA_STANDARD_CPP17_OR_GREATER)
-//    #define HELENA_NODISCARD            [[nodiscard]]
+//    #define HELENA_NODISCARD          [[nodiscard]]
 //#else
 //    #define HELENA_NODISCARD
 //#endif
-//
+
 //#if defined(HELENA_STANDARD_CPP20)
-//    #define HELENA_NODISCARD_MSG(msg)   [[nodiscard(msg)]]
+//    #define HELENA_NODISCARD_MSG(msg) [[nodiscard(msg)]]
 //#endif
 
 //#if defined(HELENA_COMPILER_MSVC)
-//    #define HELENA_CONSTEVAL                consteval
+//    #define HELENA_CONSTEVAL          consteval
 //#elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-//    #define HELENA_CONSTEVAL                constexpr
+//    #define HELENA_CONSTEVAL          constexpr
 //#endif
 
 #if defined(HELENA_COMPILER_MSVC)

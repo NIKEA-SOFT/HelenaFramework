@@ -13,7 +13,7 @@ namespace Helena::Traits
     template<typename To, typename From>
     struct Constness {
         /*! @brief The type resulting from the transcription of the constness. */
-        using type = std::remove_const_t<To>;
+        using Type = std::remove_const_t<To>;
     };
 
 
@@ -21,7 +21,7 @@ namespace Helena::Traits
     template<typename To, typename From>
     struct Constness<To, const From> {
         /*! @brief The type resulting from the transcription of the constness. */
-        using type = std::add_const_t<To>;
+        using Type = std::add_const_t<To>;
     };
 }
 

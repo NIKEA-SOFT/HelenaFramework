@@ -113,24 +113,20 @@ namespace Helena::Types
         template <typename... Args>
         requires std::constructible_from<T, Args...>
         void PushBack(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-            Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, std::forward<Args>(args)...);
-            ++m_Size;
+            Helena::Types::AlignedStorage::Construct(m_Storage, m_Size++, std::forward<Args>(args)...);
         }
 
         void PushBack(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>) {
-            Helena::Types::AlignedStorage::ConstructCopy(m_Storage, m_Size, value);
-            ++m_Size;
+            Helena::Types::AlignedStorage::ConstructCopy(m_Storage, m_Size++, value);
         }
 
         void PushBack(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>) {
-            Helena::Types::AlignedStorage::ConstructMove(m_Storage, m_Size, std::move(value));
-            ++m_Size;
+            Helena::Types::AlignedStorage::ConstructMove(m_Storage, m_Size++, std::move(value));
         }
 
         void PopBack() noexcept(std::is_nothrow_destructible_v<T>) {
             HELENA_ASSERT(m_Size, "Out of bounds!");
-            Helena::Types::AlignedStorage::Destruct(m_Storage, m_Size - 1);
-            --m_Size;
+            Helena::Types::AlignedStorage::Destruct(m_Storage, --m_Size);
         }
 
         auto Insert(const_iterator pos, const T& value) -> std::optional<T>
@@ -220,7 +216,7 @@ namespace Helena::Types
             m_Size = 0;
         }
 
-        void Resize(std::size_t size) {
+        void Resize(std::size_t size) requires std::is_default_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
                 Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);
@@ -232,7 +228,7 @@ namespace Helena::Types
         }
 
 
-        void Resize(std::size_t size, const T& value) {
+        void Resize(std::size_t size, const T& value) requires std::is_copy_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
                 Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);

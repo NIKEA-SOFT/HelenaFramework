@@ -13,8 +13,11 @@ namespace Helena::Traits {
         static constexpr auto Single = (Size == 1);
         static constexpr auto Double = (Size == 2);
 
+        using Pack = std::tuple<Args...>;
+
         template <std::size_t Index>
-        using Get = std::tuple_element_t<Index, std::tuple<Args...>>;
+        requires (Index < Size)
+        using Get = std::tuple_element_t<Index, Pack>;
     };
 }
 

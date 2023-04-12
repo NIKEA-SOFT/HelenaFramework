@@ -348,7 +348,7 @@ namespace Helena::Types {
          * @brief Checks whether a delegate actually stores a listener.
          * @return False if the delegate is empty, true otherwise.
          */
-        [[nodiscard]] explicit operator bool() const noexcept {
+        [[nodiscard]] operator bool() const noexcept {
             // no need to test also data
             return !(fn == nullptr);
         }
