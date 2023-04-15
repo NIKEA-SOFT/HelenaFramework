@@ -2,10 +2,10 @@
 #define HELENA_TYPES_UNDEFINEDCONTAINER_HPP
 
 #include <Helena/Platform/Assert.hpp>
+#include <Helena/Traits/Remove.hpp>
 #include <Helena/Types/Hash.hpp>
 
 #include <algorithm>
-#include <bit>
 #include <memory>
 #include <utility>
 
@@ -13,12 +13,25 @@ namespace Helena::Types
 {
     class UndefinedContainer final
     {
+        enum class EOperation : std::uint8_t {
+            Copy,
+            Move,
+            Assign,
+            Transfer,
+            Delete
+        };
+
+        template <typename T>
+        using TypeOf = Traits::RemoveCVR<T>;
+        using VTableFn = void (EOperation, UndefinedContainer*, UndefinedContainer*);
+
         using hash_type = Hash<std::uint64_t>;
         using hash_value = typename hash_type::value_type;
 
         template <typename T>
-        static constexpr auto HashOf = hash_type::template From<std::remove_const_t<T>>();
+        static constexpr auto HashOf = hash_type::template From<Traits::RemoveConst<T>>();
 
+    private:
         template <typename T>
         [[nodiscard]] static constexpr auto AlignmentOf() noexcept {
             constexpr std::size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -26,7 +39,6 @@ namespace Helena::Types
             return std::align_val_t{(std::max)(alignment, alignment_type)};
         }
 
-    private:
         template <typename T, typename... Args>
         static constexpr void Placement(T* const ptr, Args&&... args) {
             if constexpr(std::constructible_from<T, Args...>) {
@@ -44,18 +56,6 @@ namespace Helena::Types
             Placement(static_cast<T*>(memory), std::forward<Args>(args)...);
             return static_cast<T*>(memory);
         }
-
-        enum class EOperation : std::uint8_t {
-            Copy,
-            Move,
-            Assign,
-            Transfer,
-            Delete
-        };
-
-        template <typename T>
-        using TypeOf = std::remove_cvref_t<T>;
-        using VTableFn = void (EOperation, UndefinedContainer*, UndefinedContainer*);
 
         template <typename T>
         static void VTable(EOperation op, UndefinedContainer* ptr, UndefinedContainer* other) noexcept(
@@ -119,6 +119,17 @@ namespace Helena::Types
             }
         };
 
+        void Construct(EOperation op, UndefinedContainer* other) noexcept(noexcept(other->m_VTable(op, this, other)))
+        {
+            if(other->m_VTable) {
+                other->m_VTable(op, this, other);
+            } else {
+                m_Data = nullptr;
+                m_VTable = nullptr;
+                m_Hash = 0;
+            }
+        }
+
     public:
         UndefinedContainer() noexcept : m_Data{}, m_VTable{}, m_Hash{} {}
 
@@ -134,31 +145,21 @@ namespace Helena::Types
             Reset();
         }
 
-        UndefinedContainer(const UndefinedContainer& other) noexcept : UndefinedContainer{} {
-            if(other.m_VTable) {
-                other.m_VTable(EOperation::Copy, this, &const_cast<UndefinedContainer&>(other));
-            }
+        UndefinedContainer(const UndefinedContainer& other) {
+            Construct(EOperation::Copy, &const_cast<UndefinedContainer&>(other));
         }
 
-        UndefinedContainer(UndefinedContainer&& other) noexcept : UndefinedContainer{} {
-            if(other.m_VTable) {
-                other.m_VTable(EOperation::Move, this, &other);
-            }
+        UndefinedContainer(UndefinedContainer&& other) noexcept {
+            Construct(EOperation::Move, &other);
         }
 
         UndefinedContainer& operator=(const UndefinedContainer& other) {
-            if(other.m_VTable) {
-                other.m_VTable(EOperation::Assign, this, &const_cast<UndefinedContainer&>(other));
-            } else Reset();
-
+            Construct(EOperation::Assign, &const_cast<UndefinedContainer&>(other));
             return *this;
         }
 
         UndefinedContainer& operator=(UndefinedContainer&& other) noexcept {
-            if(other.m_VTable) {
-                other.m_VTable(EOperation::Transfer, this, &other);
-            } else Reset();
-
+            Construct(EOperation::Transfer, &other);
             return *this;
         }
 
@@ -210,7 +211,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] bool Has() const noexcept {
-            return m_Data;
+            return m_Hash;
         }
 
         template <typename T>
@@ -240,7 +241,7 @@ namespace Helena::Types
             return *this;
         }
 
-        [[nodiscard]] operator bool() const noexcept {
+        [[nodiscard]] explicit operator bool() const noexcept {
             return Has();
         }
 

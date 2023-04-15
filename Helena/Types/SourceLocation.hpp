@@ -1,8 +1,6 @@
 #ifndef HELENA_TYPES_SOURCELOCATION_HPP
 #define HELENA_TYPES_SOURCELOCATION_HPP
 
-#include <Helena/Platform/Defines.hpp>
-
 #include <cstdint>
 #include <string_view>
 #include <algorithm>
