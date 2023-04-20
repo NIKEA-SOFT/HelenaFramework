@@ -5,7 +5,6 @@
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Traits/Underlying.hpp>
 
-#include <type_traits>
 #include <concepts>
 
 namespace Helena::Traits

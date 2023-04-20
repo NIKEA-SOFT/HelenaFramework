@@ -31,7 +31,7 @@ namespace Helena::Types
         struct choice_t<0> {};
     }
 
-    template<std::size_t Len = sizeof(double[2]), std::size_t = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
+    template<std::size_t Len = sizeof(double), std::size_t = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
     class Any;
 
     /**
@@ -82,7 +82,7 @@ namespace Helena::Types
          * @tparam Type The type to test.
          */
         template<typename Type>
-        static inline constexpr bool is_iterator_v = is_iterator<Type>::value;
+        static constexpr bool is_iterator_v = is_iterator<Type>::value;
 
         /**
          * @brief Provides the member constant `value` to true if a given type is
@@ -101,14 +101,14 @@ namespace Helena::Types
          * @tparam Type The type to test.
          */
         template<typename Type>
-        static inline constexpr bool is_complete_v = is_complete<Type>::value;
+        static constexpr bool is_complete_v = is_complete<Type>::value;
 
         /**
         * @brief Variable template for the choice trick.
         * @tparam N Number of choices available.
         */
         template<std::size_t N>
-        static inline constexpr Internal::choice_t<N> choice{};
+        static constexpr Internal::choice_t<N> choice{};
 
         template<typename, typename = void>
         struct has_tuple_size_value : std::false_type {};
@@ -159,7 +159,7 @@ namespace Helena::Types
          * @tparam Type The type to test.
          */
         template<typename Type>
-        static inline constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
+        static constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
 
         struct Storage {
             alignas(Align) std::byte data[Len + !Len];
@@ -193,7 +193,7 @@ namespace Helena::Types
             {
                 case EOperation::Copy: {
                     if constexpr(std::is_copy_constructible_v<Type>) {
-                        static_cast<Any*>(const_cast<void*>(other))->Initialize<Type>(*element);
+                        static_cast<Any*>(const_cast<void*>(other))->template Initialize<Type>(*element);
                     }
                 } break;
                 case EOperation::Move:
