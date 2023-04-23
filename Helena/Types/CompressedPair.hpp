@@ -148,6 +148,7 @@ namespace Helena::Types
             noexcept(std::is_nothrow_assignable_v<T1&, const First&> && std::is_nothrow_assignable_v<T2&, const Second&>) {
             this->First() = other.First();
             this->Second() = other.Second();
+            return *this;
         }
 
         template <typename First, typename Second>
@@ -157,6 +158,7 @@ namespace Helena::Types
             noexcept(std::is_nothrow_assignable_v<T1&, First> && std::is_nothrow_assignable_v<T2&, Second>) {
             this->First() = std::move(other.First());
             this->Second() = std::move(other.Second());
+            return *this;
         }
 
         [[nodiscard]] constexpr decltype(auto) First() noexcept {
