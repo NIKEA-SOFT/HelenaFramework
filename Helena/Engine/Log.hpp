@@ -1,6 +1,7 @@
 #ifndef HELENA_ENGINE_LOG_HPP
 #define HELENA_ENGINE_LOG_HPP
 
+#include <Helena/Platform/Defines.hpp>
 #include <Helena/Types/BasicLoggersDef.hpp>
 
 namespace Helena::Log

@@ -663,7 +663,7 @@ void test_allocators()
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    Helena::Types::StackAllocator<4096> stack;
+    Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)> stack;
     Vector vec_of_string{&stack}; vec_of_string.reserve(10);
 
     vec_of_string.emplace_back("long message for got allocation", &stack);

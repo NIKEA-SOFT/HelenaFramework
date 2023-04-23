@@ -11,6 +11,12 @@ namespace Helena::Types
     {
         using Container = CompressedPair<T, std::size_t>;
 
+        void Reset(Container* newValue) noexcept {
+            if(const auto old = std::exchange(m_Container, newValue); old && !--old->Second()) {
+                delete old;
+            }
+        }
+
     public:
         ReferencePointer() : m_Container{} {};
 
@@ -37,11 +43,11 @@ namespace Helena::Types
 
         ReferencePointer& operator=(const ReferencePointer& other)
         {
-            Reset();
-
-            if(other.m_Container) {
-                m_Container = other.m_Container;
-                ++m_Container->Second();
+            if(m_Container != other.m_Container) [[likely]]
+            {
+                if(Reset(other.m_Container); m_Container) {
+                    ++m_Container->Second();
+                }
             }
 
             return *this;
@@ -49,11 +55,8 @@ namespace Helena::Types
 
         ReferencePointer& operator=(ReferencePointer&& other) noexcept
         {
-            Reset();
-
-            if(other.m_Container) {
-                m_Container = other.m_Container;
-                other.m_Container = nullptr;
+            if(const auto temp = std::exchange(other.m_Container, nullptr); m_Container != temp) [[likely]] {
+                Reset(temp);
             }
 
             return *this;
@@ -79,19 +82,14 @@ namespace Helena::Types
         }
 
         [[nodiscard]] std::size_t Count() const noexcept {
-            HELENA_ASSERT(m_Container, "Container is empty!");
-            return m_Container->Second();
+            return m_Container ? m_Container->Second() : 0;
         }
 
-        void Reset() noexcept
-        {
-            if(m_Container && !--m_Container->Second()) {
-                delete m_Container;
-                m_Container = nullptr;
-            }
+        void Reset() noexcept {
+            Reset(nullptr);
         }
 
-        [[nodiscard]] operator bool() const noexcept {
+        [[nodiscard]] explicit operator bool() const noexcept {
             return m_Container;
         }
 

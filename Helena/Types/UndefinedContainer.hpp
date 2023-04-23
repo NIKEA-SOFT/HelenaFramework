@@ -74,9 +74,9 @@ namespace Helena::Types
                 } break;
 
                 case EOperation::Move: {
-                    std::swap(ptr->m_Data, other->m_Data);
-                    std::swap(ptr->m_VTable, other->m_VTable);
-                    std::swap(ptr->m_Hash, other->m_Hash);
+                    ptr->m_Data = std::exchange(other->m_Data, nullptr);
+                    ptr->m_VTable = std::exchange(other->m_VTable, nullptr);
+                    ptr->m_Hash = std::exchange(other->m_Hash, 0);
                 } break;
 
                 case EOperation::Assign:
@@ -102,9 +102,9 @@ namespace Helena::Types
                         ptr->m_VTable(EOperation::Delete, ptr, nullptr);
                     }
 
-                    std::swap(ptr->m_Data, other->m_Data);
-                    std::swap(ptr->m_VTable, other->m_VTable);
-                    std::swap(ptr->m_Hash, other->m_Hash);
+                    ptr->m_Data = std::exchange(other->m_Data, nullptr);
+                    ptr->m_VTable = std::exchange(other->m_VTable, nullptr);
+                    ptr->m_Hash = std::exchange(other->m_Hash, 0);
                 } break;
 
                 case EOperation::Delete: {

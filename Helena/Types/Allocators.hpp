@@ -175,7 +175,7 @@ namespace Helena::Types
         }
     };
 
-    template <std::size_t Stack>
+    template <std::size_t Stack, std::size_t Alignment>
     class StackAllocator : public IMemoryResource {
     public:
         StackAllocator() = default;
@@ -222,12 +222,13 @@ namespace Helena::Types
         }
 
     private:
-        union {
+        IMemoryResource* m_UpstreamResource{DefaultAllocator::Get()};
+        std::size_t m_Capacity{Stack};
+
+        union alignas(Alignment) {
             std::byte m_Empty{};
             std::byte m_Buffer[Stack];
         };
-        std::size_t m_Capacity{Stack};
-        IMemoryResource* m_UpstreamResource{DefaultAllocator::Get()};
     };
 
     template <typename T = std::byte>
