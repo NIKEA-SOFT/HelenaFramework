@@ -114,7 +114,7 @@ namespace Helena::Types
         struct has_tuple_size_value : std::false_type {};
 
         template<typename Type>
-        struct has_tuple_size_value<Type, std::void_t<decltype(std::tuple_size<const Type>::value)>> : std::true_type {};
+        struct has_tuple_size_value<Type, std::void_t<decltype(std::tuple_size_v<const Type>)>> : std::true_type {};
 
         /**
          * @brief Provides the member constant `value` to true if a given type is
@@ -143,7 +143,7 @@ namespace Helena::Types
         template<typename Type>
         [[nodiscard]] constexpr std::enable_if_t<is_complete_v<std::tuple_size<std::remove_const_t<Type>>>, bool> maybe_equality_comparable(Internal::choice_t<2>) {
             if constexpr(has_tuple_size_value<Type>::value) {
-                return unpack_maybe_equality_comparable<Type>(std::make_index_sequence<std::tuple_size<Type>::value>{});
+                return unpack_maybe_equality_comparable<Type>(std::make_index_sequence<std::tuple_size_v<Type>>{});
             } else {
                 return maybe_equality_comparable<Type>(choice<1>);
             }
@@ -168,7 +168,7 @@ namespace Helena::Types
         using VTable = const void* (const EOperation, const Any&, const void*);
 
     public:
-        using hash_type = Hash<std::uint64_t>;
+        using hash_type = Hash<std::uint32_t>;
 
         template <typename T>
         static constexpr auto HashOf = hash_type::template From<T>();
@@ -196,6 +196,7 @@ namespace Helena::Types
                         static_cast<Any*>(const_cast<void*>(other))->template Initialize<Type>(*element);
                     }
                 } break;
+
                 case EOperation::Move:
                 {
                     if constexpr(in_situ<Type>) {
@@ -206,18 +207,21 @@ namespace Helena::Types
 
                     return (static_cast<Any*>(const_cast<void*>(other))->instance = std::exchange(const_cast<Any&>(value).instance, nullptr));
                 }
+
                 case EOperation::Transfer: {
                     if constexpr(std::is_move_assignable_v<Type>) {
                         *const_cast<Type*>(element) = std::move(*static_cast<Type*>(const_cast<void*>(other)));
                         return other;
                     }
                 } [[fallthrough]];
+
                 case EOperation::Assign: {
                     if constexpr(std::is_copy_assignable_v<Type>) {
                         *const_cast<Type*>(element) = *static_cast<const Type*>(other);
                         return other;
                     }
                 } break;
+
                 case EOperation::Destroy: {
                     if constexpr(in_situ<Type>) {
                         element->~Type();
@@ -227,13 +231,15 @@ namespace Helena::Types
                         delete element;
                     }
                 } break;
+
                 case EOperation::Compare: {
                     if constexpr(!std::is_function_v<Type> && !std::is_array_v<Type> && is_equality_comparable_v<Type>) {
                         return *element == *static_cast<const Type *>(other) ? other : nullptr;
                     } else {
                         return (element == other) ? other : nullptr;
                     }
-                } break;
+                }
+
                 case EOperation::Get: {
                     return element;
                 }
@@ -273,8 +279,8 @@ namespace Helena::Types
 
         Any(const Any& other, const EPolicy pol) noexcept
             : instance{other.Data()}
-            , key{other.key}
             , vtable{other.vtable}
+            , key{other.key}
             , mode{pol} {}
 
     public:
@@ -286,8 +292,8 @@ namespace Helena::Types
         /*! @brief Default constructor. */
         constexpr Any() noexcept
             : instance{}
-            , key{HashOf<void>}
             , vtable{}
+            , key{HashOf<void>}
             , mode{EPolicy::Owner} {}
 
         /**
@@ -325,7 +331,7 @@ namespace Helena::Types
          * @brief Move constructor.
          * @param other The instance to move from.
          */
-        Any(Any&& other) noexcept : instance{}, key{other.key}, vtable{other.vtable}, mode{other.mode} {
+        Any(Any&& other) noexcept : instance{}, vtable{other.vtable}, key{other.key}, mode{other.mode} {
             if(other.vtable) {
                 other.vtable(EOperation::Move, other, this);
             }
@@ -405,7 +411,7 @@ namespace Helena::Types
          * @return An opaque pointer the contained instance, if any.
          */
         [[nodiscard]] const void* Data(hash_type::value_type hash) const noexcept {
-            return this->key == hash ? Data() : nullptr;
+            return key == hash ? Data() : nullptr;
         }
 
         /**
@@ -422,7 +428,7 @@ namespace Helena::Types
          * @return An opaque pointer the contained instance, if any.
          */
         [[nodiscard]] void* Data(hash_type::value_type hash) noexcept {
-            return this->key == hash ? Data() : nullptr;
+            return key == hash ? Data() : nullptr;
         }
 
         /**
@@ -453,7 +459,7 @@ namespace Helena::Types
         /*! @copydoc assign */
         bool Assign(Any&& other) {
             if(vtable && mode != EPolicy::CRef && key == other.key) {
-                if(auto* val = other.Data(); val) {
+                if(auto* val = other.Data()) {
                     return (vtable(EOperation::Transfer, *this, val) != nullptr);
                 } else {
                     return (vtable(EOperation::Assign, *this, std::as_const(other).Data()) != nullptr);
@@ -479,7 +485,7 @@ namespace Helena::Types
          * @brief Returns false if a wrapper is empty, true otherwise.
          * @return False if the wrapper is empty, true otherwise.
          */
-        [[nodiscard]] operator bool() const noexcept {
+        [[nodiscard]] explicit operator bool() const noexcept {
             return vtable != nullptr;
         }
 
@@ -531,8 +537,8 @@ namespace Helena::Types
             const void* instance;
             Storage storage;
         };
-        hash_type::value_type key;
         VTable* vtable;
+        hash_type::value_type key;
         EPolicy mode;
     };
 
@@ -545,7 +551,7 @@ namespace Helena::Types
      * @return True if the two wrappers differ in their content, false otherwise.
      */
     template<std::size_t Len, std::size_t Align>
-    [[nodiscard]] inline bool operator!=(const Any<Len, Align>& lhs, const Any<Len, Align>& rhs) noexcept {
+    [[nodiscard]] bool operator!=(const Any<Len, Align>& lhs, const Any<Len, Align>& rhs) noexcept {
         return !(lhs == rhs);
     }
 
