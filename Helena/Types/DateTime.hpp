@@ -131,127 +131,105 @@ namespace Helena::Types
         // %m - minutes
         // %s - seconds
         // %ms - milliseconds
-        // Currently this function not constexpr becaus Util::Cast use from_chars
+        // Currently this function not constexpr because used from_chars
         [[nodiscard]] static DateTime FromString(std::string_view format, std::string_view time) noexcept
         {
             if(format.empty() || time.empty()) {
                 return DateTime{};
             }
 
-            std::int32_t day{};
-            std::int32_t month{};
-            std::int32_t year{};
-            std::int32_t hour{};
-            std::int32_t minutes{};
-            std::int32_t seconds{};
-            std::int32_t milliseconds{};
-
-            std::size_t offsetFormat{};
-            std::size_t offsetTime{};
+            std::int32_t day{}, month{}, year{}, hour{}, minutes{}, seconds{}, milliseconds{};
+            std::size_t offsetFormat{}, offsetTime{};
 
             const auto fnNextChar = [](std::string_view format, std::size_t& offset) -> char {
                 return offset < format.size() ? format[offset++] : char{};
             };
 
-            const auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out) -> bool
+            const auto fnParse = [](std::string_view buffer, std::size_t& offset, std::size_t read_length, std::int32_t& out)
             {
-                if(out) {
-                    return false;
-                }
-
-                // Take string with fixed size length from buffer
-                const auto data = buffer.substr(offset, read_length);
-
-                // Buffer can be small, need compare for check
-                HELENA_ASSERT(data.size() == read_length, "Parse data: \"{}\" failed, data size less than read_length", data);
-                if(data.size() == read_length)
+                if(!out)
                 {
-                    // Cast string to int
-                    auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
-                    HELENA_ASSERT(err == std::errc{}, "Cast data: \"{}\" failed", data);
+                    // Take string with fixed size length from buffer
+                    const auto data = buffer.substr(offset, read_length);
 
-                    // Check cast result
-                    if(err == std::errc{}) {
-                        // Add size to offset for parse other data in next time
-                        offset += data.size();
-                        return true;
-                    }
-                }
-                return false;
-            };
-
-            const auto fnCompare = [&]()
-            {
-                char key = fnNextChar(format, offsetFormat);
-                switch(key)
-                {
-                    case 'D': {
-                        HELENA_ASSERT(!day);
-                        return fnParse(time, offsetTime, 2uLL, day);
-                    }
-
-                    case 'M': {
-                        HELENA_ASSERT(!month);
-                        return fnParse(time, offsetTime, 2uLL, month);
-                    }
-
-                    case 'Y': {
-                        HELENA_ASSERT(!year);
-                        return fnParse(time, offsetTime, 4uLL, year);
-                    }
-
-                    case 'h': {
-                        HELENA_ASSERT(!hour);
-                        return fnParse(time, offsetTime, 2uLL, hour);
-                    }
-
-                    case 'm':
+                    // Buffer can be small, need compare for check
+                    HELENA_ASSERT(data.size() == read_length, "Parse data: \"{}\" failed, data size less than read_length", data);
+                    if(data.size() == read_length)
                     {
-                        if((offsetFormat + 1) < format.size()) {
-                            key = format[offsetFormat + 1];
-                        }
+                        // Cast string to int
+                        const auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
+                        HELENA_ASSERT(err == std::errc{}, "Cast data: \"{}\" failed", data);
 
-                        if(key == 's') {
-                            HELENA_ASSERT(!milliseconds);
-                            offsetFormat++;
-                            return fnParse(time, offsetTime, 3uLL, milliseconds);
-                        } else {
-                            HELENA_ASSERT(!minutes);
-                            return fnParse(time, offsetTime, 2uLL, minutes);
+                        // Check cast result
+                        if(err == std::errc{}) {
+                            // Add size to offset for parse other data in next time
+                            offset += data.size();
+                            return true;
                         }
                     }
-
-                    case 's': {
-                        HELENA_ASSERT(!seconds);
-                        return fnParse(time, offsetTime, 2uLL, seconds);
-                    }
-
-                    default: break;
                 }
 
                 return false;
             };
+
 
             while(true)
             {
-                const char keyFormat = fnNextChar(format, offsetFormat);
-                if(!keyFormat) {
-                    return DateTime{DateToTicks(year, month, day) + TimeToTicks(hour, minutes, seconds, milliseconds)};
-                }
-
-                if(keyFormat == '%')
+                switch(char key = fnNextChar(format, offsetFormat))
                 {
-                    if(!fnCompare()) {
-                        break;
-                    }
-                } else if(keyFormat != fnNextChar(time, offsetTime)) {
-                    HELENA_ASSERT(keyFormat == fnNextChar(time, offsetTime),
-                        "Format: \"{}\" and Time: \"{}\" separators do not match!",
-                        keyFormat, fnNextChar(time, offsetTime));
-                    break;
+                    case '\0': return DateTime{DateToTicks(year, month, day) + TimeToTicks(hour, minutes, seconds, milliseconds)};
+                    case '%': break;
+
+                    case 'D': {
+                        HELENA_ASSERT(!day);
+                        if(!fnParse(time, offsetTime, 2uLL, day)) goto RETURN;
+                    } break;
+
+                    case 'M': {
+                        HELENA_ASSERT(!month);
+                        if(!fnParse(time, offsetTime, 2uLL, month)) goto RETURN;
+                    } break;
+
+                    case 'Y': {
+                        HELENA_ASSERT(!year);
+                        if(!fnParse(time, offsetTime, 4uLL, year)) goto RETURN;
+                    } break;
+
+                    case 'h': {
+                        HELENA_ASSERT(!hour);
+                        if(!fnParse(time, offsetTime, 2uLL, hour)) goto RETURN;
+                    } break;
+
+                    case 'm':
+                    {
+                        if((offsetFormat + 1) < format.size() && format[offsetFormat + 1] == 's') {
+                            HELENA_ASSERT(!milliseconds);
+                            fnNextChar(format, offsetFormat);
+                            key = fnParse(time, offsetTime, 3uLL, milliseconds);
+                        } else {
+                            HELENA_ASSERT(!minutes);
+                            key = fnParse(time, offsetTime, 2uLL, minutes);
+                        }
+
+                        if(!key) goto RETURN;
+                    } break;
+
+                    case 's': {
+                        HELENA_ASSERT(!seconds);
+                        if(!fnParse(time, offsetTime, 2uLL, seconds)) goto RETURN;
+                    } break;
+
+                    default: {
+                        if(key != fnNextChar(time, offsetTime)) {
+                            HELENA_ASSERT(key == fnNextChar(time, offsetTime),
+                                "Format: \"{}\" and Time: \"{}\" separators do not match!", key, fnNextChar(time, offsetTime));
+                            goto RETURN;
+                        }
+                    } break;
                 }
             }
 
+        RETURN:
             return DateTime{};
         }
 
