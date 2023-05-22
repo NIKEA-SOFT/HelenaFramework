@@ -11,7 +11,7 @@
 #define HELENA_HPP
 
 // Version
-#define HELENA_VERSION_MAJOR 2
+#define HELENA_VERSION_MAJOR 3
 #define HELENA_VERSION_MINOR 0
 #define HELENA_VERSION_PATCH 0
 
@@ -48,7 +48,9 @@
 #include <Helena/Traits/Select.hpp>
 #include <Helena/Traits/Specialization.hpp>
 #include <Helena/Traits/TypeCounter.hpp>
+#include <Helena/Traits/TypeIndex.hpp>
 #include <Helena/Traits/Underlying.hpp>
+#include <Helena/Traits/UniqueTypes.hpp>
 
 // Types
 #include <Helena/Types/AlignedStorage.hpp>
@@ -63,10 +65,8 @@
 #include <Helena/Types/Delegate.hpp>
 #include <Helena/Types/EncryptedString.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
-#include <Helena/Types/Format.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/LocationString.hpp>
-#include <Helena/Types/ModernDesign.hpp>
 #include <Helena/Types/Monostate.hpp>
 #include <Helena/Types/Mutex.hpp>
 #include <Helena/Types/ReferencePointer.hpp>
@@ -77,6 +77,7 @@
 #include <Helena/Types/StaticVector.hpp>
 #include <Helena/Types/Storage.hpp>
 #include <Helena/Types/Subsystems.hpp>
+#include <Helena/Types/System.hpp>
 #include <Helena/Types/TaskScheduler.hpp>
 #include <Helena/Types/TimeSpan.hpp>
 #include <Helena/Types/TSVector.hpp>
