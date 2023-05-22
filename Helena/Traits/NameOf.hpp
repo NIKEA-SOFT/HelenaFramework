@@ -4,6 +4,7 @@
 #include <Helena/Platform/Defines.hpp>
 #include <array>
 #include <string_view>
+#include <format>
 
 namespace Helena::Traits
 {
@@ -57,6 +58,15 @@ namespace Helena::Traits
 
         [[nodiscard]] constexpr operator std::string_view() const noexcept {
             return Value;
+        }
+    };
+}
+
+namespace std {
+    template <typename T>
+    struct formatter<Helena::Traits::NameOf<T>> : formatter<string_view> {
+        auto format(const Helena::Traits::NameOf<T> name, format_context& ctx) const {
+            return std::format_to(ctx.out(), "{}", static_cast<string_view>(name));
         }
     };
 }

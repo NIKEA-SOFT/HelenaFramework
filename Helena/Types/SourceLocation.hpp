@@ -2,36 +2,17 @@
 #define HELENA_TYPES_SOURCELOCATION_HPP
 
 #include <cstdint>
-#include <string_view>
 #include <algorithm>
+#include <string_view>
 
 namespace Helena::Types
 {
     /*! SourceLocation implementation */
-    struct SourceLocation
+    class SourceLocation
     {
-        [[nodiscard]] static constexpr const char* GetSourceName(const std::string_view file, const std::string_view delimeter) noexcept {
-            const auto it = std::find_first_of(file.crbegin(), file.crend(), delimeter.cbegin(), delimeter.cend());
-            return it == file.crend() ? std::addressof(*file.cbegin()) : std::addressof(*it.base());
-        }
+        static constexpr std::string_view Separator = "\\/";
 
-        [[nodiscard]] static constexpr auto Create(const char* file = __builtin_FILE(),
-            const char* function = __builtin_FUNCTION(), const std::uint_least32_t line = __builtin_LINE()) noexcept {
-            SourceLocation location;
-            location.m_File = GetSourceName(file, "\\/");
-            location.m_Function = function;
-            location.m_Line = line;
-            return location;
-        }
-
-        [[nodiscard]] static constexpr auto Create(const std::string_view file, const std::uint_least32_t line) noexcept {
-            SourceLocation location;
-            location.m_File = GetSourceName(file, "\\/");
-            location.m_Function = "";
-            location.m_Line = line;
-            return location;
-        }
-
+    public:
         constexpr SourceLocation() noexcept = default;
 
         [[nodiscard]] constexpr const char* GetFile() const noexcept {
@@ -44,6 +25,30 @@ namespace Helena::Types
 
         [[nodiscard]] constexpr std::uint_least32_t GetLine() const noexcept {
             return m_Line;
+        }
+
+    public:
+        [[nodiscard]] static constexpr auto Create(const char* file = __builtin_FILE(),
+            const char* function = __builtin_FUNCTION(), const std::uint_least32_t line = __builtin_LINE()) noexcept {
+            SourceLocation location;
+            location.m_File = TruncatePath<std::string_view>(file);
+            location.m_Function = function;
+            location.m_Line = line;
+            return location;
+        }
+
+        [[nodiscard]] static constexpr auto Create(const std::string_view file, const std::uint_least32_t line) noexcept {
+            SourceLocation location;
+            location.m_File = TruncatePath<std::string_view>(file);
+            location.m_Function = "";
+            location.m_Line = line;
+            return location;
+        }
+
+        template <typename T>
+        [[nodiscard]] static constexpr const char* TruncatePath(const T file) noexcept {
+            const auto it = std::find_first_of(file.crbegin(), file.crend(), Separator.cbegin(), Separator.cend());
+            return it == file.crend() ? std::addressof(*file.cbegin()) : std::addressof(*it.base());
         }
 
     private:

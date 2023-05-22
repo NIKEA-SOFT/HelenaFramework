@@ -17,7 +17,7 @@ namespace Helena::Types
         constexpr LocationString(T&& msg, const SourceLocation location = SourceLocation::Create()) noexcept
             : m_Location{location}, m_Msg{msg} {}
 
-        Types::SourceLocation m_Location;
+        SourceLocation m_Location;
         std::string_view m_Msg;
     };
 }

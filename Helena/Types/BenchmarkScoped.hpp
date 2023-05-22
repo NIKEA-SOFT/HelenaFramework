@@ -1,9 +1,7 @@
 #ifndef HELENA_TYPES_BENCHMARKSCOPED_HPP
 #define HELENA_TYPES_BENCHMARKSCOPED_HPP
 
-#include <Helena/Engine/Log.hpp>
-
-#include <cstdint>
+#include <Helena/Types/BasicLogger.hpp>
 #include <chrono>
 
 namespace Helena::Types
@@ -16,8 +14,8 @@ namespace Helena::Types
         BenchmarkScoped(const SourceLocation& location = SourceLocation::Create()) : m_Location{location}, m_Time{Timer::now()} {}
         ~BenchmarkScoped() {
             const std::chrono::duration<float> timeleft = Timer::now() - m_Time;
-            const auto formater = Log::Formater<Log::Benchmark>{"{}] Timeleft: {:.6f} sec", m_Location};
-            Log::Console<Log::Benchmark>(formater, m_Location.GetFunction(), timeleft.count());
+            Log::Message<Log::Benchmark>({"{}] Timeleft: {:.6f} sec", m_Location},
+                m_Location.GetFunction(), timeleft.count());
         }
         BenchmarkScoped(const BenchmarkScoped&) = delete;
         BenchmarkScoped(BenchmarkScoped&&) noexcept = delete;
