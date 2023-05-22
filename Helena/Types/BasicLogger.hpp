@@ -2,101 +2,91 @@
 #define HELENA_TYPES_BASICLOGGER_HPP
 
 #include <Helena/Types/BasicLoggersDef.hpp>
-#include <Helena/Platform/Assert.hpp>
 
-namespace Helena::Types
+namespace Helena::Log
 {
-    class BasicLogger
+    template <DefinitionLogger T>
+    static constexpr auto UseLogger = T{};
+
+    template <DefinitionLogger Logger, typename Char, typename... Args>
+    void MessagePrint(const Formatter<Char>& format, Args&&... args)
     {
-        [[nodiscard]] static bool MakeColor(fmt::memory_buffer& buffer, const fmt::text_style style)
-        {
-            bool has_style{};
-            if(style.has_emphasis()) {
-                has_style = true;
-                const auto emphasis = fmt::detail::make_emphasis<char>(style.get_emphasis());
-                buffer.append(emphasis.begin(), emphasis.end());
-            }
-
-            if(style.has_foreground()) {
-                has_style = true;
-                const auto foreground = fmt::detail::make_foreground_color<char>(style.get_foreground());
-                buffer.append(foreground.begin(), foreground.end());
-            }
-
-            if(style.has_background()) {
-                has_style = true;
-                const auto background = fmt::detail::make_background_color<char>(style.get_background());
-                buffer.append(background.begin(), background.end());
-            }
-
-            return has_style;
+        // Ignore messages from logger when `static inline bool Muted = true`
+        if constexpr(!requires { typename MuteController<Logger>::DefaultFingerprint; }) {
+            if(MuteController<Logger>::Muted())
+                return;
         }
 
-        static void EndColor(fmt::memory_buffer& buffer) noexcept {
-            fmt::detail::reset_color<char>(buffer);
+        // No need to waste CPU time for formatting if the console is not available
+        if constexpr(requires { typename CustomPrint<Logger>::DefaultFingerprint; }) {
+        #if defined(HELENA_PLATFORM_WIN)
+            if(!_isatty(_fileno(stdout)))
+        #elif defined(HELENA_PLATFORM_LINUX)
+            if(!isatty(fileno(stdout)))
+        #endif
+                return;
         }
 
-    public:
-        BasicLogger() = delete;
-        ~BasicLogger() = delete;
-        BasicLogger(const BasicLogger&) = delete;
-        BasicLogger(BasicLogger&&) noexcept = delete;
-        BasicLogger& operator=(const BasicLogger&) = delete;
-        BasicLogger& operator=(BasicLogger&&) noexcept = delete;
+        std::size_t offset{};
+        auto& buffer = Internal::LoggerStorage::m_Buffer<Char>;
+        buffer.resize(0);
 
-        template <Traits::DefinitionLogger Logger, typename... Args>
-        static void PrintConsole(const Log::Formater<Logger> format, Args&&... args)
-        {
-            HELENA_ASSERT(format.m_Location.GetFile());
-            HELENA_ASSERT(format.m_Location.GetFunction());
-            HELENA_ASSERT(format.m_Location.GetLine() && *format.m_Location.GetFile());
+        try {
+            const auto fnFormatStyle = [&](const Char* file, const Char* prefix) {
+                const auto timeNow = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+                std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatStyle,
+                    std::make_format_args<typename Print<Char>::Context>(timeNow, file, format.Line(), prefix));
+            };
 
-            constexpr auto formatex = fmt::string_view("[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ");
-            const auto msg = fmt::string_view{format.m_Msg};
-            const auto time = fmt::localtime(std::time(nullptr));
-            bool has_style = false;
+            // Convert Prefix and Location from const char* to wchar_t* using stack memory
+            // The complexity of the conversion is approximately equal to the
+            // length of the file name (where the log was called from) + the length of the prefix.
+            // Average: 30 loop iterations + overhead of use_facet (mbrtowc)
+            if constexpr(!std::is_same_v<Char, char>)
+            {
+                const auto fnConvert = [&facet = std::use_facet<std::ctype<Char>>(std::locale())](Char* data, std::size_t size, const char* src) {
+                    std::size_t i = 0;
+                    while(i < size && src[i] != '\0') {
+                        data[i] = facet.widen(src[i]);
+                        ++i;
+                    }
 
-            fmt::memory_buffer buffer{};
-            try {
-                has_style = MakeColor(buffer, Logger::Style);
-                const auto args1 = fmt::make_format_args(time, format.m_Location.GetFile(), format.m_Location.GetLine(), Logger::Prefix);
-                fmt::detail::vformat_to(buffer, formatex, args1);
-                const auto args2 = fmt::make_format_args(std::forward<Args>(args)...);
-                fmt::detail::vformat_to(buffer, msg, args2);
-            } catch(const fmt::format_error&) {
-                buffer.clear();
-                has_style = MakeColor(buffer, Log::Exception::Style);
-                const auto args1 = fmt::make_format_args(time, format.m_Location.GetFile(), format.m_Location.GetLine(), Log::Exception::Prefix);
-                fmt::detail::vformat_to(buffer, formatex, args1);
-                fmt::detail::vformat_to(buffer, fmt::string_view{
-                    "\n----------------------------------------\n"
-                    "|| Error: format syntax invalid!\n"
-                    "|| Format: {}"
-                    "\n----------------------------------------"
-                    }, fmt::make_format_args(msg));
-            } catch(const std::bad_alloc&) {
-                buffer.clear();
-                has_style = MakeColor(buffer, Log::Exception::Style);
-                const auto args1 = fmt::make_format_args(time, format.m_Location.GetFile(), format.m_Location.GetLine(), Log::Exception::Prefix);
-                fmt::detail::vformat_to(buffer, formatex, args1);
-                fmt::detail::vformat_to(buffer, fmt::string_view{
-                    "\n----------------------------------------\n"
-                    "|| Error: alloc memory failed!\n"
-                    "|| Format: {}"
-                    "\n----------------------------------------"
-                    }, fmt::make_format_args(msg));
+                    data[i] = facet.widen('\0');
+                    return ++i;
+                };
+
+                std::array<Char, 512> data;
+                offset = fnConvert(data.data(), data.size(), format.File());
+                fnConvert(data.data() + offset, data.size() - offset, Logger::Prefix.data());
+                fnFormatStyle(data.data(), data.data() + offset);
+            } else {
+                fnFormatStyle(format.File(), Logger::Prefix.data());
             }
 
-            if(has_style) {
-                EndColor(buffer);
-            }
-
-            buffer.push_back('\n');
-            buffer.push_back('\0');
-
-            std::fputs(buffer.data(), stdout);
+            offset = buffer.size();
+            std::vformat_to(std::back_inserter(buffer), format.Message(), std::make_format_args<typename Print<Char>::Context>(
+                std::forward<Args>(args)...));
+        } catch(const std::format_error&) {
+            buffer.resize(offset);
+            std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatError, std::make_format_args<typename Print<Char>::Context>(format.Message()));
+        } catch(const std::bad_alloc&) {
+            buffer.resize(offset);
+            std::vformat_to(std::back_inserter(buffer), Print<Char>::AllocateError, std::make_format_args<typename Print<Char>::Context>(format.Message()));
         }
-    };
+
+        buffer.push_back(Print<Char>::Endline);
+        CustomPrint<Logger>::Message(buffer);
+    }
+
+    template <DefinitionLogger Logger, typename... Args>
+    void Message(const Formatter<char> format, Args&&... args) {
+        MessagePrint<Logger>(format, std::forward<Args>(args)...);
+    }
+
+    template <DefinitionLogger Logger, typename... Args>
+    void Message(const Formatter<wchar_t> format, Args&&... args) {
+        MessagePrint<Logger>(format, std::forward<Args>(args)...);
+    }
 }
 
 #endif // HELENA_TYPES_BASICLOGGER_HPP

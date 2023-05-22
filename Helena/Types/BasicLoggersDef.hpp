@@ -1,69 +1,192 @@
 #ifndef HELENA_TYPES_BASICLOGGERSDEF_HPP
 #define HELENA_TYPES_BASICLOGGERSDEF_HPP
 
-#include <Helena/Dependencies/Fmt.hpp>
+#include <Helena/Platform/Defines.hpp>
+#include <Helena/Platform/Platform.hpp>
+#include <Helena/Traits/Arguments.hpp>
 #include <Helena/Types/SourceLocation.hpp>
-#include <Helena/Traits/Underlying.hpp>
 
+#include <cstdint>
+#include <cstdio>
+#include <ctime>
+#include <chrono>
+#include <new>
+#include <format>
+#include <iterator>
+#include <locale>
+#include <string>
+#include <utility>
 #include <concepts>
-
-namespace Helena::Traits
-{
-    template <typename T>
-    concept DefinitionLogger = requires {
-        T::Prefix;
-        T::Style;
-        requires    std::is_same_v<std::remove_const_t<decltype(T::Prefix)>, std::string_view> &&
-                    std::is_same_v<std::remove_const_t<decltype(T::Style)>, fmt::text_style>;
-    };
-}
 
 namespace Helena::Log
 {
-    enum class Color    : Traits::Underlying<fmt::terminal_color>
+    namespace Internal {
+        namespace LoggerStorage {
+            template <typename Char>
+            static thread_local std::basic_string<Char> m_Buffer;
+        };
+    }
+
+    enum class Color : std::uint8_t
     {
-        Black           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::black),
-        Red             = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::red),
-        Green           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::green),
-        Yellow          = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::yellow),
-        Blue            = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::blue),
-        Magenta         = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::magenta),
-        Cyan            = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::cyan),
-        White           = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::white),
-        BrightBlack     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_black),
-        BrightRed       = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_red),
-        BrightGreen     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_green),
-        BrightYellow    = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_yellow),
-        BrightBlue      = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_blue),
-        BrightMagenta   = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_magenta),
-        BrightCyan      = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_cyan),
-        BrightWhite     = Traits::Underlying<fmt::terminal_color>(fmt::terminal_color::bright_white)
+        Black,
+        Red,
+        Green,
+        Yellow,
+        Blue,
+        Magenta,
+        Cyan,
+        White,
+        BrightBlack,
+        BrightRed,
+        BrightGreen,
+        BrightYellow,
+        BrightBlue,
+        BrightMagenta,
+        BrightCyan,
+        BrightWhite
     };
 
-    template <Helena::Traits::DefinitionLogger Prefix>
-    struct Formater {
-        template <std::convertible_to<std::string_view> T>
-        constexpr Formater(const T& msg, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
+    template <typename T>
+    concept DefinitionLogger = requires {
+        T::Prefix;
+        // TODO: Colors and (Styles?)
+    };
+
+    // Class with an implicit constructor for working with formatting
+    template <typename Char>
+    class Formatter
+    {
+    public:
+        constexpr Formatter(const Char* message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
             : m_Location{location}
-            , m_Msg{msg} {}
+            , m_Message{message} {}
 
-        Types::SourceLocation m_Location;
-        std::string_view m_Msg;
+        constexpr Formatter(const std::basic_string_view<Char> message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
+            : m_Location{location}
+            , m_Message{message} {}
+
+        [[nodiscard]] constexpr decltype(auto) File() const noexcept {
+            return m_Location.GetFile();
+        }
+
+        [[nodiscard]] constexpr decltype(auto) Function() const noexcept {
+            return m_Location.GetFunction();
+        }
+
+        [[nodiscard]] constexpr decltype(auto) Line() const noexcept {
+            return m_Location.GetLine();
+        }
+
+        [[nodiscard]] constexpr auto Message() const noexcept {
+            return m_Message;
+        }
+
+    private:
+        const Types::SourceLocation m_Location;
+        const std::basic_string_view<Char> m_Message;
     };
 
+    template <typename Char>
+    Formatter(const Char*) -> Formatter<Char>;
+
+    // Structures defining how to print message for different Char types
+    template <typename>
+    struct Print;
+
+    template <>
+    struct Print<char>
+    {
+        using Context = std::format_context;
+
+        static constexpr auto FormatStyle = "[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ";
+        static constexpr auto AllocateError =
+            "\n----------------------------------------\n"
+            "|| Error: alloc memory failed!\n"
+            "|| Format: {}"
+            "\n----------------------------------------";
+        static constexpr auto FormatError =
+            "\n----------------------------------------\n"
+            "|| Error: format syntax invalid!\n"
+            "|| Format: {}"
+            "\n----------------------------------------";
+        static constexpr auto Endline = '\n';
+
+        static void Message(const std::string_view message, std::FILE* stream = stdout) {
+        #if defined(HELENA_PLATFORM_WIN)
+            if(_isatty(_fileno(stream)))
+        #elif defined(HELENA_PLATFORM_LINUX)
+            if(isatty(fileno(stream)))
+        #endif
+                (void)std::fputs(message.data(), stream);
+        }
+    };
+
+    template <>
+    struct Print<wchar_t>
+    {
+        using Context = std::wformat_context;
+
+        static constexpr auto FormatStyle = L"[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ";
+        static constexpr auto AllocateError =
+            L"\n----------------------------------------\n"
+            L"|| Error: alloc memory failed!\n"
+            L"|| Format: {}"
+            L"\n----------------------------------------";
+        static constexpr auto FormatError =
+            L"\n----------------------------------------\n"
+            L"|| Error: format syntax invalid!\n"
+            L"|| Format: {}"
+            L"\n----------------------------------------";
+        static constexpr auto Endline = L'\n';
+
+        static void Message(const std::wstring_view message, std::FILE* stream = stdout) {
+        #if defined(HELENA_PLATFORM_WIN)
+            if(_isatty(_fileno(stream)))
+        #elif defined(HELENA_PLATFORM_LINUX)
+            if(isatty(fileno(stream)))
+        #endif
+                (void)std::fputws(message.data(), stream);
+        }
+    };
+
+    // Structure to override `Print<Char>::Show` behavior of specific logger using specialization
+    template <DefinitionLogger>
+    struct CustomPrint {
+        // NOTE: Don't declare the given using in your own specializations (used for optimization)
+        using DefaultFingerprint = void;
+
+        template <typename Char>
+        static void Message(std::basic_string<Char>& message) {
+            Print<Char>::Message(message);
+        }
+    };
+
+    template <DefinitionLogger>
+    struct MuteController {
+        // NOTE: Don't declare the given using in your own specializations (used for optimization)
+        using DefaultFingerprint = void;
+
+        static bool Muted() {
+            return false;
+        }
+    };
+
+    // Util functions for creating logging structures
     [[nodiscard]] static constexpr auto CreatePrefix(const std::string_view prefix) noexcept {
         return prefix;
     }
 
-    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color) noexcept {
-        return fmt::text_style{fmt::fg(static_cast<fmt::terminal_color>(color))};
+    [[nodiscard]] static constexpr auto CreateStyle([[maybe_unused]] const Color color) noexcept {
+        return true;
     }
 
-    [[nodiscard]] static constexpr auto CreateStyle(const Log::Color color, const Log::Color background) noexcept {
-        return fmt::text_style{fmt::fg(static_cast<fmt::terminal_color>(color)) | fmt::bg(static_cast<fmt::terminal_color>(background))};
+    [[nodiscard]] static constexpr auto CreateStyle([[maybe_unused]] const Color color, [[maybe_unused]] const Color background) noexcept {
+        return true;
     }
 
-    struct Benchmark {
+    // Structures defining the type and color of the logged message
+    struct Benchmark{
         static constexpr auto Prefix = CreatePrefix("[BENCHMARK][FUNCTION:");
         static constexpr auto Style  = CreateStyle(Color::BrightMagenta);
     };
@@ -101,6 +224,7 @@ namespace Helena::Log
     struct Exception {
         static constexpr auto Prefix = CreatePrefix("[EXCEPTION]");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
+
     };
 
     struct Assert {
@@ -117,6 +241,15 @@ namespace Helena::Log
         static constexpr auto Prefix = CreatePrefix("[SHUTDOWN]");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
+}
+
+// Forward declaration
+namespace Helena::Log {
+    template <DefinitionLogger Logger, typename... Args>
+    void Message(const Formatter<char> format, Args&&... args);
+
+    template <DefinitionLogger Logger, typename... Args>
+    void Message(const Formatter<wchar_t> format, Args&&... args);
 }
 
 #endif // HELENA_TYPES_BASICLOGGERSDEF_HPP
