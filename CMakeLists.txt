@@ -12,7 +12,6 @@ project(HelenaFramework VERSION ${HELENA_VERSION} LANGUAGES CXX)
 #|--------------------------------
 option(HELENA_FLAG_TEST             "Build and run test"    OFF)
 option(HELENA_FLAG_EXAMPLES         "Build examples"        ON)
-option(HELENA_FLAG_USE_BUNDLED_DEPS "Use bundled deps (e.g. fmt)" ON)
 option(HELENA_FLAG_VIEW_HELENA      "Helena folder show in target project" OFF)
 option(HELENA_FLAG_BIN_DIR          "Enable bin directory of object and binary files" ON)
 
@@ -98,13 +97,13 @@ target_include_directories(Helena INTERFACE
 
 if(HELENA_FLAG_VIEW_HELENA)
 	set(HELENA_PROJECT_HEADERS
-        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Dependencies/Fmt.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Helena.hpp"
+
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Engine.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Engine.ipp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Events.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Log.hpp"
-        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Engine/Log.ipp"
-        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Helena.hpp"
+
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Assert.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Compiler.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Defines.hpp"
@@ -112,6 +111,7 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Platform.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Processor.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Platform/Windows/Windows.hpp"
+
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Add.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/AnyOf.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Arguments.hpp"
@@ -132,7 +132,10 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Select.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Specialization.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/TypeCounter.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/TypeIndex.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/Underlying.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Traits/UniqueTypes.hpp"
+
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/AlignedStorage.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/AlignedStorageV2.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Allocators.hpp"
@@ -145,10 +148,8 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Delegate.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/EncryptedString.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/FixedBuffer.hpp"
-        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Format.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Hash.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/LocationString.hpp"
-        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/ModernDesign.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Monostate.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Mutex.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/RWLock.hpp"
@@ -159,6 +160,7 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/StaticVector.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Storage.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Subsystems.hpp"
+        "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/System.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TSVector.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TaskScheduler.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/TimeSpan.hpp"
@@ -167,6 +169,7 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorAny.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorKVAny.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/VectorUnique.hpp"
+
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Cast.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Format.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Util/Length.hpp"
@@ -179,14 +182,8 @@ endif()
 #|--------------------------------
 #| Helena Framework Dependencies
 #|--------------------------------
-if(HELENA_FLAG_USE_BUNDLED_DEPS)
-    target_include_directories(Helena INTERFACE ${HELENA_PROJECT_DIR}/Dependencies)
-else()
-    find_package(fmt REQUIRED)
-    if(HELENA_FLAG_TEST)
-        find_package(GTest REQUIRED)
-    endif()
-    target_link_libraries(Helena INTERFACE fmt::fmt-header-only)
+if(HELENA_FLAG_TEST)
+    find_package(GTest REQUIRED)
 endif()
 
 #|--------------------------------
