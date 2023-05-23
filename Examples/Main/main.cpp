@@ -315,7 +315,7 @@ struct AnimationSkeleton {};
 struct AnimationSpline
     // ModernDesign can be used in Systems (for get `this` from static methods)
     // or in Subsystems for get owner System instance
-    : public Helena::Types::ModernDesign<class AnimationManager>
+    : public Helena::Types::System<class AnimationManager>
 {
     static void StaticFunc();
     void NonStaticFunc();
@@ -326,13 +326,22 @@ private:
 
 // it's System
 class AnimationManager
-    : public Helena::Types::ModernDesign<AnimationManager>     // -> Get current system from static methods using CurrentSystem
-    , public Helena::Types::SubsystemDesign<AnimationManager>  // -> Create, Any, Has, Remove subsystems
+    : public Helena::Types::System<AnimationManager>     // -> Get current system from static methods using CurrentSystem
+    , public Helena::Types::Subsystems<AnimationManager>  // -> Create, Any, Has, Remove subsystems
 {
 
 public:
     AnimationManager() {
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&OnInit);  // Subscribe on engine event
+    }
+
+
+    static void PrintMessage()
+    {
+        auto& self = CurrentSystem(); // O(1) array[ndex]
+
+        HELENA_MSG_NOTICE("HELLO FROM PRINT MESSAGE OF ANIMATION MANAGER");
+        Helena::Util::Sleep(10000);
     }
 
 private:
@@ -407,7 +416,6 @@ private:
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
 
-
         /*
         struct MyResource {
             std::size_t value;
@@ -440,13 +448,56 @@ private:
         Helena::Engine::RemoveSystem<Helena::Systems::ResourceManager>();
         */
 
+        if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+        } else {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+        }
+
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+
         // Or Signals
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit>(+[]() {
             HELENA_MSG_NOTICE("Hello from PreInit");
         });
 
+        if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+        } else {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+        }
+
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
             HELENA_MSG_NOTICE("Hello from Init");
+
+            if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+                HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+            }
+
+            HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+
+            const auto [hasPreInit, hasInit] = Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>();
+            if(hasPreInit && hasInit) {
+                HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS FALSE, BUT PRE INIT: {}, INIT: {}", hasPreInit, hasInit);
+            }
+
+            if(Helena::Engine::AnySubscribersEvent<Helena::Events::Engine::PreInit>()) {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT FALSE");
+            }
+
+            if(Helena::Engine::AnySubscribersEvent<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>()) {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT FALSE");
+            }
         });
 
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]() {
@@ -636,7 +687,6 @@ void Initialization_with_my_Context() {
     // register system here or in your Context using `bool Main() override`
 }
 
-// TODO: test
 void test_allocators();
 
 int main(int argc, char** argv)
@@ -648,6 +698,7 @@ int main(int argc, char** argv)
     example_systems();          // ok, here just example how use systems
     example_signals();          // here example with signals
     example_task_sheduler();    // task scheduler example
+
 
     test_allocators();
 
@@ -662,12 +713,13 @@ void test_allocators()
 {
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
+    
+    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)>> alloc;
+    Helena::Types::IMemoryResource* memoryResource = &alloc;
+    Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
 
-    Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)> stack;
-    Vector vec_of_string{&stack}; vec_of_string.reserve(10);
-
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
+    vec_of_string.emplace_back("long message for got allocation", memoryResource);
+    vec_of_string.emplace_back("long message for got allocation", memoryResource);
+    vec_of_string.emplace_back("long message for got allocation", memoryResource);
+    vec_of_string.emplace_back("long message for got allocation", memoryResource);
 }

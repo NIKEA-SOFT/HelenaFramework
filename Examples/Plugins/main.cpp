@@ -100,5 +100,5 @@ HELENA_PLUGIN_API void PluginMain(Helena::Systems::PluginManager::EState state, 
 
 			Helena::Engine::RemoveSystem<AudioLogger>();
 		} break;
-	};
+	}
 }
