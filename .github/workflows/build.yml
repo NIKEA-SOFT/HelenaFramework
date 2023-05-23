@@ -1,4 +1,4 @@
-name: Build
+﻿name: Build
 on: [push]
 
 jobs:
@@ -11,15 +11,20 @@ jobs:
         compiler: [Clang, GCC]
         include:
           - compiler: Clang
-            binary: clang++-13
+            binary: clang++-14
             install: |
               sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-              sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
-              sudo apt install -y clang-13
+              sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-14 main"
+              sudo apt update
+              sudo apt install -y clang-14 cmake ninja-build
               sudo apt upgrade
           - compiler: GCC
-            binary: g++-11
-            install:
+            binary: g++-13
+            install: |
+              sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+              sudo apt update
+              sudo apt install -y g++-13 cmake ninja-build
+              sudo apt upgrade
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,15 +32,11 @@ jobs:
           submodules: true
       - name: Install compiler
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt update
-          sudo apt install -y g++-11 cmake ninja-build
           ${{ matrix.install }}
-          sudo apt upgrade
       - name: Configure
         env:
           CXX: ${{ matrix.binary }}
-        run:  cmake . -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+        run:  cmake -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
       - name: Build
         run:  cmake --build Build
       - name: Upload
@@ -50,7 +51,7 @@ jobs:
     strategy:
       matrix:
         build: [Debug, Release]
-        compiler: [MSVC, Clang]
+        compiler: [MSVC, Clang, MSYS2]
         include:
           - compiler: MSVC
             toolset: -T"v142"
@@ -62,7 +63,7 @@ jobs:
         with:
           submodules: true
       - name: Enable Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1.12.0
+        uses: ilammy/msvc-dev-cmd@v1.12.1
       - name: Configure
         run:  cmake -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
       - name: Build
@@ -73,3 +74,36 @@ jobs:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
           path: ${{ github.workspace }}/Bin/HelenaMain.exe
           if-no-files-found: error
+  windows_msys2:
+    name: "Windows [MSYS2]"
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build: [Debug, Release]
+        include:
+          - { icon: '⬛', sys: MINGW32 }
+          - { icon: '🟦', sys: MINGW64 }
+          - { icon: '🟨', sys: UCRT64  }
+          - { icon: '🟧', sys: CLANG64 }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: "Setup MSYS2: [${{ matrix.icon }}] ${{ matrix.sys }}"
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.sys }}
+          update: true
+          pacboy: >-
+            toolchain:p
+            cmake:p
+            ninja:p
+      - name: Update packages
+        run: |
+          msys2 -c 'pacman --noconfirm -Suuy'
+          msys2 -c 'pacman --noconfirm -Suu'
+      - name: 'Build'
+        run: |
+          cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+          cmake --build build
