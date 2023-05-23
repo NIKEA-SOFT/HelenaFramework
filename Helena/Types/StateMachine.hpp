@@ -3,6 +3,7 @@
 
 #include <Helena/Traits/AnyOf.hpp>
 #include <Helena/Traits/Overloads.hpp>
+#include <Helena/Traits/UniqueTypes.hpp>
 
 #include <variant>
 #include <utility>
@@ -19,6 +20,24 @@ namespace Helena::Types
 
         template <typename... T>
         using FSMStates = std::variant<NoState, States...>;
+
+        template <typename Dispatcher>
+        requires (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+        constexpr void VisitOverloads() const {
+            std::visit([self = const_cast<StateMachine*>(this)](auto& state) {
+                if constexpr(!std::is_same_v<std::decay_t<decltype(state)>, NoState>) {
+                    static_assert(std::is_invocable_v<Dispatcher, StateMachine&, decltype(state)>,
+                        "Dispatcher does not support the operator(StateMachine<States...>&, State&)");
+                    Dispatcher{}(*self, state);
+                }
+            }, const_cast<FSMStates<States...>&>(m_States));
+        }
+
+        template <typename... Fn>
+        static constexpr auto UniqueFunctions = Traits::UniqueTypes<Fn...>;
+
+        template <typename Fn>
+        static constexpr auto Invocable = (std::invocable<Fn, States> || ...);
 
     public:
         StateMachine() = default;
@@ -41,11 +60,7 @@ namespace Helena::Types
         }
 
         template <typename... Fn>
-        constexpr void Visit(Fn&&... visitor) const {
-            std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
-        }
-
-        template <typename... Fn>
+        requires (UniqueFunctions<Fn...> && (Invocable<Fn> && ...))
         constexpr void Visit(Fn&&... visitor) {
             std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
@@ -83,15 +98,27 @@ namespace Helena::Types
         }
 
         template <typename Dispatcher>
-        requires (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+        requires (std::is_default_constructible_v<Dispatcher>) && (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
         constexpr void Dispatch() const {
-            std::visit([self = const_cast<StateMachine*>(this)](auto& state) {
-                if constexpr(!std::is_same_v<std::decay_t<decltype(state)>, NoState>) {
-                    static_assert(std::is_invocable_v<Dispatcher, StateMachine&, decltype(state)>,
-                        "Dispatcher does not support the operator(StateMachine<States...>&, State&)");
-                    Dispatcher{}(*self, state);
-                }
-            }, const_cast<FSMStates<States...>&>(m_States));
+            VisitOverloads<Dispatcher>();
+        }
+
+        template <typename Dispatcher, typename NewState, typename... Args>
+        requires (std::is_default_constructible_v<Dispatcher>)
+              && (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+              && (Traits::AnyOf<NewState, States...> && std::is_constructible_v<NewState, Args...>)
+        constexpr void Dispatch(Args&&... args) {
+            SetState<NewState>(std::forward<Args>(args)...);
+            VisitOverloads<Dispatcher>();
+        }
+
+        template <typename Dispatcher, typename State>
+        requires (std::is_default_constructible_v<Dispatcher>)
+              && (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+              && (Traits::AnyOf<State, States...> && std::is_constructible_v<std::decay_t<State>, State>)
+        constexpr void Dispatch(State&& newState) {
+            SetState(std::forward<State>(newState));
+            VisitOverloads<Dispatcher>();
         }
 
     private:
