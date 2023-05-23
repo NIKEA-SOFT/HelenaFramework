@@ -33,33 +33,32 @@ namespace Helena::Types
         StaticVector() : m_Storage{}, m_Size{} {}
 
         template <typename... Args>
-        requires(((Helena::Traits::Specialization<Args, std::tuple>
-                && Helena::Types::AlignedStorage::Constructible<T, Args>) && ...)
-                && Helena::Traits::Arguments<Args...>::Size <= m_Capacity)
+        requires (((Traits::Specialization<Args, std::tuple> && AlignedStorage::Constructible<T, Args>) && ...)
+                 && Traits::Arguments<Args...>::Size <= m_Capacity)
         explicit StaticVector(std::piecewise_construct_t, Args&&... tuples) : m_Size{sizeof...(Args)} {
-            Helena::Types::AlignedStorage::Construct(m_Storage, std::piecewise_construct, std::forward<Args>(tuples)...);
+            AlignedStorage::Construct(m_Storage, std::piecewise_construct, std::forward<Args>(tuples)...);
         }
 
         template <typename... Args>
         requires std::constructible_from<T, Args...>
-        explicit StaticVector(std::size_t count, Args&&... args) noexcept(
-            std::is_nothrow_constructible_v<T, Args...>) : m_Size{count} {
+        explicit StaticVector(std::size_t count, Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>) : m_Size{count} {
+            HELENA_ASSERT(count);
             HELENA_ASSERT(count <= m_Capacity);
             for(std::size_t index = 0; index < count - 1; ++index) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, index, std::as_const(args)...);
+                AlignedStorage::Construct(m_Storage, index, std::as_const(args)...);
             }
-            Helena::Types::AlignedStorage::Construct(m_Storage, count - 1, std::forward<Args>(args)...);
+            AlignedStorage::Construct(m_Storage, count - 1, std::forward<Args>(args)...);
         }
 
         StaticVector(const StaticVector& other) noexcept(
             std::is_nothrow_copy_constructible_v<T>) : m_Size{other.Size()} {
-            Helena::Types::AlignedStorage::ConstructCopy(other.m_Storage, m_Storage, 0, other.Size());
+            AlignedStorage::ConstructCopy(other.m_Storage, m_Storage, 0, other.Size());
         }
 
         StaticVector(StaticVector&& other) noexcept(
             std::is_nothrow_move_constructible_v<T> &&
             std::is_nothrow_destructible_v<T>) : m_Size{other.Size()} {
-            Helena::Types::AlignedStorage::ConstructMove(other.m_Storage, m_Storage, 0, other.Size());
+            AlignedStorage::ConstructMove(other.m_Storage, m_Storage, 0, other.Size());
             other.Clear();
         }
 
@@ -67,12 +66,12 @@ namespace Helena::Types
         {
             std::size_t copy = (std::min)(m_Size, other.Size());
             std::size_t left = (std::max)(m_Size, other.Size()) - copy;
-            Helena::Types::AlignedStorage::OperatorCopy(other.m_Storage, m_Storage, 0, copy);
+            AlignedStorage::OperatorCopy(other.m_Storage, m_Storage, 0, copy);
 
             if(m_Size < other.Size()) {
-                Helena::Types::AlignedStorage::ConstructCopy(other.m_Storage, m_Storage, copy, left);
+                AlignedStorage::ConstructCopy(other.m_Storage, m_Storage, copy, left);
             } else if(m_Size > other.Size()) {
-                Helena::Types::AlignedStorage::Destruct(m_Storage, copy, left);
+                AlignedStorage::Destruct(m_Storage, copy, left);
             }
 
             m_Size = other.Size();
@@ -83,12 +82,12 @@ namespace Helena::Types
         {
             std::size_t copy = (std::min)(m_Size, other.Size());
             std::size_t left = (std::max)(m_Size, other.Size()) - copy;
-            Helena::Types::AlignedStorage::OperatorMove(other.m_Storage, m_Storage, 0, copy);
+            AlignedStorage::OperatorMove(other.m_Storage, m_Storage, 0, copy);
 
             if(m_Size < other.Size()) {
-                Helena::Types::AlignedStorage::ConstructMove(other.m_Storage, m_Storage, copy, left);
+                AlignedStorage::ConstructMove(other.m_Storage, m_Storage, copy, left);
             } else if(m_Size > other.Size()) {
-                Helena::Types::AlignedStorage::Destruct(m_Storage, copy, left);
+                AlignedStorage::Destruct(m_Storage, copy, left);
             }
 
             m_Size = other.Size();
@@ -102,31 +101,31 @@ namespace Helena::Types
 
         [[nodiscard]] TReference At(std::size_t pos) noexcept {
             HELENA_ASSERT(pos < m_Size, "Out of bounds!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[pos];
+            return AlignedStorage::Ref(m_Storage)[pos];
         }
 
         [[nodiscard]] TReferenceConst At(std::size_t pos) const noexcept {
             HELENA_ASSERT(pos < m_Size, "Out of bounds!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[pos];
+            return AlignedStorage::Ref(m_Storage)[pos];
         }
 
         template <typename... Args>
         requires std::constructible_from<T, Args...>
         void PushBack(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-            Helena::Types::AlignedStorage::Construct(m_Storage, m_Size++, std::forward<Args>(args)...);
+            AlignedStorage::Construct(m_Storage, m_Size++, std::forward<Args>(args)...);
         }
 
         void PushBack(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>) {
-            Helena::Types::AlignedStorage::ConstructCopy(m_Storage, m_Size++, value);
+            AlignedStorage::ConstructCopy(m_Storage, m_Size++, value);
         }
 
         void PushBack(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>) {
-            Helena::Types::AlignedStorage::ConstructMove(m_Storage, m_Size++, std::move(value));
+            AlignedStorage::ConstructMove(m_Storage, m_Size++, std::move(value));
         }
 
         void PopBack() noexcept(std::is_nothrow_destructible_v<T>) {
             HELENA_ASSERT(m_Size, "Out of bounds!");
-            Helena::Types::AlignedStorage::Destruct(m_Storage, --m_Size);
+            AlignedStorage::Destruct(m_Storage, --m_Size);
         }
 
         auto Insert(const_iterator pos, const T& value) -> std::optional<T>
@@ -135,14 +134,14 @@ namespace Helena::Types
             HELENA_ASSERT(index < m_Capacity, "Out of bounds!");
 
             if(index == m_Size) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, index, value);
+                AlignedStorage::Construct(m_Storage, index, value);
                 ++m_Size;
                 return std::nullopt;
             }
 
             if(index > m_Size) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, index - m_Size);
-                Helena::Types::AlignedStorage::Construct(m_Storage, index, value);
+                AlignedStorage::Construct(m_Storage, m_Size, index - m_Size);
+                AlignedStorage::Construct(m_Storage, index, value);
                 m_Size = index + 1;
                 return std::nullopt;
             }
@@ -151,7 +150,7 @@ namespace Helena::Types
             std::optional<T> extracted;
 
             if(m_Size < m_Capacity) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, std::move(Back()));
+                AlignedStorage::Construct(m_Storage, m_Size, std::move(Back()));
                 ++m_Size;
             } else {
                 extracted = std::move(Back());
@@ -171,14 +170,14 @@ namespace Helena::Types
             HELENA_ASSERT(index < m_Capacity, "Out of bounds!");
 
             if(index == m_Size) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, index, std::move(value));
+                AlignedStorage::Construct(m_Storage, index, std::move(value));
                 ++m_Size;
                 return std::nullopt;
             }
 
             if(index > m_Size) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, index - m_Size);
-                Helena::Types::AlignedStorage::Construct(m_Storage, index, std::move(value));
+                AlignedStorage::Construct(m_Storage, m_Size, index - m_Size);
+                AlignedStorage::Construct(m_Storage, index, std::move(value));
                 m_Size = index + 1;
                 return std::nullopt;
             }
@@ -188,7 +187,7 @@ namespace Helena::Types
             auto temp = std::move(value);
 
             if(m_Size < m_Capacity) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, std::move(Back()));
+                AlignedStorage::Construct(m_Storage, m_Size, std::move(Back()));
                 ++m_Size;
             } else {
                 extracted = std::move(Back());
@@ -212,16 +211,16 @@ namespace Helena::Types
         }
 
         void Clear() noexcept(std::is_nothrow_destructible_v<T>) {
-            Helena::Types::AlignedStorage::Destruct(m_Storage, 0, m_Size);
+            AlignedStorage::Destruct(m_Storage, 0, m_Size);
             m_Size = 0;
         }
 
         void Resize(std::size_t size) requires std::is_default_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
-                Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);
+                AlignedStorage::Destruct(m_Storage, size, m_Size - size);
             } else if(size > m_Size) {
-                Helena::Types::AlignedStorage::Construct(m_Storage, m_Size, size - m_Size);
+                AlignedStorage::Construct(m_Storage, m_Size, size - m_Size);
             }
 
             m_Size = size;
@@ -231,11 +230,11 @@ namespace Helena::Types
         void Resize(std::size_t size, const T& value) requires std::is_copy_constructible_v<T> {
             HELENA_ASSERT(size <= m_Capacity);
             if(size < m_Size) {
-                Helena::Types::AlignedStorage::Destruct(m_Storage, size, m_Size - size);
+                AlignedStorage::Destruct(m_Storage, size, m_Size - size);
             } else if(size > m_Size) {
                 const std::size_t count = size - m_Size;
                 for(std::size_t i = 0; i < count; ++i) {
-                    Helena::Types::AlignedStorage::Construct(m_Storage, m_Size + i, value);
+                    AlignedStorage::Construct(m_Storage, m_Size + i, value);
                 }
             }
 
@@ -244,15 +243,15 @@ namespace Helena::Types
 
         void Remove(std::size_t index) {
             HELENA_ASSERT(index < m_Size, "Out of bounds!");
-            Helena::Types::AlignedStorage::Destruct(m_Storage, index);
-            Helena::Types::AlignedStorage::Move(m_Storage, index + 1, index, m_Size - 1);
+            AlignedStorage::Destruct(m_Storage, index);
+            AlignedStorage::Move(m_Storage, index + 1, index, m_Size - 1);
             --m_Size;
         }
 
         void Remove(std::size_t index, std::size_t size) {
             HELENA_ASSERT(index + size <= m_Size, "Out of bounds!");
-            Helena::Types::AlignedStorage::Destruct(m_Storage, index, size);
-            Helena::Types::AlignedStorage::Move(m_Storage, index + size, index, m_Size - size);
+            AlignedStorage::Destruct(m_Storage, index, size);
+            AlignedStorage::Move(m_Storage, index + size, index, m_Size - size);
             m_Size -= size;
         }
 
@@ -270,8 +269,8 @@ namespace Helena::Types
                 std::uintptr_t index = first - begin();
                 std::uintptr_t size = last - first;
                 HELENA_ASSERT(index + size <= m_Size, "Out of bounds!");
-                Helena::Types::AlignedStorage::Destruct(m_Storage, index, size);
-                Helena::Types::AlignedStorage::Move(m_Storage, index + size, index, m_Size - size);
+                AlignedStorage::Destruct(m_Storage, index, size);
+                AlignedStorage::Move(m_Storage, index + size, index, m_Size - size);
                 m_Size -= size;
             }
             return iterator(first);
@@ -279,38 +278,38 @@ namespace Helena::Types
 
         [[nodiscard]] TReference Front() noexcept {
             HELENA_ASSERT(m_Size, "Container is empty!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[0];
+            return AlignedStorage::Ref(m_Storage)[0];
         }
 
         [[nodiscard]] TReferenceConst Front() const noexcept {
             HELENA_ASSERT(m_Size, "Container is empty!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[0];
+            return AlignedStorage::Ref(m_Storage)[0];
         }
 
         [[nodiscard]] TReference Back() noexcept {
             HELENA_ASSERT(m_Size, "Container is empty!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[m_Size - 1];
+            return AlignedStorage::Ref(m_Storage)[m_Size - 1];
         }
 
         [[nodiscard]] TReferenceConst Back() const noexcept {
             HELENA_ASSERT(m_Size, "Container is empty!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[m_Size - 1];
+            return AlignedStorage::Ref(m_Storage)[m_Size - 1];
         }
 
         [[nodiscard]] TPointer Data() noexcept {
-            return Helena::Types::AlignedStorage::Ref(m_Storage);
+            return AlignedStorage::Ref(m_Storage);
         }
 
         [[nodiscard]] TPointerConst Data() const noexcept {
-            return Helena::Types::AlignedStorage::Ref(m_Storage);
+            return AlignedStorage::Ref(m_Storage);
         }
 
         [[nodiscard]] TPointer Data(std::size_t fromIndex) noexcept {
-            return Helena::Types::AlignedStorage::Ref(m_Storage) + fromIndex;
+            return AlignedStorage::Ref(m_Storage) + fromIndex;
         }
 
         [[nodiscard]] TPointerConst Data(std::size_t fromIndex) const noexcept {
-            return Helena::Types::AlignedStorage::Ref(m_Storage) + fromIndex;
+            return AlignedStorage::Ref(m_Storage) + fromIndex;
         }
 
         [[nodiscard]] constexpr bool Empty() const noexcept {
@@ -379,16 +378,16 @@ namespace Helena::Types
 
         [[nodiscard]] TReference operator[](std::size_t index) noexcept {
             HELENA_ASSERT(index < m_Size, "Out of bounds!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[index];
+            return AlignedStorage::Ref(m_Storage)[index];
         }
 
         [[nodiscard]] TReferenceConst operator[](std::size_t index) const noexcept {
             HELENA_ASSERT(index < m_Size, "Out of bounds!");
-            return Helena::Types::AlignedStorage::Ref(m_Storage)[index];
+            return AlignedStorage::Ref(m_Storage)[index];
         }
 
     private:
-        Helena::Types::AlignedStorage::Storage<T[m_Capacity]> m_Storage;
+        AlignedStorage::Storage<T[m_Capacity]> m_Storage;
         std::size_t m_Size;
     };
 }
