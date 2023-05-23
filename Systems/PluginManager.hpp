@@ -2,7 +2,7 @@
 #define HELENA_SYSTEMS_PLUGINMANAGER_HPP
 
 #include <Helena/Types/Hash.hpp>
-#include <Helena/Types/ModernDesign.hpp>
+#include <Helena/Types/System.hpp>
 
 #include <bit>
 #include <filesystem>
@@ -38,7 +38,7 @@ namespace Helena::Events::PluginManager
 
 namespace Helena::Systems
 {
-    class PluginManager final : public Types::ModernDesign<PluginManager>
+    class PluginManager final : Types::System<PluginManager>
     {
     public:
         enum class EState : std::uint8_t {

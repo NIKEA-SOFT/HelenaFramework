@@ -1,7 +1,7 @@
 #ifndef HELENA_SYSTEMS_RESOURCEMANAGER_HPP
 #define HELENA_SYSTEMS_RESOURCEMANAGER_HPP
 
-#include <Helena/Types/ModernDesign.hpp>
+#include <Helena/Types/System.hpp>
 #include <Helena/Types/VectorAny.hpp>
 
 namespace Helena::Events::ResourceManager
@@ -25,7 +25,7 @@ namespace Helena::Events::ResourceManager
 
 namespace Helena::Systems
 {
-    class ResourceManager final : public Types::ModernDesign<ResourceManager>
+    class ResourceManager final : Types::System<ResourceManager>
     {
         struct UniqueKey {};
 
