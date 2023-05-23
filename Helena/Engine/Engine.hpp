@@ -11,6 +11,7 @@
 #include <Helena/Types/LocationString.hpp>
 
 #include <atomic>
+#include <cstring>
 #include <functional>
 #include <string>
 
@@ -43,32 +44,35 @@ namespace Helena
         {
             using Function = void (*)();
             using MemberFunction = void (CallbackStorage::*)();
-            union alignas(16) Storage {
-                Function m_Callback;
-                MemberFunction m_CallbackMember;
+            struct Storage
+            {
+                union alignas(16) {
+                    Function m_Callback;
+                    MemberFunction m_CallbackMember;
+                };
 
                 template <typename T>
                 [[nodiscard]] T As() const noexcept
                 {
                     T fn{};
                     if constexpr(std::is_member_function_pointer_v<T>) {
-                        new (&fn) decltype(m_CallbackMember){m_CallbackMember};
+                        new (std::addressof(fn)) decltype(m_CallbackMember){m_CallbackMember};
                     } else {
-                        new (&fn) decltype(m_Callback){m_Callback};
+                        new (std::addressof(fn)) decltype(m_Callback){m_Callback};
                     }
                     return fn;
                 }
             };
-            using Callback = void (*)(const Storage&, void*);
+            using Callback = void (*)(Storage, void*);
 
             template <typename Ret, typename... Args>
             CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                new (&m_Storage) decltype(callback){callback};
+                new (std::addressof(m_Storage)) decltype(callback){callback};
             }
 
             template <typename Ret, typename T, typename... Args>
             CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                new (&m_Storage) decltype(callback){callback};
+                new (std::addressof(m_Storage)) decltype(callback){callback};
             }
 
             CallbackStorage(const CallbackStorage& rhs) = default;
@@ -78,25 +82,25 @@ namespace Helena
 
             template <typename Ret, typename... Args>
             CallbackStorage& operator=(Ret (*callback)(Args...)) noexcept {
-                new (&m_Storage) decltype(callback){callback};
+                new (std::addressof(m_Storage)) decltype(callback){callback};
                 return *this;
             }
 
             template <typename Ret, typename T, typename... Args>
             CallbackStorage& operator=(Ret (T::*callback)(Args...)) noexcept {
-                new (&m_Storage) decltype(callback){callback};
+                new (std::addressof(m_Storage)) decltype(callback){callback};
                 return *this;
             }
 
             template <typename Ret, typename... Args>
             [[nodiscard]] bool operator==(Ret (*callback)(Args...)) const noexcept {
-                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
+                decltype(callback) fn{}; std::memcpy(std::addressof(fn), &m_Storage, sizeof(callback));
                 return fn == callback;
             }
 
             template <typename Ret, typename T, typename... Args>
             [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
-                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
+                decltype(callback) fn{}; std::memcpy(std::addressof(fn), &m_Storage, sizeof(callback));
                 return fn == callback;
             }
 
@@ -285,7 +289,7 @@ namespace Helena
         * @return True if successful or false if an error is detected or called shutdown
         * @note 
         * - Heartbeat: You have to call heartbeat in a loop to keep the framework running
-        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep.
+        * Use the definition of HELENA_ENGINE_NOSLEEP to prevent sleep.
         * The thread will not sleep if your operations consume a lot of CPU time
         * - Accumulator: if your loop is too busy, then there may be an accumulation of delta time
         * that cannot be repaid by a single Update call, which will cause more Update calls to
@@ -458,6 +462,39 @@ namespace Helena
         template <typename Event, typename System, typename... Args>
         requires Engine::RequiresCallback<Event, Args...>
         static void SubscribeEvent(void (System::*callback)(Args...));
+
+        /**
+        * @brief Returns the count or tuple with counts of listeners subscribed to Event
+        *
+        * @tparam Event Types of event
+        * @return Count or tuple with counts of listeners subscribed to Event
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static decltype(auto) SubscribersEvent();
+
+        /**
+        * @brief Check has listeners subscribed to Events
+        *
+        * @tparam Event Type of event
+        * @return True if listeners are subscribed to all of the listed Events
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static decltype(auto) HasSubscribersEvent();
+
+        /**
+        * @brief Check has any listeners are subscribed to any of the Events.
+        *
+        * @tparam Event Type of event
+        * @return True if any listeners are subscribed to any of the listed Events
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static decltype(auto) AnySubscribersEvent();
 
         /**
         * @brief Trigger an event for all listeners

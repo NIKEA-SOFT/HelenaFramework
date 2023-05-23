@@ -31,8 +31,8 @@ namespace Helena
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
-        const auto dateTime = Types::DateTime::FromLocalTime();
-        const auto dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
+        const auto dateTime  = Types::DateTime::FromLocalTime();
+        const auto& dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
                                 dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
                                 dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
@@ -257,9 +257,7 @@ namespace Helena
                 ctx.m_Signals.Clear();
                 ctx.m_Systems.Clear();
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
-                    Log::Console(Log::Formater<Log::Shutdown>{
-                        ctx.m_ShutdownMessage->m_Message,
-                        ctx.m_ShutdownMessage->m_Location});
+                    Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message, ctx.m_ShutdownMessage->m_Location});
                 }
 
                 ctx.m_State.store(EState::Undefined, std::memory_order_release);
@@ -400,13 +398,46 @@ namespace Helena
 
         auto& pool = ctx.m_Signals.template Get<Event>();
 #if defined(HELENA_DEBUG)
-        const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
+        [[maybe_unused]] const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
             [callback = std::forward<Callback>(callback)](const auto& storage) {
                 return storage == callback;
         });
         HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>{});
 #endif
         pool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
+    }
+
+    template <typename... Event>
+    requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+    [[nodiscard]]
+    decltype(auto) Engine::SubscribersEvent()
+    {
+        const auto& ctx = MainContext();
+        if constexpr(Traits::Arguments<Event...>::Single) {
+            return ctx.m_Signals.template Has<Event...>() ? ctx.m_Signals.template Get<Event...>().size() : 0;
+        } else {
+            return std::make_tuple(SubscribersEvent<Event>()...);
+        }
+    }
+
+    template <typename... Event>
+    requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+    [[nodiscard]]
+    decltype(auto) Engine::HasSubscribersEvent()
+    {
+        const auto& ctx = MainContext();
+        if constexpr(Traits::Arguments<Event...>::Single) {
+            return ctx.m_Signals.template Has<Event...>() && !ctx.m_Signals.template Get<Event...>().empty();
+        } else {
+            return std::make_tuple(HasSubscribersEvent<Event>()...);
+        }
+    }
+
+    template <typename... Event>
+    requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+    [[nodiscard]]
+    decltype(auto) Engine::AnySubscribersEvent() {
+        return (HasSubscribersEvent<Event>() || ...);
     }
 
     template <typename Event, typename... Args>
@@ -423,8 +454,8 @@ namespace Helena
             Event event{std::forward<Args>(args)...};
             SignalEvent(event);
         } else {
-            []<bool constructible = false>() {
-                static_assert(constructible, "Event type not constructible from args");
+            []<bool Constructible = false>() {
+                static_assert(Constructible, "Event type not constructible from args");
             }();
         }
     }
@@ -457,7 +488,7 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::EnqueueSignal(Args&&... args) {
         MainContext().m_SignalsPool.emplace_back([... args = std::forward<Args>(args)]() mutable {
-            Helena::Engine::SignalEvent<Event>(std::forward<Args>(args)...);
+            SignalEvent<Event>(std::forward<Args>(args)...);
         });
     }
 
