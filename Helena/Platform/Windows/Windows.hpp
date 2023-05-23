@@ -11,6 +11,7 @@
     #include <ws2tcpip.h>
     #include <iphlpapi.h>
     #include <fcntl.h>
+    #include <io.h>
     #include <userenv.h>
     #include <timeapi.h>
     #include <dbghelp.h>
