@@ -35,8 +35,7 @@ namespace Helena::Util
             template <typename Char, typename... Args>
             [[nodiscard]] const std::basic_string<Char>& Format(const std::basic_string_view<Char> msg, Args&&... args) noexcept
             {
-                auto& buffer = Internal::FormatStorage::m_Buffer<Char>[std::exchange(Internal::FormatStorage::m_BufferID,
-                    (Internal::FormatStorage::m_BufferID + 1) % Internal::FormatStorage::m_RingCache)];
+                auto& buffer = m_Buffer<Char>[std::exchange(m_BufferID, (m_BufferID + 1) % m_RingCache)];
 
                 try {
                     buffer.resize(0);
