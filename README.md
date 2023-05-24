@@ -23,16 +23,16 @@ Status: ready to use, but still developing.
 Other systems have not been tested or are not supported.
 
 ## Compilers
-- Windows: `MSVC 16.10`, `Clang`, `MSYS2 MinGW/Clang/UCRT`
-- Linux: Clang-14 or higher, GCC-13 or higher
-- Standard: C++20
-
+- Windows: `MSVC 16.10`, `Clang`, `MSYS2 MinGW/UCRT`
+- Linux: Clang-15 or higher, GCC-13 or higher
+- Standard: C++20  
+  
 | Compiler | Required flags |
 | ------ | ------ |
 | GCC | [-fno-gnu-unique](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) |
 | MSVC | [/Zc:preprocessor](https://learn.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-170) |
-
-
+  
+WARNING: Clang libc++ is temporarily unsupported, waiting for chrono support for std::formatter  
 Other compilers have not been tested.  
 
 ## Code Example
@@ -154,18 +154,19 @@ Usage flags in cmake: `-DHELENA_FLAG_...=ON/OFF`
     ---------------------------------------------------------------------
 
     ---------------> [Build: MSYS2 MinGW/Clang/UCRT] <-------------------
-    > # Start MSYS2 MinGW/Clang/UCRT console
+    > # Start MSYS2 MinGW/UCRT console
     > # Make sure you have installed all required MSYS2 packages for each compiler (console) version you are using
     > # NOTE:
-    > # 1. You can use Debug or Release build type and g++ or clang++ compiler
+    > # 1. You can use Debug or Release build type
     > # 2. Other generators besides Ninja are also supported
-    > cmake -G Ninja -B Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++ -DHELENA_FLAG_EXAMPLES=OFF -DHELENA_FLAG_BIN_DIR=OFF
+    > cmake -G Ninja -B Build -DCMAKE_BUILD_TYPE=Debug -DHELENA_FLAG_EXAMPLES=OFF -DHELENA_FLAG_BIN_DIR=OFF
     > # Build
     > cmake --build Build
     ---------------------------------------------------------------------
 
     --------------------> [Build: Linux GCC/Clang] <---------------------
-    > # Start MSYS2 MinGW/Clang/UCRT console
+    > # Install Clang-15 and GCC-13 or higher
+    > # WARNING: Clang libc++ temporarily unsupported
     > # NOTE:
     > # 1. You can use Debug or Release build type and g++ or clang++ compiler
     > # 2. Other generators besides Ninja are also supported
