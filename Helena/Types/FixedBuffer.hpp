@@ -2,24 +2,24 @@
 #define HELENA_TYPES_FIXEDBUFFER_HPP
 
 #include <Helena/Util/Length.hpp>
-
-#include <algorithm>
-#include <string_view>
+#include <utility>
 
 namespace Helena::Types
 {
-    template <std::size_t Capacity>
+    template <std::size_t _Capacity, typename Char = char, std::size_t SearchDepth = (std::numeric_limits<std::size_t>::max)(), typename = std::char_traits<Char>>
     struct FixedBuffer
     {
-        using size_type = std::conditional_t<Capacity <= (std::numeric_limits<std::uint8_t>::max)(), std::uint8_t,
-            std::conditional_t<Capacity <= (std::numeric_limits<std::uint16_t>::max)(), std::uint16_t,
-            std::conditional_t<Capacity <= (std::numeric_limits<std::uint32_t>::max)(), std::uint32_t, std::uint64_t>>>;
+        static_assert(_Capacity > 0, "Capacity is too small");
 
-        constexpr void FillBuffer(const char* const data, std::size_t size = (std::numeric_limits<std::size_t>::max)()) noexcept
+        using size_type = std::conditional_t<_Capacity <= (std::numeric_limits<std::uint8_t>::max)(), std::uint8_t,
+            std::conditional_t<_Capacity <= (std::numeric_limits<std::uint16_t>::max)(), std::uint16_t,
+            std::conditional_t<_Capacity <= (std::numeric_limits<std::uint32_t>::max)(), std::uint32_t, std::uint64_t>>>;
+
+        constexpr void FillBuffer(const Char* const data, std::size_t size = SearchDepth) noexcept
         {
             if(data) {
-                size = Util::String::LengthTruncated(data, (std::min)(Capacity, size) + 1);
-                *std::copy_n(data, size, m_Buffer) = '\0';
+                size = Util::String::LengthTruncated(data, (std::min)(_Capacity, size));
+                *std::copy_n(data, size, m_Buffer) = 0;
                 m_Size = static_cast<size_type>(size);
                 return;
             }
@@ -31,35 +31,49 @@ namespace Helena::Types
         constexpr ~FixedBuffer() = default;
 
         constexpr FixedBuffer(const FixedBuffer& other) noexcept {
-            FillBuffer(other.m_Buffer, other.m_Size);
+            operator=(other);
         }
 
         constexpr FixedBuffer(FixedBuffer&& other) noexcept {
-            FillBuffer(other.m_Buffer, other.m_Size);
+            operator=(std::move(other));
         }
 
-        constexpr FixedBuffer(const char* data) noexcept {
+        constexpr FixedBuffer(const Char* data) noexcept {
             FillBuffer(data);
         }
 
-        constexpr FixedBuffer(const char* data, const std::size_t size) noexcept {
+        constexpr FixedBuffer(const Char* data, const std::size_t size) noexcept {
             FillBuffer(data, size);
         }
 
-        constexpr void SetData(const char* data) noexcept {
-            FillBuffer(data);
+        constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
+            m_Size = other.m_Size;
+            *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
+            return *this;
         }
 
-        [[nodiscard]] constexpr const char* GetData() const noexcept {
+        constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
+            m_Size = std::exchange(other.m_Size, 0);
+            *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
+            other.m_Buffer[other.m_Size] = 0;
+            return *this;
+        }
+
+        constexpr FixedBuffer& operator=(const Char* data) noexcept {
+            FillBuffer(data);
+            return *this;
+        }
+
+        [[nodiscard]] constexpr const Char* Data() const noexcept {
             return m_Buffer;
         }
 
-        [[nodiscard]] constexpr size_type GetSize() const noexcept {
+        [[nodiscard]] constexpr size_type Size() const noexcept {
             return m_Size;
         }
 
-        [[nodiscard]] static constexpr size_type GetCapacity() noexcept {
-            return Capacity;
+        [[nodiscard]] static constexpr size_type Capacity() noexcept {
+            return _Capacity;
         }
 
         template <std::size_t CapacityOther>
@@ -68,13 +82,17 @@ namespace Helena::Types
             return std::equal(m_Buffer, m_Buffer + m_Size, other.m_Buffer, other.m_Buffer + other.m_Size);
         }
 
+        [[nodiscard]] constexpr bool Equal(const std::size_t expectedSize) const noexcept {
+            return m_Size == expectedSize;
+        }
+
         [[nodiscard]] constexpr bool Empty() const noexcept {
             return !m_Size;
         }
 
         constexpr void Clear() noexcept {
             m_Size = 0;
-            m_Buffer[m_Size] = '\0';
+            m_Buffer[m_Size] = 0;
         }
 
         [[nodiscard]] constexpr bool operator==(const FixedBuffer& other) const noexcept {
@@ -85,37 +103,30 @@ namespace Helena::Types
             return !Equal(other);
         }
 
-        constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
-            FillBuffer(other.m_Buffer, other.m_Size);
-            return *this;
+        [[nodiscard]] constexpr explicit operator bool() const noexcept {
+            return !Empty();
         }
 
-        constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
-            FillBuffer(other.m_Buffer, other.m_Size);
-            return *this;
-        }
-
-        constexpr FixedBuffer& operator=(const char* data) noexcept {
-            FillBuffer(data);
-            return *this;
+        [[nodiscard]] constexpr operator const Char*() const noexcept {
+            return m_Buffer;
         }
 
         [[nodiscard]] constexpr operator std::string_view() const noexcept {
             return {m_Buffer, m_Size};
         }
 
-        char m_Buffer[Capacity + 1] {};
-        size_type m_Size {};
+        Char m_Buffer[_Capacity + 1]{};
+        size_type m_Size{};
     };
 
-    template <std::size_t Capacity>
-    FixedBuffer(const char (&)[Capacity]) -> FixedBuffer<Capacity>;
+    template <typename Char, std::size_t Capacity>
+    FixedBuffer(const Char(&)[Capacity]) -> FixedBuffer<Capacity, Char>;
 }
 
 namespace std {
-    template <std::size_t N>
-    struct formatter<Helena::Types::FixedBuffer<N>> : formatter<string_view> {
-        auto format(const Helena::Types::FixedBuffer<N>& name, format_context& ctx) const {
+    template <std::size_t N, typename Char>
+    struct formatter<Helena::Types::FixedBuffer<N, Char>> : formatter<string_view> {
+        auto format(const Helena::Types::FixedBuffer<N, Char>& name, format_context& ctx) const {
             return std::format_to(ctx.out(), "{}", static_cast<string_view>(name));
         }
     };
