@@ -45,7 +45,7 @@ namespace Helena::Types
             container.begin();
             container.end();
             container.begin() != container.end();
-            { static_cast<T>(*container.begin()) } -> std::same_as<T>;
+            std::convertible_to<std::remove_cvref_t<decltype(*container.begin())>, T>;
         }
         [[nodiscard]] static constexpr auto From(const Container& container) noexcept {
             return Calculate(container.begin(), container.end());
@@ -57,7 +57,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static constexpr auto From(const wchar_t* str) noexcept {
-            return From(std::basic_string_view{str});
+            return From(std::wstring_view{str});
         }
 
         template <typename Type>
@@ -81,6 +81,28 @@ namespace Helena::Types
         [[nodiscard]] std::size_t operator()(string_view str) const { return hash_type{}(str); }
         [[nodiscard]] std::size_t operator()(const T& str) const { return hash_type{}(str); }
     };
+}
+
+namespace Helena {
+    inline namespace Literals {
+        inline namespace Hash {
+            [[nodiscard]] constexpr auto operator""_Hash32(const char* data, std::size_t size) noexcept {
+                return Helena::Types::Hash<std::uint32_t>::template From(std::string_view{data, size});
+            }
+
+            [[nodiscard]] constexpr auto operator""_Hash64(const char* data, std::size_t size) noexcept {
+                return Helena::Types::Hash<std::uint64_t>::template From(std::string_view{data, size});
+            }
+
+            [[nodiscard]] constexpr auto operator""_Hash32(const wchar_t* data, std::size_t size) noexcept {
+                return Helena::Types::Hash<std::uint32_t>::template From(std::wstring_view{data, size});
+            }
+
+            [[nodiscard]] constexpr auto operator""_Hash64(const wchar_t* data, std::size_t size) noexcept {
+                return Helena::Types::Hash<std::uint64_t>::template From(std::wstring_view{data, size});
+            }
+        }
+    }
 }
 
 #endif // HELENA_TYPES_HASH_HPP
