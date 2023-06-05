@@ -323,8 +323,8 @@ namespace Helena::Types
         LoggingAllocator& operator=(const LoggingAllocator&) = default;
         LoggingAllocator& operator=(LoggingAllocator&&) noexcept = default;
 
-        [[nodiscard]] static const char* Name() noexcept {
-            return NameIdentifier.GetData();
+        [[nodiscard]] static constexpr const char* Name() noexcept {
+            return NameIdentifier;
         }
 
     private:
