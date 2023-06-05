@@ -5,7 +5,7 @@
 
 namespace Helena::Types
 {
-    template <FixedBuffer Key>
+    template <std::uint64_t Key>
     struct Monostate
     {
         template <typename Type>
