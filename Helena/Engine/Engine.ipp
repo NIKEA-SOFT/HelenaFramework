@@ -73,8 +73,8 @@ namespace Helena
         ::SetUnhandledExceptionFilter(MiniDumpSEH);
 
         // Disable X button
-        if(HWND hWnd = ::GetConsoleWindow(); hWnd) {
-            HMENU hMenu = ::GetSystemMenu(hWnd, FALSE);
+        if(const auto hWnd = ::GetConsoleWindow(); hWnd) {
+            const auto hMenu = ::GetSystemMenu(hWnd, FALSE);
             ::EnableMenuItem(hMenu, SC_CLOSE, MF_DISABLED | MF_BYCOMMAND);
         }
     }
