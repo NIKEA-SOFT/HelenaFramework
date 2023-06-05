@@ -136,7 +136,7 @@ namespace Helena::Types
     * @endcode
     *
     * @note
-    * In the example above, we add a NulledAllocator as an upstream resource allocator,
+    * In the example above, we add a DefaultAllocator as an upstream resource allocator,
     * when the StackAllocator runs out of memory, it will try to request memory from an upstream memory resource,
     * which in the case of DefaultAllocator will lead to memory allocation on the heap.
     */
@@ -467,8 +467,7 @@ namespace Helena::Types
     public:
         using value_type = T;
 
-        MemoryAllocator() noexcept = default;
-        MemoryAllocator(IMemoryResource* const resource) noexcept : m_Resource{resource} {
+        MemoryAllocator(IMemoryResource* const resource = DefaultAllocator::Get()) noexcept : m_Resource{resource} {
             HELENA_ASSERT(resource != nullptr, "Resource pointer cannot be nullptr");
         }
 
@@ -604,7 +603,7 @@ namespace Helena::Types
         }
 
     private:
-        IMemoryResource* m_Resource = DefaultAllocator::Get();
+        IMemoryResource* m_Resource;
     };
 
     [[nodiscard]] inline IMemoryResource* DefaultAllocator::Get() noexcept {
