@@ -214,8 +214,8 @@ namespace Helena::Types
             template <typename... Args>
             constexpr T& Construct(Args&&... args) {
                 HELENA_ASSERT(!this->m_HasValue);
-                std::construct_at(std::addressof(this->m_Value), std::forward<Args>(args)...);
                 this->m_HasValue = true;
+                return *std::construct_at(std::addressof(this->m_Value), std::forward<Args>(args)...);
             }
 
             template <typename Self>
@@ -271,6 +271,7 @@ namespace Helena::Types
         using Switcher = ControlSwitcher<Constructible<T>, T>;
     };
 
+    // Storage with dummy constructor similar to that used in std::optional
     template <typename T>
     struct Storage : Storage<void>::Switcher<T> {
         using Base = typename Storage<void>::Switcher<T>;
