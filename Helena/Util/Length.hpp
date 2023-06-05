@@ -17,10 +17,10 @@ namespace Helena::Util
         * @return Returns 0 if data is nullptr. Otherwise, the length is returned.
         */
         template <typename Char, typename Trait = std::char_traits<Char>>
-        static constexpr std::size_t LengthTruncated(const Char* data, std::size_t max) {
+        [[nodiscard]] static constexpr std::size_t LengthTruncated(const Char* data, std::size_t max) {
             if(!data || !max) return 0;
-            const auto found = Trait::find(data, max, '\0');
-            return found ? (std::min<std::size_t>)(max, std::distance(data, found)) : (max - 1);
+            const auto found = Trait::find(data, max, 0);
+            return found ? std::distance(data, found) : max;
         }
 
         /**
@@ -31,7 +31,7 @@ namespace Helena::Util
         * @return Returns 0 if data is nullptr. Otherwise, the length is returned.
         */
         template <typename Char, typename Trait = std::char_traits<Char>>
-        static constexpr std::size_t Length(const Char* data) {
+        [[nodiscard]] static constexpr std::size_t Length(const Char* data) {
             return data ? Trait::length(data) : 0;
         }
 
@@ -45,9 +45,9 @@ namespace Helena::Util
         * Otherwise, the length is returned.
         */
         template <typename Char, typename Trait = std::char_traits<Char>>
-        static constexpr std::size_t Length(const Char* data, std::size_t max) {
+        [[nodiscard]] static constexpr std::size_t Length(const Char* data, std::size_t max) {
             if(!data || !max) return 0;
-            const auto found = Trait::find(data, max, '\0');
+            const auto found = Trait::find(data, max, 0);
             return found ? std::distance(data, found) : 0;
         }
     };
