@@ -65,8 +65,8 @@ namespace Helena::Systems
             }
 
             if(m_Directory = std::filesystem::absolute(directory, err); err) {
-	            HELENA_MSG_ERROR("Path: \"{}\" failed cast to absolute path, error: {}, message: {}", directory.string(), err.value(), err.message());
-	            return;
+                HELENA_MSG_ERROR("Path: \"{}\" failed cast to absolute path, error: {}, message: {}", directory.string(), err.value(), err.message());
+                return;
             }
         }
 
