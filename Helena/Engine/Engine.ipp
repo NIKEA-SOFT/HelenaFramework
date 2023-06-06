@@ -115,7 +115,7 @@ namespace Helena
     void Engine::Initialize([[maybe_unused]] Args&&... args)
     {
         HELENA_ASSERT(!HasContext(), "Context already initialized!");
-        InitContext(ContextStorage{new (std::nothrow) T, +[](const Context* ctx) {
+        InitContext(ContextStorage{new (std::nothrow) T(std::forward<Args>(args)...), +[](const Context* ctx) {
             delete ctx;
         }});
         HELENA_ASSERT(HasContext(), "Initialize Context failed!");
@@ -136,9 +136,9 @@ namespace Helena
     #if defined(HELENA_COMPILER_GCC)
         // WARNING: For plugins compiled on GCC, you must provide the flag: -fno-gnu-unique
         // Otherwise, false positives of the assert are possible.
-        HELENA_ASSERT(!HasContext(), "Context already initialized or compiler flag: -fno-gnu-unique not used!");
+        HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized or compiler flag: -fno-gnu-unique not used!");
     #else
-        HELENA_ASSERT(!HasContext(), "Context already initialized");
+        HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
     #endif
 
         InitContext(ContextStorage{std::addressof(ctx), +[](const Context*){}});
