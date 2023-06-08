@@ -45,7 +45,7 @@ namespace Example01
 		}
 
 	public:
-		bool Main() override
+		void Main() override
 		{
 			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
 			m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
@@ -71,22 +71,20 @@ namespace Example01
 			});
 
 			if(!::RegisterClassEx(&m_WindowClassEx)) {
-				HELENA_MSG_ERROR("RegisterClass window failure!");
-				return false;
+				Helena::Engine::Shutdown("RegisterClass window failure!");
+				return;
 			}
 
 			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
 				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
 
 			if(!m_WindowHWND) {
-				HELENA_MSG_ERROR("CreateWindows failure!");
-				return false;
+				Helena::Engine::Shutdown("CreateWindows failure!");
+				return;
 			}
 
 			::ShowWindow(m_WindowHWND, SW_SHOW);
 			::UpdateWindow(m_WindowHWND);
-
-			return true;
 		};
 
 		static void OnTick(Helena::Events::Engine::Tick) 
