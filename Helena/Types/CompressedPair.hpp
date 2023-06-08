@@ -24,13 +24,13 @@ namespace Helena::Types
             template<typename Value>
             requires(std::is_constructible_v<T, Value>)
             constexpr Storage(Value&& value) noexcept(std::is_nothrow_constructible_v<T, Value>)
-                : m_Value{std::forward<Value>(value)} {}
+                : m_Value(std::forward<Value>(value)) {}
 
             template <typename... Args, std::size_t... Index>
             requires(std::is_constructible_v<T, Args...>)
             constexpr Storage(std::tuple<Args...> tuple, std::index_sequence<Index...>)
                 noexcept(std::is_nothrow_constructible_v<T, Args...>)
-                : m_Value{std::forward<Args>(std::get<Index>(tuple))...} {}
+                : m_Value(std::forward<Args>(std::get<Index>(tuple))...) {}
 
             constexpr T& Get() noexcept {
                 return m_Value;
@@ -53,13 +53,13 @@ namespace Helena::Types
             template<typename Value>
             requires(std::is_constructible_v<Base, Value>)
             constexpr Storage(Value&& value) noexcept(std::is_nothrow_constructible_v<Base, Value>)
-                : Base{std::forward<Value>(value)} {}
+                : Base(std::forward<Value>(value)) {}
 
             template <typename... Args, std::size_t... Index>
             requires(std::is_constructible_v<Base, Args...>)
             constexpr Storage(std::tuple<Args...> tuple, std::index_sequence<Index...>)
                 noexcept(std::is_nothrow_constructible_v<Base, Args...>)
-                : Base{std::forward<Args>(std::get<Index>(tuple))...} {}
+                : Base(std::forward<Args>(std::get<Index>(tuple))...) {}
 
             constexpr Base& Get() noexcept {
                 return *this;
