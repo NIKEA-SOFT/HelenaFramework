@@ -26,6 +26,9 @@ namespace Helena::Util
             * print_message(data);
             *
             * The allocator is not used here for backwards compatibility
+            *
+            * WARNING: Using this method at the time of freeing variables with static lifetimes is undefined behavior!
+            * For example: destructors of static variables are such. In this case, you can use std::vformat
             */
             static constexpr std::size_t m_RingCache = 20;
             template <typename Char>
