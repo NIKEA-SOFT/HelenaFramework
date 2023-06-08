@@ -2,7 +2,7 @@
 #include <iostream>
 
 // Lesson 2: Context and how to use your own context in Helena
-// A context is a class within the Engine that stores complex structures within itself
+// A context is a class (singleton) within the Engine that stores complex structures within itself
 // that provide access to your systems and signals in O(1) using type indexing.
 // The context also provides support for type indexing across boundaries (dll, so plugins).
 // When you use Helena::Engine::Initialize it will initialize the default context which has no public fields or methods.
@@ -24,6 +24,7 @@ public:
         std::cout << "MyContext ctor called" << std::endl;
     }
 
+    // Note that your context's destructor is called after exiting the application entry point.
     ~MyContext() {
         std::cout << "MyContext dtor called" << std::endl;
     }
@@ -43,7 +44,7 @@ public:
         if(hasError)
         {
             // Change to "true" for show example with reason message for shutdown
-            bool hasReason = false;
+            bool hasReason = true;
 
             if(!hasReason) {
                 // Example #1 | Shutdown without message, this means that no errors occurred.
@@ -69,47 +70,27 @@ int main(int argc, char** argv)
     // Initializing Your Own Context
     // This will create MyContext and then call Main if it has been overridden.
     // You can also pass arguments to the constructor.
-    // The call sequence is as follows:
-    // Initialize -> Create Context object -> Call Main (if overrided)
     Helena::Engine::Initialize<MyContext>(/* args... */);
 
-    // You may notice that the Initialize method returns void and
-    // wonder "How do you know if there was a failure during initialization?"
-    // It's really simple, use Helena::Engine::GetState()
-    // In Lesson 1, we already got acquainted with this function.
-    // Let me remind you that the method is thread-safe.
-    if(Helena::Engine::GetState() == Helena::Engine::EState::Shutdown) {
-        // We can also get the reason for the failure.
-        // NOTE: I'm not sure if there is a need for this,
-        // since it is possible to override the output for any type of log message.
-        // I will talk about this in the future...
-        const auto& reason = Helena::Engine::ShutdownReason();
-        if(reason.empty()) {
-            std::cout << "Context initialize failed, shutdown without error (reason)" << std::endl;
-        } else {
-            std::cout << reason << std::endl;
-        }
-
-        // Important note:
-        // In fact, Heartbeat will process the Shutdown itself and you won't get into the
-        // body of the loop anyway, so you don't need to return and check the state on Shutdown,
-        // only use this if your code needs it.
-        // In addition, Heartbeat will show you the reason for the shutdown in console
-    } else {
-        std::cout << "Context initialized successfully!" << std::endl;
-    }
-
+    // *Let's leave this log to see the sequence of calls
     std::cout << "Before call Heartbeat" << std::endl;
 
     // I didn't mention it in the Lesson 1, but the Heartbeat method is also capable of taking arguments.
     // Please read about arguments in method declaration, where it is described in more detail.
     const auto sleepMS = 1; // 1 ms
     const auto accumulator = 5; // High load update regulator (delta accumulator)
+
+    // The first call Heartbeat will also call Main in our context if it has been overridden.
+    // Let me remind you that after calling Initialize, the state of the framework goes to Undefined,
+    // and then when the first call to Heartbeat occurs, the state will change to Init,
+    // as well as calling Main if it was overridden.
+    // If for some reason Shutdown was called in Main, then the body of this loop will not be executed
+    // and the first call Heartbeat will return false.
     while(Helena::Engine::Heartbeat(sleepMS, accumulator))
     {
-        // Get a reference to your context
+        // Get a reference to your context.
         // The method is not thread-safe, but it's actually safe to get since
-        // you initialize it once and then it always exists until the application exits.
+        // you initialize it once and then it always exists until the application closing.
         auto& ctx = Helena::Engine::GetContext<MyContext>();
 
         // Shutdown the framework when the counter == 0
@@ -128,7 +109,22 @@ int main(int argc, char** argv)
         std::cout << "Counter: " << ctx.m_Counter-- << std::endl;
     }
 
+    // *Let's leave this log to see the sequence of calls
+    std::cout << "After call Heartbeat" << std::endl;
+
     // - Now we know how to initialize our own context in the framework.
+    // Think of a context as a global object that can be accessed from anywhere.
+    // That is, you can get your context at any time anywhere in the code,
+    // good examples of a context are some kind of `class Application` that stores:
+    // argc, argv, directory paths, application name, etc.
+    // The context is the only singleton within the framework.
+
+
+    // WARNING: Calling Engine methods in destructors of static objects is undefined behavior!
+    // The Context class is a singleton stored in a static variable, keep this in mind when you
+    // decide to try using Engine methods from static variable destructors.
+    // Please note that we are talking about the destructor being called by the application itself when the application closes.
+    // That is, you can use these methods in destructors if you call these destructors while the application is running.
 
     return 0;
 }
