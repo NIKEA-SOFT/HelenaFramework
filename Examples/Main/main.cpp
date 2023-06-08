@@ -91,6 +91,7 @@ struct TestSystemB {
 
 void example_systems()
 {
+
     HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemA>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemA>{});
     [[maybe_unused]] auto& testSystem = Helena::Engine::GetSystem<TestSystemA>();
 
@@ -313,7 +314,7 @@ struct AnimationSkeleton {};
 
 // it's subsystem of AnimationManager
 struct AnimationSpline
-    // ModernDesign can be used in Systems (for get `this` from static methods)
+    // Helena::Types::System<ParentSystem> can be used in Systems (for get `this` from static methods)
     // or in Subsystems for get owner System instance
     : public Helena::Types::System<class AnimationManager>
 {
@@ -338,7 +339,7 @@ public:
 
     static void PrintMessage()
     {
-        auto& self = CurrentSystem(); // O(1) array[ndex]
+        auto& self = CurrentSystem(); // O(1) for get instance (inside CurrentSystem called Helena::Engine::GetSystem<T>)
 
         HELENA_MSG_NOTICE("HELLO FROM PRINT MESSAGE OF ANIMATION MANAGER");
         Helena::Util::Sleep(10000);
@@ -408,7 +409,7 @@ private:
     // We can override Main function for some logic
     // for example: RegisterSystems and Signals here or initialize our configs
     // Main function called when you call Helena::Engine::Context::Initialize<MyContext>();
-    bool Main() override
+    void Main() override
     {
         Helena::Engine::SetTickrate(30.f);
 
@@ -653,8 +654,6 @@ private:
         //    // Now just call our class method
         //    context1.foo();
         //});
-
-        return true;    // true for "no error"
     }
 
     void foo() {
@@ -699,7 +698,6 @@ int main(int argc, char** argv)
     example_signals();          // here example with signals
     example_task_sheduler();    // task scheduler example
 
-
     test_allocators();
 
     // Engine loop
@@ -717,6 +715,9 @@ void test_allocators()
     Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)>> alloc;
     Helena::Types::IMemoryResource* memoryResource = &alloc;
     Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
+
+    static constexpr auto name = alloc.Name();
+    HELENA_MSG_NOTICE("Your allocator name: {}", alloc.Name());
 
     vec_of_string.emplace_back("long message for got allocation", memoryResource);
     vec_of_string.emplace_back("long message for got allocation", memoryResource);
