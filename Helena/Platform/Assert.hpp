@@ -1,7 +1,7 @@
 #ifndef HELENA_PLATFORM_ASSERT_HPP
 #define HELENA_PLATFORM_ASSERT_HPP
 
-#include <Helena/Types/BasicLogger.hpp>
+#include <Helena/Types/BasicLoggerDefines.hpp>
 #include <tuple>
 
 #define HELENA_ASSERT_RUNTIME(cond, ...)                                        \
