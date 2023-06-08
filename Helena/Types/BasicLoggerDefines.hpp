@@ -3,7 +3,6 @@
 
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Platform/Platform.hpp>
-#include <Helena/Traits/Arguments.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 
 #include <cstdint>
@@ -20,13 +19,6 @@
 
 namespace Helena::Log
 {
-    namespace Internal {
-        namespace LoggerStorage {
-            template <typename Char>
-            static thread_local std::basic_string<Char> m_Buffer;
-        };
-    }
-
     enum class Color : std::uint8_t
     {
         Black,
@@ -243,13 +235,15 @@ namespace Helena::Log
     };
 }
 
+
 // Forward declaration
-namespace Helena::Log {
+namespace Helena::Log
+{
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<char> format, Args&&... args);
+    void Message(const Formatter<char>& format, Args&&... args);
 
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<wchar_t> format, Args&&... args);
+    void Message(const Formatter<wchar_t>& format, Args&&... args);
 }
 
 #endif // HELENA_TYPES_BASICLOGGERSDEF_HPP
