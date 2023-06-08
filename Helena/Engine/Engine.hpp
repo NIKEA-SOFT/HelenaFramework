@@ -151,7 +151,7 @@ namespace Helena
             Context() noexcept
                 : m_Systems{}
                 , m_Signals{}
-                , m_SignalsPool{}
+                , m_DeferredSignals{}
                 , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
                 , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
@@ -175,7 +175,7 @@ namespace Helena
             Context& operator=(Context&&) noexcept = delete;
 
         private:
-            virtual bool Main() { return true; }
+            virtual void Main() {}
 
         private:
             // Systems
@@ -183,7 +183,7 @@ namespace Helena
 
             // Signals
             Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
-            SignalsPool m_SignalsPool;
+            SignalsPool m_DeferredSignals;
 
             // Reason
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
@@ -212,7 +212,6 @@ namespace Helena
         inline static ContextStorage m_Context{nullptr, nullptr};
 
         static void InitContext(ContextStorage context) noexcept;
-        [[nodiscard]] static bool HasContext() noexcept;
         [[nodiscard]] static Context& MainContext() noexcept;
 
     private:
@@ -245,6 +244,13 @@ namespace Helena
         * @note This overload is used to share the context object between the executable and plugins
         */
         static void Initialize(Context& ctx) noexcept;
+
+        /**
+        * @brief Has context of Engine
+        * @note This method can be used to check the initialization of the framework.
+        * @return Return a reference to context
+        */
+        [[nodiscard]] static bool HasContext() noexcept;
 
         /**
         * @brief Get context of Engine

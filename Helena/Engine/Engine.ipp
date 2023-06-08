@@ -14,10 +14,6 @@ namespace Helena
         m_Context = std::move(context);
     }
 
-    [[nodiscard]] inline bool Engine::HasContext() noexcept {
-        return static_cast<bool>(m_Context);
-    }
-
     [[nodiscard]] inline Engine::Context& Engine::MainContext() noexcept {
         HELENA_ASSERT(m_Context, "Context not initialized!");
         return *m_Context;
@@ -96,11 +92,11 @@ namespace Helena
     [[nodiscard]] inline std::uint64_t Engine::GetTickTime() noexcept
     {
 #if defined(HELENA_PLATFORM_WIN)
-        static LARGE_INTEGER s_frequency;
-        static BOOL s_use_qpc = ::QueryPerformanceFrequency(&s_frequency);
+        static LARGE_INTEGER frequency{};
+        static const auto queryFrequency = ::QueryPerformanceFrequency(&frequency);
         LARGE_INTEGER now;
-        std::uint64_t ms = s_use_qpc && ::QueryPerformanceCounter(&now)
-            ? ((1000LL * now.QuadPart) / s_frequency.QuadPart)
+        std::uint64_t ms = queryFrequency && ::QueryPerformanceCounter(&now)
+            ? ((1000LL * now.QuadPart) / frequency.QuadPart)
             : ::GetTickCount64();
 #else
         struct timeval te;
@@ -114,22 +110,12 @@ namespace Helena
     requires std::constructible_from<T, Args...>
     void Engine::Initialize([[maybe_unused]] Args&&... args)
     {
-        HELENA_ASSERT(!HasContext(), "Context already initialized!");
-        InitContext(ContextStorage{new (std::nothrow) T(std::forward<Args>(args)...), +[](const Context* ctx) {
+        HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
+        InitContext({new (std::nothrow) T(std::forward<Args>(args)...), +[](const Context* ctx) {
             delete ctx;
         }});
-        HELENA_ASSERT(HasContext(), "Initialize Context failed!");
-
-        if(!MainContext().Main())
-        {
-            constexpr const auto message = "Initialize Main of Context: {} failed!";
-            if(GetState() != EState::Shutdown) {
-                Shutdown(message, Traits::NameOf<T>{});
-                return;
-            }
-
-            HELENA_MSG_FATAL(message, Traits::NameOf<T>{});
-        }
+        HELENA_ASSERT_RUNTIME(HasContext(), "Initialize Context failed!");
+        MainContext().Main();
     }
 
     inline void Engine::Initialize(Context& ctx) noexcept {
@@ -141,7 +127,11 @@ namespace Helena
         HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
     #endif
 
-        InitContext(ContextStorage{std::addressof(ctx), +[](const Context*){}});
+        InitContext({std::addressof(ctx), +[](const Context*){}});
+    }
+
+    [[nodiscard]] inline bool Engine::HasContext() noexcept {
+        return static_cast<bool>(m_Context);
     }
 
     template <std::derived_from<Engine::Context> T>
@@ -209,9 +199,9 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
-                for(const auto& message : ctx.m_SignalsPool) {
+                for(const auto& message : ctx.m_DeferredSignals) {
                     message();
-                } ctx.m_SignalsPool.clear();
+                } ctx.m_DeferredSignals.clear();
 
                 signal(Signals<
                     Events::Engine::PreTick,
@@ -243,7 +233,7 @@ namespace Helena
 
             } break;
 
-            case Engine::EState::Shutdown: [[unlikely]]
+            case EState::Shutdown: [[unlikely]]
             {
                 signal(Signals<
                     Events::Engine::PreFinalize,
@@ -255,9 +245,11 @@ namespace Helena
                 >{});
 
                 ctx.m_Signals.Clear();
+                ctx.m_DeferredSignals.clear();
                 ctx.m_Systems.Clear();
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
-                    Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message, ctx.m_ShutdownMessage->m_Location});
+                    Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message,
+                        ctx.m_ShutdownMessage->m_Location});
                 }
 
                 ctx.m_State.store(EState::Undefined, std::memory_order_release);
@@ -286,8 +278,7 @@ namespace Helena
     void Engine::Shutdown(const Types::LocationString& msg, [[maybe_unused]] Args&&... args)
     {
         auto& ctx = MainContext();
-        const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
-        if(state != EState::Shutdown) {
+        if(const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel); state != EState::Shutdown) {
             ctx.m_ShutdownMessage->m_Location = msg.m_Location;
             ctx.m_ShutdownMessage->m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
         }
@@ -295,11 +286,11 @@ namespace Helena
 
     [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
     {;
-        if(GetState() == EState::Shutdown) {
-            auto& ctx = MainContext();
-            const auto& msg = ctx.m_ShutdownMessage->m_Message;
-            const auto& location = ctx.m_ShutdownMessage->m_Location;
-            return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), msg);
+        if(GetState() == EState::Shutdown)
+        {
+            if(const auto& [message, location] = *MainContext().m_ShutdownMessage; !message.empty()) {
+                return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), message);
+            }
         }
 
         return std::string{};
@@ -487,7 +478,7 @@ namespace Helena
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::EnqueueSignal(Args&&... args) {
-        MainContext().m_SignalsPool.emplace_back([... args = std::forward<Args>(args)]() mutable {
+        MainContext().m_DeferredSignals.emplace_back([... args = std::forward<Args>(args)]() mutable {
             SignalEvent<Event>(std::forward<Args>(args)...);
         });
     }
