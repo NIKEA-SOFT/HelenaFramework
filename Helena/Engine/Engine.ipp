@@ -112,10 +112,9 @@ namespace Helena
     {
         HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
         InitContext({new (std::nothrow) T(std::forward<Args>(args)...), +[](const Context* ctx) {
-            delete ctx;
+            delete static_cast<const T*>(ctx);
         }});
         HELENA_ASSERT_RUNTIME(HasContext(), "Initialize Context failed!");
-        MainContext().Main();
     }
 
     inline void Engine::Initialize(Context& ctx) noexcept {
@@ -171,13 +170,16 @@ namespace Helena
             case EState::Undefined: [[unlikely]]
             {
                 RegisterHandlers();
-
                 ctx.m_TimeStart = GetTickTime();
                 ctx.m_TimeNow   = ctx.m_TimeStart;
                 ctx.m_TimePrev  = ctx.m_TimeStart;
                 ctx.m_ShutdownMessage->m_Location = {};
                 ctx.m_ShutdownMessage->m_Message.clear();
                 ctx.m_State.store(EState::Init, std::memory_order_release);
+
+                if(ctx.Main(); !Running()) {
+                    return Heartbeat(sleepMS, accumulator);
+                }
             } break;
 
             case EState::Init: [[likely]]
@@ -247,12 +249,14 @@ namespace Helena
                 ctx.m_Signals.Clear();
                 ctx.m_DeferredSignals.clear();
                 ctx.m_Systems.Clear();
+
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
                     Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message,
                         ctx.m_ShutdownMessage->m_Location});
                 }
 
                 ctx.m_State.store(EState::Undefined, std::memory_order_release);
+
                 return false;
             }
         }
