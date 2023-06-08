@@ -58,7 +58,7 @@
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
 #include <Helena/Types/BasicLogger.hpp>
-#include <Helena/Types/BasicLoggersDef.hpp>
+#include <Helena/Types/BasicLoggerDefines.hpp>
 #include <Helena/Types/BenchmarkScoped.hpp>
 #include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Types/DateTime.hpp>
