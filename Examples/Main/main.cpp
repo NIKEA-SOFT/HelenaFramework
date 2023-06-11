@@ -411,7 +411,7 @@ private:
     // Main function called when you call Helena::Engine::Context::Initialize<MyContext>();
     void Main() override
     {
-        Helena::Engine::SetTickrate(30.f);
+        Helena::Engine::SetTickrate(30);
 
         // Register system's
         Helena::Engine::RegisterSystem<TestSystemA>();
@@ -694,11 +694,13 @@ int main(int argc, char** argv)
     //Initialization_by_default();          // default initialization
     Initialization_with_my_Context();       // initialization with own Context
 
-    example_systems();          // ok, here just example how use systems
-    example_signals();          // here example with signals
-    example_task_sheduler();    // task scheduler example
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]{
+        example_systems();          // ok, here just example how use systems
+        example_signals();          // here example with signals
+        example_task_sheduler();    // task scheduler example
 
-    test_allocators();
+        test_allocators();
+    });
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
@@ -711,8 +713,8 @@ void test_allocators()
 {
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
-    
-    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)>> alloc;
+
+    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::StackAllocator<sizeof(String) * 30, alignof(String)>> alloc;
     Helena::Types::IMemoryResource* memoryResource = &alloc;
     Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
 
@@ -723,4 +725,53 @@ void test_allocators()
     vec_of_string.emplace_back("long message for got allocation", memoryResource);
     vec_of_string.emplace_back("long message for got allocation", memoryResource);
     vec_of_string.emplace_back("long message for got allocation", memoryResource);
+
+    // Debug info
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+
+    const auto vec_int = vec_of_string.get_allocator().AllocateObjects<std::vector<int>>();
+    vec_of_string.get_allocator().ConstructObject(vec_int);
+    vec_int->push_back(10);
+    vec_of_string.get_allocator().DestroyObject(vec_int);
+    vec_of_string.get_allocator().FreeObjects(vec_int);
+
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+
+    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(true);
+    auto copy_vec = vec_of_string;
+    for(auto& str : copy_vec) {
+        HELENA_MSG_NOTICE("Your copyied str: {}", str);
+    }
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+
+    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(false);
+    auto copy_vec2 = vec_of_string;
+    for(auto& str : copy_vec2) {
+        HELENA_MSG_NOTICE("Your copyied str 2: {}", str);
+    }
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
 }
+
+// Test specialization for logger
+template <>
+struct Helena::Log::CustomPrint<Helena::Log::Warning>
+{
+    template <typename Char>
+    static void Message(std::basic_string<Char>& message) {
+        Print<Char>::Message(message);
+    }
+};
+
+template <>
+struct Helena::Log::MuteController<Helena::Log::Warning> {
+    static bool Muted() {
+        return false;
+    }
+};
