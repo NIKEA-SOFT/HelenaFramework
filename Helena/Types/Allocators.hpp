@@ -68,6 +68,14 @@ namespace Helena::Types
             Free(ptr, bytes, PowerOf2(alignment));
         }
 
+        void CopyableAllocator(bool value) noexcept {
+            m_CopyableAllocator = value;
+        }
+
+        [[nodiscard]] bool CopyableAllocator() const noexcept {
+            return m_CopyableAllocator;
+        }
+
         [[nodiscard]] bool CompareResource(const IMemoryResource& other) const noexcept {
             return Equal(other);
         }
@@ -124,6 +132,9 @@ namespace Helena::Types
         virtual void* Allocate(std::size_t bytes, std::size_t alignment) = 0;
         virtual void Free(void* ptr, std::size_t bytes, std::size_t alignment) = 0;
         virtual bool Equal(const IMemoryResource& other) const = 0;
+
+    private:
+        bool m_CopyableAllocator{true};
     };
 
     /**
@@ -205,8 +216,8 @@ namespace Helena::Types
     * This rule is valid only for the memory of the stack itself, if the stack memory has out of memory, then the
     * allocating and freeing memory are managed by the upstream memory resource.
     *
-    * @tparam std::size_t Size of bytes
-    * @tparam std::size_t Memory alignment
+    * @tparam Stack Size of bytes
+    * @tparam Alignment Memory alignment
     *
     * @code{.cpp}
     * Types::StackAllocator<10 * sizeof(std::string), alignof(std::string)> allocator;
@@ -217,7 +228,8 @@ namespace Helena::Types
     * memory that is allocated on the stack will be freed when the scope is exited.
     */
     template <std::size_t Stack, std::size_t Alignment>
-    class StackAllocator : public IMemoryResource {
+    class StackAllocator : public IMemoryResource
+    {
         template <FixedBuffer<64>, typename>
         friend class LoggingAllocator;
 
@@ -247,7 +259,7 @@ namespace Helena::Types
         {
             HELENA_ASSERT(IsPowerOf2(alignment), "Alignment requirements are not met.");
             if(const auto address = Align(m_Buffer + Size(), m_Capacity, bytes, alignment)) {
-                return m_Capacity -= bytes, address;
+                return m_Capacity -= bytes, std::assume_aligned<Alignment>(address);
             }
 
             HELENA_ASSERT(m_UpstreamResource, "Upstream resource is nullptr!");
@@ -256,8 +268,7 @@ namespace Helena::Types
 
         void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
         {
-            if(std::bit_cast<std::uintptr_t>(ptr) < std::bit_cast<std::uintptr_t>(std::addressof(m_Buffer)) ||
-                std::bit_cast<std::uintptr_t>(ptr) >= std::bit_cast<std::uintptr_t>(m_Buffer + Stack)) {
+            if(ptr < std::addressof(m_Buffer) || ptr >= (m_Buffer + Stack)) {
                 HELENA_ASSERT(m_UpstreamResource, "Upstream resource is nullptr!");
                 m_UpstreamResource->FreeMemory(ptr, bytes, alignment);
             }
@@ -265,6 +276,10 @@ namespace Helena::Types
 
         bool Equal(const IMemoryResource& other) const override {
             return this == &other;
+        }
+
+        void Reset() noexcept {
+            m_Capacity = Stack;
         }
 
     private:
@@ -279,7 +294,7 @@ namespace Helena::Types
 
     /**
     * @brief LoggingAllocator (wrapper)
-    * @tparam FixedBuffer<64> Name identifier for debugging
+    * @tparam NameIdentifier Name identifier for debugging
     * @tparam Allocator Type of friendly Allocator
     *
     * @code{.cpp}
@@ -297,6 +312,9 @@ namespace Helena::Types
     {
         template <FixedBuffer<64>, typename>
         friend class DebuggingAllocator;
+
+        // Checking Allocator is final
+        static_assert(!std::is_final_v<Allocator>, "Allocator type does not meet requirements!");
 
         // Checking for access to private fields.
         static_assert(requires(LoggingAllocator* allocator) {
@@ -339,6 +357,21 @@ namespace Helena::Types
         }
     };
 
+    /**
+    * @brief DebuggingAllocator (wrapper)
+    * @tparam NameIdentifier Name identifier for debugging
+    * @tparam Allocator Type of friendly Allocator
+    *
+    * @code{.cpp}
+    * Types::DebuggingAllocator<"Entity Allocator", Types::DefaultAllocator> allocator;
+    * @endcode
+    *
+    * @note
+    * The architecture of this class is slightly different from the previous ones,
+    * this class takes the type of the allocator class as a template argument,
+    * and then inherits from it, we do not want to take up extra bytes of memory,
+    * and even more so to accept the allocators that we want to track as an upstream memory resource.
+    */
     template <FixedBuffer<64> NameIdentifier, typename Allocator>
     class DebuggingAllocator : public LoggingAllocator<NameIdentifier, Allocator>
     {
@@ -355,6 +388,7 @@ namespace Helena::Types
         template <typename... Args>
         requires std::constructible_from<UsedAllocator, Args...>
         DebuggingAllocator(Args&&... args) : UsedAllocator{std::forward<Args>(args)...}
+            , m_Blocks{}
             , m_MaxUsedBlocks{}
             , m_MaxAllocatedBytes{}
             , m_MaxUsedBytes{}
@@ -365,8 +399,12 @@ namespace Helena::Types
         DebuggingAllocator& operator=(const DebuggingAllocator&) = default;
         DebuggingAllocator& operator=(DebuggingAllocator&&) noexcept = default;
 
-        [[nodiscard]] decltype(auto) Blocks() const noexcept {
+        [[nodiscard]] decltype(auto) GetBlocks() const noexcept {
             return m_Blocks;
+        }
+
+        [[nodiscard]] std::size_t UsedBlocks() const noexcept {
+            return m_Blocks.size();
         }
 
         [[nodiscard]] std::size_t MaxUsedBlocks() const noexcept {
@@ -377,12 +415,12 @@ namespace Helena::Types
             return m_MaxAllocatedBytes;
         }
 
-        [[nodiscard]] std::size_t MaxUsedBytes() const noexcept {
-            return m_MaxUsedBytes;
-        }
-
         [[nodiscard]] std::size_t UsedBytes() const noexcept {
             return m_UsedBytes;
+        }
+
+        [[nodiscard]] std::size_t MaxUsedBytes() const noexcept {
+            return m_MaxUsedBytes;
         }
 
     private:
@@ -467,10 +505,12 @@ namespace Helena::Types
     public:
         using value_type = T;
 
+    public:
         MemoryAllocator(IMemoryResource* const resource = DefaultAllocator::Get()) noexcept : m_Resource{resource} {
             HELENA_ASSERT(resource != nullptr, "Resource pointer cannot be nullptr");
         }
 
+        ~MemoryAllocator() = default;
         MemoryAllocator(const MemoryAllocator&) = default;
 
         template <typename Other>
@@ -480,6 +520,74 @@ namespace Helena::Types
 
         MemoryAllocator& operator=(const MemoryAllocator&) = delete;
 
+    public: // Common design compatible API (Recommended)
+        [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
+        T* Allocate(const std::size_t count) {
+            return allocate(count);
+        }
+
+        void Free(T* const ptr, const std::size_t count) noexcept {
+            deallocate(ptr, count);
+        }
+
+        template <typename U>
+        [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
+        U* AllocateObjects(const std::size_t count = 1) {
+            return allocate_object<U>(count);
+        }
+
+        template <typename U>
+        void FreeObjects(U* const ptr, const std::size_t count = 1) noexcept {
+            deallocate_object(ptr, count);
+        }
+
+        [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
+        void* AllocateBytes(const std::size_t bytes, const std::size_t alignment = alignof(std::max_align_t)) {
+            return allocate_bytes(bytes, alignment);
+        }
+
+        void FreeBytes(void* const ptr, const std::size_t bytes, const std::size_t alignment = alignof(std::max_align_t)) noexcept {
+            deallocate_bytes(ptr, bytes, alignment);
+        }
+
+        template <typename U, typename... Args>
+        [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
+        U* CreateObject(Args&&... args) {
+            return new_object<U>(std::forward<Args>(args)...);
+        }
+
+        template <typename U>
+        void DeleteObject(U* const ptr) noexcept {
+            delete_object(ptr);
+        }
+
+        template <typename U, typename... Args>
+        void ConstructObject(U* const ptr, Args&&... args) {
+            std::uninitialized_construct_using_allocator(ptr, *this, std::forward<Args>(args)...);
+        }
+
+        template <typename U>
+        void DestroyObject(U* const ptr) noexcept {
+            std::allocator_traits<MemoryAllocator>::destroy(*this, ptr);
+        }
+
+        [[nodiscard]] IMemoryResource* MemoryResource() const noexcept {
+            return m_Resource;
+        }
+
+        template <typename U>
+        [[nodiscard]] MemoryAllocator& operator==(const MemoryAllocator<U>& other) const noexcept {
+            HELENA_ASSERT(m_Resource, "Memory resource is nullptr");
+            HELENA_ASSERT(other.m_Resource, "Memory resource is nullptr");
+            return *m_Resource == *other.m_Resource;
+        }
+
+        template <typename U>
+        [[nodiscard]] MemoryAllocator& operator!=(const MemoryAllocator<U>& other) const noexcept {
+            return !(*this == other);
+        }
+
+    public: // Backwards compatible with STL
         [[nodiscard("The function return a pointer to the allocated memory, ignoring it will lead to memory leaks.")]]
         #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         // The allocator declaration specifier can be applied to custom memory-allocation functions
@@ -574,23 +682,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] MemoryAllocator select_on_container_copy_construction() const noexcept {
-            return {};
-        }
-
-        [[nodiscard]] IMemoryResource* resource() const noexcept {
-            return m_Resource;
-        }
-
-        template <typename U>
-        [[nodiscard]] MemoryAllocator& operator==(const MemoryAllocator<U>& other) const noexcept {
-            HELENA_ASSERT(m_Resource, "Memory resource is nullptr");
-            HELENA_ASSERT(other.m_Resource, "Memory resource is nullptr");
-            return *m_Resource == *other.m_Resource;
-        }
-
-        template <typename U>
-        [[nodiscard]] MemoryAllocator& operator!=(const MemoryAllocator<U>& other) const noexcept {
-            return !(*this == other);
+            return MemoryAllocator(m_Resource->CopyableAllocator() ? m_Resource : DefaultAllocator::Get());
         }
 
     private:
