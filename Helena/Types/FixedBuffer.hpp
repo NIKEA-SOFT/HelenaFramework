@@ -2,6 +2,7 @@
 #define HELENA_TYPES_FIXEDBUFFER_HPP
 
 #include <Helena/Util/Length.hpp>
+#include <format>
 #include <utility>
 
 namespace Helena::Types
