@@ -21,6 +21,7 @@ namespace Helena::Types
         using hash_type = Traits::FNV1a<T>;
         using value_type = T;
 
+    private:
         template <std::input_iterator Iterator>
         [[nodiscard]] static constexpr auto Calculate(Iterator begin, const Iterator end) noexcept
         {
@@ -35,6 +36,7 @@ namespace Helena::Types
 
     public:
         Hash() = delete;
+        ~Hash() = delete;
         Hash(const Hash&) = delete;
         Hash(Hash&&) noexcept = delete;
         Hash& operator=(const Hash&) = delete;
@@ -85,19 +87,19 @@ namespace Helena::Types
 
 namespace Helena::Literals::Hash {
     [[nodiscard]] constexpr auto operator""_Hash32(const char* data, std::size_t size) noexcept {
-        return Helena::Types::Hash<std::uint32_t>::template From(std::string_view{data, size});
+        return Types::Hash<std::uint32_t>::From(std::string_view{data, size});
     }
 
     [[nodiscard]] constexpr auto operator""_Hash64(const char* data, std::size_t size) noexcept {
-        return Helena::Types::Hash<std::uint64_t>::template From(std::string_view{data, size});
+        return Types::Hash<std::uint64_t>::From(std::string_view{data, size});
     }
 
     [[nodiscard]] constexpr auto operator""_Hash32(const wchar_t* data, std::size_t size) noexcept {
-        return Helena::Types::Hash<std::uint32_t>::template From(std::wstring_view{data, size});
+        return Types::Hash<std::uint32_t>::From(std::wstring_view{data, size});
     }
 
     [[nodiscard]] constexpr auto operator""_Hash64(const wchar_t* data, std::size_t size) noexcept {
-        return Helena::Types::Hash<std::uint64_t>::template From(std::wstring_view{data, size});
+        return Types::Hash<std::uint64_t>::From(std::wstring_view{data, size});
     }
 }
 
