@@ -14,7 +14,7 @@ namespace Helena::Types
         BenchmarkScoped(const SourceLocation& location = SourceLocation::Create()) : m_Location{location}, m_Time{Timer::now()} {}
         ~BenchmarkScoped() {
             const std::chrono::duration<float> timeleft = Timer::now() - m_Time;
-            Log::Message<Log::Benchmark>({"{}] Timeleft: {:.6f} sec", m_Location},
+            Log::Message<Log::Benchmark>({"[FUNCTION: {}] Timeleft: {:.6f} sec", m_Location},
                 m_Location.GetFunction(), timeleft.count());
         }
         BenchmarkScoped(const BenchmarkScoped&) = delete;
