@@ -4,6 +4,7 @@
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Types/SourceLocation.hpp>
+#include <Helena/Util/Cast.hpp>
 
 #include <cstdint>
 #include <cstdio>
@@ -19,9 +20,10 @@
 
 namespace Helena::Log
 {
-    enum class Color : std::uint8_t
+    enum class Color : std::uint16_t
     {
-        Black,
+        Default = 0x3339,
+        Black = 0x3330,
         Red,
         Green,
         Yellow,
@@ -29,7 +31,7 @@ namespace Helena::Log
         Magenta,
         Cyan,
         White,
-        BrightBlack,
+        BrightBlack = 0x3930,
         BrightRed,
         BrightGreen,
         BrightYellow,
@@ -39,10 +41,12 @@ namespace Helena::Log
         BrightWhite
     };
 
+    class ColorStyle;
+
     template <typename T>
     concept DefinitionLogger = requires {
-        T::Prefix;
-        // TODO: Colors and (Styles?)
+        std::same_as<decltype(T::Prefix), std::string_view>;
+        std::same_as<decltype(T::Style), ColorStyle>;
     };
 
     // Class with an implicit constructor for working with formatting
@@ -91,7 +95,7 @@ namespace Helena::Log
     {
         using Context = std::format_context;
 
-        static constexpr auto FormatStyle = "[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ";
+        static constexpr auto FormatStyle = "[{:%Y.%m.%d %H:%M:%S}][{}][{}:{}] ";
         static constexpr auto AllocateError =
             "\n----------------------------------------\n"
             "|| Error: alloc memory failed!\n"
@@ -119,7 +123,7 @@ namespace Helena::Log
     {
         using Context = std::wformat_context;
 
-        static constexpr auto FormatStyle = L"[{:%Y.%m.%d %H:%M:%S}][{}:{}]{} ";
+        static constexpr auto FormatStyle = L"[{:%Y.%m.%d %H:%M:%S}][{}][{}:{}] ";
         static constexpr auto AllocateError =
             L"\n----------------------------------------\n"
             L"|| Error: alloc memory failed!\n"
@@ -164,73 +168,101 @@ namespace Helena::Log
         }
     };
 
+    class ColorStyle
+    {
+    public:
+        static constexpr auto m_ColorSize = 10;
+        static constexpr auto m_ColorSizeEnd = 4;
+
+    public:
+        constexpr ColorStyle(Color front = Color::Default, Color back = Color::Default)
+            : m_Front{front}, m_Back{back} {}
+
+        template <typename Char>
+        void BeginColor(std::basic_string<Char>& buffer) const {
+            const Char color[]{0x1B, 0x5B, 0x30,
+                0x3B, static_cast<Char>(Util::Cast(m_Front) >> 0x08), static_cast<Char>(Util::Cast(m_Front) & 0xFF),
+                0x3B, static_cast<Char>(((Util::Cast(m_Back) >> 0x08) + 0x06) & 0xFF), static_cast<Char>(Util::Cast(m_Back) & 0xFF),
+                0x6D};
+            static_assert(std::size(color) == m_ColorSize);
+            buffer.append(color, std::size(color));
+        }
+
+        template <typename Char>
+        void EndColor(std::basic_string<Char>& buffer) const {
+            const Char colorReset[]{0x1B, 0x5B, 0x30, 0x6D};
+            static_assert(std::size(colorReset) == m_ColorSizeEnd);
+            buffer.append(colorReset, std::size(colorReset));
+        }
+
+    private:
+        Color m_Front;
+        Color m_Back;
+    };
+
     // Util functions for creating logging structures
     [[nodiscard]] static constexpr auto CreatePrefix(const std::string_view prefix) noexcept {
         return prefix;
     }
 
-    [[nodiscard]] static constexpr auto CreateStyle([[maybe_unused]] const Color color) noexcept {
-        return true;
-    }
-
-    [[nodiscard]] static constexpr auto CreateStyle([[maybe_unused]] const Color color, [[maybe_unused]] const Color background) noexcept {
-        return true;
+    [[nodiscard]] static constexpr auto CreateStyle(const Color color = Color::Default, const Color background = Color::Default) noexcept {
+        return ColorStyle{color, background};
     }
 
     // Structures defining the type and color of the logged message
-    struct Benchmark{
-        static constexpr auto Prefix = CreatePrefix("[BENCHMARK][FUNCTION:");
+    struct Benchmark {
+        static constexpr auto Prefix = CreatePrefix("BENCHMARK");
         static constexpr auto Style  = CreateStyle(Color::BrightMagenta);
     };
 
     struct Debug {
-        static constexpr auto Prefix = CreatePrefix("[DEBUG]");
+        static constexpr auto Prefix = CreatePrefix("DEBUG");
         static constexpr auto Style  = CreateStyle(Color::BrightBlue);
     };
 
     struct Info {
-        static constexpr auto Prefix = CreatePrefix("[INFO]");
+        static constexpr auto Prefix = CreatePrefix("INFO");
         static constexpr auto Style  = CreateStyle(Color::BrightGreen);
     };
 
     struct Notice {
-        static constexpr auto Prefix = CreatePrefix("[NOTICE]");
+        static constexpr auto Prefix = CreatePrefix("NOTICE");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite);
     };
 
     struct Warning {
-        static constexpr auto Prefix = CreatePrefix("[WARNING]");
+        static constexpr auto Prefix = CreatePrefix("WARNING");
         static constexpr auto Style  = CreateStyle(Color::BrightYellow);
     };
 
     struct Error {
-        static constexpr auto Prefix = CreatePrefix("[ERROR]");
+        static constexpr auto Prefix = CreatePrefix("ERROR");
         static constexpr auto Style  = CreateStyle(Color::BrightRed);
     };
 
     struct Fatal {
-        static constexpr auto Prefix = CreatePrefix("[FATAL]");
+        static constexpr auto Prefix = CreatePrefix("FATAL");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 
     struct Exception {
-        static constexpr auto Prefix = CreatePrefix("[EXCEPTION]");
+        static constexpr auto Prefix = CreatePrefix("EXCEPTION");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
 
     };
 
     struct Assert {
-        static constexpr auto Prefix = CreatePrefix("[ASSERT]");
+        static constexpr auto Prefix = CreatePrefix("ASSERT");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 
     struct Memory {
-        static constexpr auto Prefix = CreatePrefix("[MEMORY]");
+        static constexpr auto Prefix = CreatePrefix("MEMORY");
         static constexpr auto Style  = CreateStyle(Color::BrightCyan);
     };
 
     struct Shutdown {
-        static constexpr auto Prefix = CreatePrefix("[SHUTDOWN]");
+        static constexpr auto Prefix = CreatePrefix("SHUTDOWN");
         static constexpr auto Style  = CreateStyle(Color::BrightWhite, Color::Red);
     };
 }
