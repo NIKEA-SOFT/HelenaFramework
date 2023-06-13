@@ -92,12 +92,12 @@ struct TestSystemB {
 void example_systems()
 {
 
-    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemA>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemA>{});
+    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemA>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemA>);
     [[maybe_unused]] auto& testSystem = Helena::Engine::GetSystem<TestSystemA>();
 
     // also we can RegisterSystem in other place
     Helena::Engine::RegisterSystem<TestSystemB>(10);    // register with args...
-    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemB>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemB>{});
+    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemB>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemB>);
 
     // also we can use multiple systems by refs
     const auto& [testSystemA, testSystemB] = Helena::Engine::GetSystem<TestSystemA, TestSystemB>();
@@ -107,12 +107,12 @@ void example_systems()
 
     // check if all systems are registered
     if(Helena::Engine::HasSystem<TestSystemA, TestSystemB>()) {
-        HELENA_MSG_NOTICE("Systems: {} and {} registered!", Helena::Traits::NameOf<TestSystemA>{}, Helena::Traits::NameOf<TestSystemB>{});
+        HELENA_MSG_NOTICE("Systems: {} and {} registered!", Helena::Traits::NameOf<TestSystemA>, Helena::Traits::NameOf<TestSystemB>);
     }
 
     // check if any systems are registered
     if(Helena::Engine::AnySystem<TestSystemA, TestSystemB>()) {
-        HELENA_MSG_NOTICE("Systems: {} or {} registered!", Helena::Traits::NameOf<TestSystemA>{}, Helena::Traits::NameOf<TestSystemB>{});
+        HELENA_MSG_NOTICE("Systems: {} or {} registered!", Helena::Traits::NameOf<TestSystemA>, Helena::Traits::NameOf<TestSystemB>);
     }
 
     // OK, now remove systems
@@ -145,7 +145,7 @@ void example_signals()
     // Now let's start listening to this signal
     // Drop arguments if the signal type is std::is_empty_v<MySignal>
     Helena::Engine::SubscribeEvent<MySignal>(+[]() {
-        HELENA_MSG_NOTICE("Hello signal: {}", Helena::Traits::NameOf<MySignal>{});
+        HELENA_MSG_NOTICE("Hello signal: {}", Helena::Traits::NameOf<MySignal>);
     });
 
     // Now to notify listeners, it is enough to call
@@ -160,7 +160,7 @@ void example_signals()
     // We cannot drop arguments because InfoSignal is not empty type
     Helena::Engine::SubscribeEvent<InfoSignal>(+[](const InfoSignal ev) {
         HELENA_MSG_NOTICE("Hello signal: {}, name: {}, age: {}",
-            Helena::Traits::NameOf<InfoSignal>{}, ev.name, ev.age);
+            Helena::Traits::NameOf<InfoSignal>, ev.name, ev.age);
     });
 
     // Notify
@@ -693,18 +693,14 @@ int main(int argc, char** argv)
     //Engine started from Initialize method
     //Initialization_by_default();          // default initialization
     Initialization_with_my_Context();       // initialization with own Context
+    example_systems();          // ok, here just example how use systems
+    example_signals();          // here example with signals
+    example_task_sheduler();    // task scheduler example
 
-    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]{
-        example_systems();          // ok, here just example how use systems
-        example_signals();          // here example with signals
-        example_task_sheduler();    // task scheduler example
-
-        test_allocators();
-    });
+    test_allocators();
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
-
     return 0;
 }
 
