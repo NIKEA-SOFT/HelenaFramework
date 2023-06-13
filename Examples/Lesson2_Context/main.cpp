@@ -68,25 +68,25 @@ public:
 int main(int argc, char** argv)
 {
     // Initializing Your Own Context
-    // This will create MyContext and then call Main if it has been overridden.
+    // This will create MyContext and call Main if it has been overridden.
     // You can also pass arguments to the constructor.
     Helena::Engine::Initialize<MyContext>(/* args... */);
+
+    // If for some reason Shutdown was called in overridden Main,
+    // then the state changed to Shutdown and we can check that
+    // NOTE: return is not required here, the Heartbeat can handle Shutdown state
+    if(Helena::Engine::GetState() == Helena::Engine::EState::Shutdown) {
+        // some logic
+    }
 
     // *Let's leave this log to see the sequence of calls
     std::cout << "Before call Heartbeat" << std::endl;
 
-    // I didn't mention it in the Lesson 1, but the Heartbeat method is also capable of taking arguments.
-    // Please read about arguments in method declaration, where it is described in more detail.
-    const auto sleepMS = 1; // 1 ms
-    const auto accumulator = 5; // High load update regulator (delta accumulator)
-
-    // The first call Heartbeat will also call Main in our context if it has been overridden.
     // Let me remind you that after calling Initialize, the state of the framework goes to Undefined,
-    // and then when the first call to Heartbeat occurs, the state will change to Init,
-    // as well as calling Main if it was overridden.
+    // and then when the first call to Heartbeat occurs, the state will change to Init.
     // If for some reason Shutdown was called in Main, then the body of this loop will not be executed
     // and the first call Heartbeat will return false.
-    while(Helena::Engine::Heartbeat(sleepMS, accumulator))
+    while(Helena::Engine::Heartbeat())
     {
         // Get a reference to your context.
         // The method is not thread-safe, but it's actually safe to get since
@@ -111,6 +111,26 @@ int main(int argc, char** argv)
 
     // *Let's leave this log to see the sequence of calls
     std::cout << "After call Heartbeat" << std::endl;
+
+    // About Heartbeat:
+    // We can provide own structure for control Sleep and load accumulator
+    // Example
+    /*
+    struct HeartbeatConfig
+    {
+        // The keyword "Sleep" used for detect our callback
+        static constexpr auto Sleep = +[]() {
+            Helena::Util::Sleep(1);
+        }
+
+        // The keyword "Accumulate" used for detect accumulate value
+        // About accumulate read in Heartbeat declaration
+        static constexpr auto Accumulate = 5;
+    };
+
+    while(Helena::Engine::Heartbeat<HeartbeatConfig>()) {...}
+    */
+
 
     // - Now we know how to initialize our own context in the framework.
     // Think of a context as a global object that can be accessed from anywhere.
