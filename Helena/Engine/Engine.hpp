@@ -9,6 +9,8 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
+#include <Helena/Util/Sleep.hpp>
+#include <Helena/Util/Function.hpp>
 
 #include <atomic>
 #include <cstring>
@@ -38,6 +40,12 @@ namespace Helena
             Traits::Conditional<Traits::Arguments<Args...>::Single && (Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...),
                 std::true_type, std::false_type>
         >::value && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>;
+
+        template <typename T>
+        static constexpr auto RequiresConfig = requires {
+            std::invocable<decltype(T::Sleep)>;
+            std::convertible_to<decltype(T::Accumulate), std::uint32_t>;
+        };
 
         //! Event callback storage with type erasure
         struct CallbackStorage
@@ -130,6 +138,13 @@ namespace Helena
             Shutdown
         };
 
+        //! Default Heartbeat configuration
+        struct DefaultConfig {
+            static constexpr auto Sleep = Util::Function::BindFront(static_cast<void (*)(std::uint64_t)>(Util::Sleep), 1 /* msec */);
+            static constexpr auto Accumulate = 5;
+        };
+
+        //! Structure for control engine heartbeat behaviour
         static constexpr struct {} NoSignal{};
 
         //! Context for storage framework data
@@ -286,8 +301,7 @@ namespace Helena
 
         /**
         * @brief Heartbeat of the engine
-        * @param sleepMS Sleep time in milliseconds
-        * @param accumulator Count of steps to reduce accumulated time in Update events
+        * @tparam HeartbeatConfig Structure with fields: "Sleep" and "Accumulate" for Heartbeat control
         * @code{.cpp}
         * while(Helena::Engine::Heartbeat()) {}
         * @endcode
@@ -295,15 +309,17 @@ namespace Helena
         * @return True if successful or false if an error is detected or called shutdown
         * @note 
         * - Heartbeat: You have to call heartbeat in a loop to keep the framework running
-        * Use the definition of HELENA_ENGINE_NOSLEEP to prevent sleep.
         * The thread will not sleep if your operations consume a lot of CPU time
-        * - Accumulator: if your loop is too busy, then there may be an accumulation of delta time
+        * Field: Accumulate -> if your loop is too busy, then there may be an accumulation of delta time
         * that cannot be repaid by a single Update call, which will cause more Update calls to
         * follow immediately to reduce the accumulated time.
-        * It is not recommended to use a large value, your thread may get stuck in a loop.
+        * It is not recommended to use a large value for Accumulate, your thread may get stuck in a loop.
         * The correct solution is to offload the thread by finding a performance bottleneck.
+        * Field: Sleep -> your own sleep function.
         */
-        [[nodiscard]] static bool Heartbeat(std::size_t sleepMS = 1, std::uint8_t accumulator = 5);
+        template <typename HeartbeatConfig = DefaultConfig>
+        requires Engine::RequiresConfig<HeartbeatConfig>
+        [[nodiscard]] static bool Heartbeat();
 
         /**
         * @brief Check if the engine is currently running

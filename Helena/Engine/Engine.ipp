@@ -6,7 +6,6 @@
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Util/Format.hpp>
-#include <Helena/Util/Sleep.hpp>
 
 namespace Helena
 {
@@ -115,6 +114,8 @@ namespace Helena
             delete static_cast<const T*>(ctx);
         }});
         HELENA_ASSERT_RUNTIME(HasContext(), "Initialize Context failed!");
+        RegisterHandlers();
+        MainContext().Main();
     }
 
     inline void Engine::Initialize(Context& ctx) noexcept {
@@ -154,7 +155,9 @@ namespace Helena
         return GetTickTime() - MainContext().m_TimeStart;
     }
 
-    [[nodiscard]] inline bool Engine::Heartbeat(std::size_t sleepMS, std::uint8_t accumulator)
+    template <typename HeartbeatConfig>
+    requires Engine::RequiresConfig<HeartbeatConfig>
+    [[nodiscard]] bool Engine::Heartbeat()
     {
         auto& ctx = MainContext();
         const auto state = GetState();
@@ -167,26 +170,20 @@ namespace Helena
     #endif
         switch(state)
         {
-            case EState::Undefined: [[unlikely]]
-            {
-                RegisterHandlers();
+            case EState::Undefined: [[unlikely]] {
                 ctx.m_TimeStart = GetTickTime();
                 ctx.m_TimeNow   = ctx.m_TimeStart;
                 ctx.m_TimePrev  = ctx.m_TimeStart;
                 ctx.m_ShutdownMessage->m_Location = {};
                 ctx.m_ShutdownMessage->m_Message.clear();
                 ctx.m_State.store(EState::Init, std::memory_order_release);
-
-                if(ctx.Main(); !Running()) {
-                    return Heartbeat(sleepMS, accumulator);
-                }
             } break;
 
             case EState::Init: [[likely]]
             {
                 ctx.m_TimePrev  = ctx.m_TimeNow;
                 ctx.m_TimeNow   = GetTickTime();
-                ctx.m_TimeDelta = (ctx.m_TimeNow - ctx.m_TimePrev) / 1000.;
+                ctx.m_TimeDelta = static_cast<double>(ctx.m_TimeNow - ctx.m_TimePrev) / 1000.;
                 ctx.m_TimeElapsed += ctx.m_TimeDelta;
 
                 signal(Signals<
@@ -211,8 +208,8 @@ namespace Helena
                     Events::Engine::PostTick
                 >{}, ctx.m_TimeDelta);
 
-                std::uint32_t accumulated{};
-                while(ctx.m_TimeElapsed >= ctx.m_TickRate && accumulated++ < accumulator) {
+                std::uint32_t accumulated{HeartbeatConfig::Accumulate};
+                while(ctx.m_TimeElapsed >= ctx.m_TickRate && accumulated--) {
                     ctx.m_TimeElapsed -= ctx.m_TickRate;
                     signal(Signals<
                         Events::Engine::PreUpdate,
@@ -227,11 +224,9 @@ namespace Helena
                     Events::Engine::PostRender
                 >{}, ctx.m_TimeElapsed / ctx.m_TickRate, ctx.m_TimeDelta);
 
-            #ifndef HELENA_ENGINE_NOSLEEP
-                if(!accumulated) {
-                    Util::Sleep(std::chrono::milliseconds{sleepMS});
+                if(accumulated) {
+                    HeartbeatConfig::Sleep();
                 }
-            #endif
 
             } break;
 
@@ -392,13 +387,13 @@ namespace Helena
         }
 
         auto& pool = ctx.m_Signals.template Get<Event>();
-#if defined(HELENA_DEBUG)
+    #if defined(HELENA_DEBUG)
         [[maybe_unused]] const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
             [callback = std::forward<Callback>(callback)](const auto& storage) {
                 return storage == callback;
         });
-        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>{});
-#endif
+        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>);
+    #endif
         pool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
     }
 
