@@ -1,8 +1,9 @@
 #ifndef HELENA_TYPES_FIXEDBUFFER_HPP
 #define HELENA_TYPES_FIXEDBUFFER_HPP
 
-#include <Helena/Util/Length.hpp>
+#include <Helena/Util/String.hpp>
 #include <format>
+#include <memory>
 #include <utility>
 
 namespace Helena::Types
@@ -47,16 +48,22 @@ namespace Helena::Types
             FillBuffer(data, size);
         }
 
-        constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept {
-            m_Size = other.m_Size;
-            *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
+        constexpr FixedBuffer& operator=(const FixedBuffer& other) noexcept
+        {
+            if(this != std::addressof(other)) [[likely]] {
+                m_Size = other.m_Size;
+                *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
+            }
             return *this;
         }
 
-        constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept {
-            m_Size = std::exchange(other.m_Size, 0);
-            *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
-            other.m_Buffer[other.m_Size] = 0;
+        constexpr FixedBuffer& operator=(FixedBuffer&& other) noexcept
+        {
+            if(this != std::addressof(other)) [[likely]] {
+                m_Size = std::exchange(other.m_Size, 0);
+                *std::copy_n(other.m_Buffer, m_Size, m_Buffer) = 0;
+                other.m_Buffer[other.m_Size] = 0;
+            }
             return *this;
         }
 
