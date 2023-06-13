@@ -1,5 +1,5 @@
-#ifndef HELENA_UTIL_LENGTH_HPP
-#define HELENA_UTIL_LENGTH_HPP
+#ifndef HELENA_UTIL_STRING_HPP
+#define HELENA_UTIL_STRING_HPP
 
 #include <algorithm>
 #include <string>
@@ -53,4 +53,4 @@ namespace Helena::Util
     };
 }
 
-#endif // HELENA_UTIL_LENGTH_HPP
+#endif // HELENA_UTIL_STRING_HPP
