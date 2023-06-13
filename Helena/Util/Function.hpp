@@ -10,16 +10,14 @@ namespace Helena::Util
     {
         template <typename Fn, typename... Args>
         [[nodiscard]] static constexpr auto BindFront(Fn&& fn, Args&&... args) noexcept {
-            return [fn = std::forward<Fn>(fn), ...frontArgs = std::forward<Args>(args)](auto&&... args) -> decltype(auto)
-            requires(std::invocable<Fn, Args..., decltype(args)...>) {
+            return [fn = std::forward<Fn>(fn), ...frontArgs = std::forward<Args>(args)](auto&&... args) constexpr -> decltype(auto) {
                 return std::invoke(fn, frontArgs..., std::forward<decltype(args)>(args)...);
             };
         }
 
         template <typename Fn, typename... Args>
         [[nodiscard]] static constexpr auto BindBack(Fn&& fn, Args&&... args) noexcept {
-            return [fn = std::forward<Fn>(fn), ...backArgs = std::forward<Args>(args)](auto&&... args) -> decltype(auto)
-            requires(std::invocable<Fn, decltype(args)..., Args...>) {
+            return [fn = std::forward<Fn>(fn), ...backArgs = std::forward<Args>(args)](auto&&... args) constexpr -> decltype(auto) {
                 return std::invoke(fn, std::forward<decltype(args)>(args)..., backArgs...);
             };
         }
