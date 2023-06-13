@@ -73,6 +73,7 @@
 #include <Helena/Types/RWLock.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Types/Spinlock.hpp>
+#include <Helena/Types/SPSCVector.hpp>
 #include <Helena/Types/StateMachine.hpp>
 #include <Helena/Types/StaticVector.hpp>
 #include <Helena/Types/Storage.hpp>
@@ -80,7 +81,6 @@
 #include <Helena/Types/System.hpp>
 #include <Helena/Types/TaskScheduler.hpp>
 #include <Helena/Types/TimeSpan.hpp>
-#include <Helena/Types/TSVector.hpp>
 #include <Helena/Types/UndefinedContainer.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Types/VectorAny.hpp>
@@ -90,7 +90,8 @@
 // Util
 #include <Helena/Util/Cast.hpp>
 #include <Helena/Util/Format.hpp>
-#include <Helena/Util/Length.hpp>
+#include <Helena/Util/Function.hpp>
+#include <Helena/Util/String.hpp>
 #include <Helena/Util/Sleep.hpp>
 
 #endif // HELENA_HPP
