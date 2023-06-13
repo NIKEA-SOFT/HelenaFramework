@@ -69,7 +69,7 @@ namespace Helena::Types
                         ptr->m_VTable = other->m_VTable;
                         ptr->m_Hash = other->m_Hash;
                     } else {
-                        HELENA_ASSERT(std::is_copy_constructible_v<T> == true, "Type: {} is not copy constructible!", Traits::NameOf<T>{});
+                        HELENA_ASSERT(std::is_copy_constructible_v<T> == true, "Type: {} is not copy constructible!", Traits::NameOf<T>);
                     }
                 } break;
 
@@ -86,7 +86,7 @@ namespace Helena::Types
                         if constexpr(std::is_copy_assignable_v<T>) {
                             *static_cast<T*>(ptr->m_Data) = *static_cast<T*>(other->m_Data);
                         } else {
-                            HELENA_ASSERT(std::is_copy_assignable_v<T> == true, "Type: {} is not copy assignable!", Traits::NameOf<T>{});
+                            HELENA_ASSERT(std::is_copy_assignable_v<T> == true, "Type: {} is not copy assignable!", Traits::NameOf<T>);
                         }
                     } else {
                         if(ptr->m_VTable) {

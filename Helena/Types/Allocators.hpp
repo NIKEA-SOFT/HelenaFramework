@@ -325,7 +325,7 @@ namespace Helena::Types
 
         template <typename T>
         static constexpr auto NameOf = []{
-            constexpr std::string_view name = Traits::NameOf<Allocator>{};
+            constexpr std::string_view name = Traits::NameOf<Allocator>;
             constexpr auto pos = name.find_last_of(':');
             constexpr auto offset = pos * (pos != name.npos) + (pos != name.npos);
             return name.substr(offset);
@@ -598,8 +598,8 @@ namespace Helena::Types
         T* allocate(const std::size_t count)
         {
             if(HasOverflow(count, sizeof(T))) [[unlikely]] {
-                HELENA_MSG_EXCEPTION("The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<T>{}, count);
-                HELENA_ASSERT(!HasOverflow(count, sizeof(T)), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<T>{}, count);
+                HELENA_MSG_EXCEPTION("The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<T>, count);
+                HELENA_ASSERT(!HasOverflow(count, sizeof(T)), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<T>, count);
                 return nullptr;
             }
 
@@ -640,8 +640,8 @@ namespace Helena::Types
         U* allocate_object(const std::size_t count = 1)
         {
             if(HasOverflow(count, sizeof(U))) [[unlikely]] {
-                HELENA_MSG_EXCEPTION("The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>{}, count);
-                HELENA_ASSERT(!HasOverflow(count, sizeof(U)), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>{}, count);
+                HELENA_MSG_EXCEPTION("The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>, count);
+                HELENA_ASSERT(!HasOverflow(count, sizeof(U)), "The allocator has detected an overflow, type: {}, count: {}", Traits::NameOf<U>, count);
                 return nullptr;
             }
 

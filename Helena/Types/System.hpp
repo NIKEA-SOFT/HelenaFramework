@@ -17,7 +17,7 @@ namespace Helena::Types
         System& operator=(System&&) noexcept = delete;
 
         [[nodiscard]] static T& CurrentSystem() {
-            HELENA_ASSERT(Engine::HasSystem<T>(), "System: {} not registered!", Traits::NameOf<T>{});
+            HELENA_ASSERT(Engine::HasSystem<T>(), "System: {} not registered!", Traits::NameOf<T>);
             return Engine::GetSystem<T>();
         }
 

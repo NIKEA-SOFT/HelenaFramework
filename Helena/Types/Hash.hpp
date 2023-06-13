@@ -64,7 +64,7 @@ namespace Helena::Types
 
         template <typename Type>
         [[nodiscard]] static constexpr auto From() noexcept {
-            return From(Helena::Traits::NameOf<Type>::Value);
+            return From(Traits::NameOf<Type>);
         }
     };
 

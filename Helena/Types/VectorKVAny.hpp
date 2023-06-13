@@ -31,7 +31,7 @@ namespace Helena::Types
                 m_Storage.resize(index + 1);
             }
 
-            HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>{});
+            HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>);
             m_Storage[index].template Create<T>(std::forward<Args>(args)...);
         }
 
@@ -61,8 +61,8 @@ namespace Helena::Types
         requires (Traits::SameAs<K, Traits::RemoveCVRP<K>> && Traits::SameAs<T, Traits::RemoveCVRP<T>>)
         [[nodiscard]] decltype(auto) Get() {
             const auto index = m_TypeIndexer.template Get<K>();
-            HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>{});
-            HELENA_ASSERT(m_Storage[index].template Equal<T>(), "Type: {} type mismatch!", Traits::NameOf<T>{});
+            HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>);
+            HELENA_ASSERT(m_Storage[index].template Equal<T>(), "Type: {} type mismatch!", Traits::NameOf<T>);
             return m_Storage[index].template Ref<T>();
         }
 
@@ -70,8 +70,8 @@ namespace Helena::Types
         requires (Traits::SameAs<K, Traits::RemoveCVRP<K>> && Traits::SameAs<T, Traits::RemoveCVRP<T>>)
         [[nodiscard]] decltype(auto) Get() const {
             const auto index = m_TypeIndexer.template Get<K>();
-            HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>{});
-            HELENA_ASSERT(m_Storage[index].template Equal<T>(), "Type: {} type mismatch!", Traits::NameOf<T>{});
+            HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>);
+            HELENA_ASSERT(m_Storage[index].template Equal<T>(), "Type: {} type mismatch!", Traits::NameOf<T>);
             return m_Storage[index].template Ref<T>();
         }
 
@@ -95,7 +95,7 @@ namespace Helena::Types
         {
             if constexpr(Traits::Arguments<K...>::Single) {
                 const auto index = m_TypeIndexer.template Get<K...>();
-                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<K...>{});
+                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<K...>);
                 m_Storage[index].Reset();
             } else (Remove<K>(), ...);
         }
