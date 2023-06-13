@@ -1,11 +1,11 @@
 #ifndef HELENA_TYPES_STORAGE_HPP
 #define HELENA_TYPES_STORAGE_HPP
 
+#include <Helena/Platform/Assert.hpp>
+
 #include <memory>
 #include <type_traits>
 #include <utility>
-
-#include <Helena/Platform/Assert.hpp>
 
 namespace Helena::Types
 {
