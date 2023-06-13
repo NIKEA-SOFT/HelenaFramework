@@ -58,7 +58,7 @@ jobs:
         compiler: [MSVC, Clang]
         include:
           - compiler: MSVC
-            toolset: -T"v142"
+            toolset: -T"v143"
           - compiler: Clang
             toolset: -T"ClangCL"
     steps:
