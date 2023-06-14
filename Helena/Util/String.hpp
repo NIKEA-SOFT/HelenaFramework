@@ -6,8 +6,9 @@
 
 namespace Helena::Util
 {
-    struct String
+    class String
     {
+    public:
         /**
         * @brief Get the truncated length of the data
         * @tparam Char Type of characters
