@@ -80,6 +80,8 @@ namespace Helena
 
             template <typename Ret, typename T, typename... Args>
             CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
+                static_assert(sizeof(callback) <= sizeof(Storage),
+                    "The sizeof of member function exceeds the storage size.");
                 new (std::addressof(m_Storage)) decltype(callback){callback};
             }
 
@@ -96,6 +98,8 @@ namespace Helena
 
             template <typename Ret, typename T, typename... Args>
             CallbackStorage& operator=(Ret (T::*callback)(Args...)) noexcept {
+                static_assert(sizeof(callback) <= sizeof(Storage),
+                    "The sizeof of member function exceeds the storage size.");
                 new (std::addressof(m_Storage)) decltype(callback){callback};
                 return *this;
             }
@@ -108,6 +112,8 @@ namespace Helena
 
             template <typename Ret, typename T, typename... Args>
             [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
+                static_assert(sizeof(callback) <= sizeof(Storage),
+                    "The sizeof of member function exceeds the storage size.");
                 decltype(callback) fn{}; std::memcpy(std::addressof(fn), &m_Storage, sizeof(callback));
                 return fn == callback;
             }
