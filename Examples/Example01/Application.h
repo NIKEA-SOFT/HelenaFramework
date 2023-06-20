@@ -34,7 +34,7 @@ namespace Example01
 			{
 				case WM_DESTROY: {
 					Helena::Engine::Shutdown("WND Msg destroy");
-					::PostQuitMessage(EXIT_SUCCESS);
+					//::PostQuitMessage(EXIT_SUCCESS);
 				} break;
 
 				default: return ::DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -61,14 +61,14 @@ namespace Example01
 			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
 			Helena::Engine::SetTickrate(60.);
-			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
-			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, &OnTick>();
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
 				auto reason = Helena::Engine::ShutdownReason();
 				if(!reason.empty()) {
 					reason = Helena::Util::Format("Error:\n{}", reason);
 					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
 				}
-			});
+			}>();
 
 			if(!::RegisterClassEx(&m_WindowClassEx)) {
 				Helena::Engine::Shutdown("RegisterClass window failure!");
