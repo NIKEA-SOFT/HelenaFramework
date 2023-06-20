@@ -3,6 +3,7 @@
 
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Traits/Conditional.hpp>
+#include <Helena/Traits/Function.hpp>
 #if defined(HELENA_THREADSAFE_SYSTEMS)
     #include <Helena/Types/Spinlock.hpp>
 #endif
@@ -34,12 +35,14 @@ namespace Helena
         //! Unique key for storage messages type index
         using UKMessages = IUniqueKey<2>;
 
-        template <typename Event, typename... Args>
-        static constexpr auto RequiresCallback = Traits::Conditional<std::is_empty_v<Event>,
-            Traits::Conditional<Traits::Arguments<Args...>::Orphan, std::true_type, std::false_type>,
-            Traits::Conditional<Traits::Arguments<Args...>::Single && (Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...),
-                std::true_type, std::false_type>
-        >::value && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>;
+        template <typename Event, typename Fn, bool Member>
+        static constexpr auto RequiresCallback = []() {
+            if constexpr(std::is_empty_v<Event>) {
+                return Traits::Function<Fn>::Orphan;
+            } else if constexpr(Traits::Function<Fn>::Single) {
+                return Traits::SameAs<Event, Traits::RemoveCVRP<typename Traits::Function<Fn>::template Get<0>>>;
+            }
+        }() && Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && (std::is_member_function_pointer_v<Fn> == Member);
 
         template <typename T>
         static constexpr auto RequiresConfig = requires {
@@ -47,89 +50,57 @@ namespace Helena
             std::convertible_to<decltype(T::Accumulate), std::uint32_t>;
         };
 
-        //! Event callback storage with type erasure
-        struct CallbackStorage
+        class Delegate
         {
-            using Function = void (*)();
-            using MemberFunction = void (CallbackStorage::*)();
-            struct Storage
+            template <typename Event, auto Callback>
+            static void Caller([[maybe_unused]] void* instance, void* ev)
             {
-                union alignas(16) {
-                    Function m_Callback;
-                    MemberFunction m_CallbackMember;
-                };
-
-                template <typename T>
-                [[nodiscard]] T As() const noexcept
-                {
-                    T fn{};
-                    if constexpr(std::is_member_function_pointer_v<T>) {
-                        new (std::addressof(fn)) decltype(m_CallbackMember){m_CallbackMember};
+                if constexpr(std::is_member_function_pointer_v<decltype(Callback)>) {
+                    HELENA_ASSERT(instance, "Instance is nullptr");
+                    if constexpr(std::is_empty_v<Event>) {
+                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)();
                     } else {
-                        new (std::addressof(fn)) decltype(m_Callback){m_Callback};
+                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)(*static_cast<Event*>(ev));
                     }
-                    return fn;
+                } else {
+                    if constexpr(std::is_empty_v<Event>) {
+                        Callback();
+                    } else {
+                        Callback(*static_cast<Event*>(ev));
+                    }
                 }
-            };
-            using Callback = void (*)(Storage, void*);
-
-            template <typename Ret, typename... Args>
-            CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                new (std::addressof(m_Storage)) decltype(callback){callback};
             }
 
-            template <typename Ret, typename T, typename... Args>
-            CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                static_assert(sizeof(callback) <= sizeof(Storage),
-                    "The sizeof of member function exceeds the storage size.");
-                new (std::addressof(m_Storage)) decltype(callback){callback};
+            using Callback = void (void*, void*);
+
+        public:
+            template<typename Event, auto Callback>
+            struct Args {};
+
+        public:
+            template<typename Event, auto Fn>
+            Delegate(Args<Event, Fn>, void* instance)
+                : m_Callback{Caller<Event, Fn>}
+                , m_Instance{instance} {}
+            ~Delegate() = default;
+            Delegate(const Delegate&) = default;
+            Delegate(Delegate&&) noexcept = default;
+            Delegate& operator=(const Delegate&) = default;
+            Delegate& operator=(Delegate&&) noexcept = default;
+
+            template <typename... Args>
+            void operator()(Args&&... args) const {
+                m_Callback(m_Instance, std::forward<Args>(args)...);
             }
 
-            CallbackStorage(const CallbackStorage& rhs) = default;
-            CallbackStorage(CallbackStorage&& rhs) noexcept = default;
-            CallbackStorage& operator=(const CallbackStorage& rhs) = default;
-            CallbackStorage& operator=(CallbackStorage&& rhs) noexcept = default;
-
-            template <typename Ret, typename... Args>
-            CallbackStorage& operator=(Ret (*callback)(Args...)) noexcept {
-                new (std::addressof(m_Storage)) decltype(callback){callback};
-                return *this;
+            template <typename Event, auto Fn>
+            [[nodiscard]] bool Compare(void* instance = nullptr) const noexcept {
+                return m_Instance == instance && m_Callback == Caller<Event, Fn>;
             }
 
-            template <typename Ret, typename T, typename... Args>
-            CallbackStorage& operator=(Ret (T::*callback)(Args...)) noexcept {
-                static_assert(sizeof(callback) <= sizeof(Storage),
-                    "The sizeof of member function exceeds the storage size.");
-                new (std::addressof(m_Storage)) decltype(callback){callback};
-                return *this;
-            }
-
-            template <typename Ret, typename... Args>
-            [[nodiscard]] bool operator==(Ret (*callback)(Args...)) const noexcept {
-                decltype(callback) fn{}; std::memcpy(std::addressof(fn), &m_Storage, sizeof(callback));
-                return fn == callback;
-            }
-
-            template <typename Ret, typename T, typename... Args>
-            [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
-                static_assert(sizeof(callback) <= sizeof(Storage),
-                    "The sizeof of member function exceeds the storage size.");
-                decltype(callback) fn{}; std::memcpy(std::addressof(fn), &m_Storage, sizeof(callback));
-                return fn == callback;
-            }
-
-            template <typename Ret, typename... Args>
-            [[nodiscard]] bool operator!=(Ret (*callback)(Args...)) const noexcept {
-                return !(*this == callback);
-            }
-
-            template <typename Ret, typename T, typename... Args>
-            [[nodiscard]] bool operator!=(Ret (T::*callback)(Args...)) const noexcept {
-                return !(*this == callback);
-            }
-
-            Callback m_Callback;
-            Storage m_Storage;
+        private:
+            Callback* m_Callback;
+            void* m_Instance;
         };
 
         template <typename...>
@@ -204,7 +175,7 @@ namespace Helena
             Types::VectorAny<UKSystems> m_Systems;
 
             // Signals
-            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
+            Types::VectorUnique<UKSignals, Pool<Delegate>> m_Signals;
             SignalsPool m_DeferredSignals;
 
             // Reason
@@ -454,22 +425,21 @@ namespace Helena
 
         /**
         * @brief Listening to the event
-        * 
+        *
         * @code{.cpp}
         * void OnInit() {
         *   // The event is called when the engine is initialized
         * }
-        * 
-        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&OnInit);
+        *
+        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &OnInit>();
         * @endcode
-        * 
+        *
         * @tparam Event Type of event
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Function
         */
-        template <typename Event, typename... Args>
-        requires Engine::RequiresCallback<Event, Args...>
-        static void SubscribeEvent(void (*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+        static void SubscribeEvent();
 
         /**
         * @brief Listening to the event
@@ -480,17 +450,16 @@ namespace Helena
         *       // The event is called when the engine is initialized
         *   }
         * };
-        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&MySystem::OnInit);
+        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnInit>(this);
         * @endcode
         *
         * @tparam Event Type of event
-        * @tparam System Type of system
-        * @tparam Args Types of events
-        * @param callback Callback function
+        * @tparam Callback Member function
+        * @param instance Instance of object
         */
-        template <typename Event, typename System, typename... Args>
-        requires Engine::RequiresCallback<Event, Args...>
-        static void SubscribeEvent(void (System::*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+        static void SubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
 
         /**
         * @brief Returns the count or tuple with counts of listeners subscribed to Event
@@ -501,7 +470,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static decltype(auto) SubscribersEvent();
+        static auto SubscribersEvent();
 
         /**
         * @brief Check has listeners subscribed to Events
@@ -512,7 +481,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static decltype(auto) HasSubscribersEvent();
+        static auto HasSubscribersEvent();
 
         /**
         * @brief Check has any listeners are subscribed to any of the Events.
@@ -523,7 +492,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static decltype(auto) AnySubscribersEvent();
+        static auto AnySubscribersEvent();
 
         /**
         * @brief Trigger an event for all listeners
@@ -568,24 +537,21 @@ namespace Helena
 
         /**
         * @brief Stop listening to the event
+        *
+        * void OnInit() {
+        *     // The event is called when the engine is initialized
+        * }
         * 
-        * @code{.cpp}
-        * struct MySystem {
-        *   void OnInit() {
-        *       // The event is called when the engine is initialized
-        *   }
-        * };
-        * 
-        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&OnInit);
+        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init, &OnInit>();
         * @endcode
         * 
         * @tparam Event Type of event
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Function
         */
-        template <typename Event, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (*callback)(Args...));
+
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+        static void UnsubscribeEvent();
 
         /**
         * @brief Stop listening to the event
@@ -597,26 +563,25 @@ namespace Helena
         *   }
         * };
         * 
-        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&MySystem::OnInit);
+        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnInit>(this);
         * @endcode
         * 
         * @tparam Event Type of event
-        * @tparam System Type of system
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Member function
+        * @param instance Instance of object
         */
-        template <typename Event, typename System, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (System::*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+        static void UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
 
     private:
-        template <typename Event, typename Callback, typename SignalFunctor>
+        template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SubscribeEvent(Callback&& callback, SignalFunctor&& fn);
+        static void SubscribeEvent(Delegate::Args<Event, Callback>, void* instance);
 
-        template <typename Event, typename Comparator>
+        template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(Comparator&& comparator);
+        static void UnsubscribeEvent(Delegate::Args<Event, Callback>, void* instance);
     };
 }
 

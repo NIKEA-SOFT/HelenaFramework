@@ -337,49 +337,21 @@ namespace Helena
         MainContext().m_Systems.template Remove<T...>();
     }
 
-    template <typename Event, typename... Args>
-    requires Engine::RequiresCallback<Event, Args...>
-    void Engine::SubscribeEvent(void (*callback)(Args...))
-    {
-        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
-        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
-
-        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
-            if constexpr(std::is_empty_v<Event>) {
-                std::invoke(storage.As<decltype(callback)>());
-            } else {
-                std::invoke(storage.As<decltype(callback)>(), *static_cast<Traits::RemoveRef<
-                    typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-            }
-        });
+    template <typename Event, auto Callback>
+    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+    void Engine::SubscribeEvent() {
+        return SubscribeEvent(typename Delegate::Args<Event, Callback>{}, nullptr);
     }
 
-    template <typename Event, typename System, typename... Args>
-    requires Engine::RequiresCallback<Event, Args...>
-    void Engine::SubscribeEvent(void (System::*callback)(Args...))
-    {
-        using StorageArg = typename Traits::Function<CallbackStorage::Callback>::template Get<0>;
-        using PayloadArg = typename Traits::Function<CallbackStorage::Callback>::template Get<1>;
-
-        SubscribeEvent<Event>(callback, +[](StorageArg storage, [[maybe_unused]] PayloadArg data) {
-            auto& ctx = MainContext();
-            if(!ctx.m_Systems.template Has<System>()) [[unlikely]] {
-                UnsubscribeEvent<Event>(storage.As<decltype(callback)>());
-                return;
-            }
-
-            if constexpr(std::is_empty_v<Event>) {
-                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>());
-            } else {
-                std::invoke(storage.As<decltype(callback)>(), ctx.m_Systems.template Get<System>(),
-                    *static_cast<Traits::RemoveRef<typename Traits::Arguments<Args...>::template Get<0>>*>(data));
-            }
-        });
+    template <typename Event, auto Callback>
+    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+    void Engine::SubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance) {
+        return SubscribeEvent(typename Delegate::Args<Event, Callback>{}, instance);
     }
 
-    template <typename Event, typename Callback, typename SignalFunctor>
+    template <typename Event, auto Callback>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::SubscribeEvent(Callback&& callback, SignalFunctor&& fn)
+    void Engine::SubscribeEvent(Delegate::Args<Event, Callback>, void* instance)
     {
         auto& ctx = MainContext();
         if(!ctx.m_Signals.template Has<Event>()) {
@@ -388,19 +360,19 @@ namespace Helena
 
         auto& pool = ctx.m_Signals.template Get<Event>();
     #if defined(HELENA_DEBUG)
-        [[maybe_unused]] const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(),
-            [callback = std::forward<Callback>(callback)](const auto& storage) {
-                return storage == callback;
+        [[maybe_unused]]
+        const auto empty = pool.cend() == std::find_if(pool.cbegin(), pool.cend(), [instance](const auto& delegate) {
+            return delegate.template Compare<Event, Callback>(instance);
         });
-        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<Callback>);
+        HELENA_ASSERT(empty, "Listener: {} already registered!", Traits::NameOf<decltype(Callback)>);
     #endif
-        pool.emplace_back(std::forward<Callback>(callback), std::forward<SignalFunctor>(fn));
+        pool.emplace_back(typename Delegate::Args<Event, Callback>{}, instance);
     }
 
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
     [[nodiscard]]
-    decltype(auto) Engine::SubscribersEvent()
+    auto Engine::SubscribersEvent()
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
@@ -413,7 +385,7 @@ namespace Helena
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
     [[nodiscard]]
-    decltype(auto) Engine::HasSubscribersEvent()
+    auto Engine::HasSubscribersEvent()
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
@@ -426,7 +398,7 @@ namespace Helena
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
     [[nodiscard]]
-    decltype(auto) Engine::AnySubscribersEvent() {
+    auto Engine::AnySubscribersEvent() {
         return (HasSubscribersEvent<Event>() || ...);
     }
 
@@ -459,8 +431,8 @@ namespace Helena
         {
             auto& pool = *poolStorage;
             for(std::size_t pos = pool.size(); pos; --pos) {
-                const auto& [callback, storage] = pool[pos - 1];
-                std::invoke(callback, storage, &event);
+                const auto& delegate = pool[pos - 1];
+                std::invoke(delegate, &event);
             }
 
             if constexpr(Traits::AnyOf<Event,
@@ -482,33 +454,33 @@ namespace Helena
         });
     }
 
-    template <typename Event, typename... Args>
-    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::UnsubscribeEvent(void (*callback)(Args...)) {
-        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
-            return storage == callback;
-        });
+    template <typename Event, auto Callback>
+    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+    void Engine::UnsubscribeEvent() {
+        return UnsubscribeEvent(typename Delegate::Args<Event, Callback>{}, nullptr);
     }
 
-    template <typename Event, typename System, typename... Args>
-    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::UnsubscribeEvent(void (System::* callback)(Args...)) {
-        UnsubscribeEvent<Event>([callback](const auto& storage) noexcept {
-            return storage == callback;
-        });
+    template <typename Event, auto Callback>
+    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+    void Engine::UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance) {
+        return UnsubscribeEvent(typename Delegate::Args<Event, Callback>{}, instance);
     }
 
-    template <typename Event, typename Comparator>
+    template <typename Event, auto Callback>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::UnsubscribeEvent(Comparator&& comparator) {
-        if(const auto poolStorage = MainContext().m_Signals.template Ptr<Event>()) {
-            if(const auto it = std::find_if(poolStorage->cbegin(), poolStorage->cend(), std::forward<Comparator>(comparator));
-                it != poolStorage->cend()) {
-                poolStorage->erase(it);
+    void Engine::UnsubscribeEvent(Delegate::Args<Event, Callback>, void* instance)
+    {
+        if(const auto pool = MainContext().m_Signals.template Ptr<Event>())
+        {
+            const auto it = std::find_if(pool->cbegin(), pool->cend(), [instance](const auto& delegate) {
+                return delegate.template Compare<Event, Callback>(instance);
+            });
+
+            if(it != pool->cend()) {
+                pool->erase(it);
             };
         }
     }
-
 }
 
 #endif // HELENA_ENGINE_ENGINE_IPP
