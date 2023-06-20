@@ -23,14 +23,24 @@ namespace Helena::Types
             m_Swap.store(readerContainer, std::memory_order::relaxed);
         }
 
-        ~SPSCVector() {
-            // First we release swap (in CAS since the reader can Handle the swap buffer)
-            auto ptr = m_Swap.load(std::memory_order_acquire);
-            while(!m_Swap.compare_exchange_weak(ptr, nullptr)) {}
-            delete ptr;
+        ~SPSCVector()
+        {
+            while(true)
+            {
+                if(auto ptr = m_Swap.load(std::memory_order_acquire); ptr)
+                {
+                    if(!m_Swap.compare_exchange_strong(ptr, nullptr)) {
+                        continue;
+                    }
 
-            // We can then ensure that m_WriterContainer is present
-            delete std::exchange(m_WriterContainer, nullptr);
+                    // First we release swap (in CAS since the reader can Handle the swap buffer)
+                    delete ptr;
+
+                    // We can then ensure that m_WriterContainer is present
+                    delete std::exchange(m_WriterContainer, nullptr);
+                    break;
+                }
+            }
         }
 
         SPSCVector(const SPSCVector&) = delete;
