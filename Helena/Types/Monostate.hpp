@@ -20,7 +20,7 @@ namespace Helena::Types
 
     private:
         template <typename Type>
-        inline static Type m_Data = {};
+        static inline Type m_Data = {};
     };
 }
 
