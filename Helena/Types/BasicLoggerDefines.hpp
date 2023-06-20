@@ -51,9 +51,8 @@ namespace Helena::Log
 
     // Class with an implicit constructor for working with formatting
     template <typename Char>
-    class Formatter
+    struct Formatter
     {
-    public:
         constexpr Formatter(const Char* message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
             : m_Location{location}
             , m_Message{message} {}
@@ -78,7 +77,6 @@ namespace Helena::Log
             return m_Message;
         }
 
-    private:
         const Types::SourceLocation m_Location;
         const std::basic_string_view<Char> m_Message;
     };
@@ -272,10 +270,10 @@ namespace Helena::Log
 namespace Helena::Log
 {
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<char>& format, Args&&... args);
+    void Message(const Formatter<char> format, Args&&... args);
 
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<wchar_t>& format, Args&&... args);
+    void Message(const Formatter<wchar_t> format, Args&&... args);
 }
 
 #endif // HELENA_TYPES_BASICLOGGERSDEF_HPP

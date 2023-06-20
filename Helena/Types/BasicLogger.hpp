@@ -27,7 +27,7 @@ namespace Helena::Log
     static constexpr auto UseLogger = T{};
 
     template <DefinitionLogger Logger, typename Char, typename... Args>
-    void MessagePrint(const Formatter<Char>& format, Args&&... args)
+    void MessagePrint(const Formatter<Char> format, Args&&... args)
     {
         // Ignore messages from logger when `static inline bool Muted = true`
         if constexpr(!requires { typename MuteController<Logger>::DefaultFingerprint; }) {
@@ -99,12 +99,12 @@ namespace Helena::Log
     }
 
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<char>& format, Args&&... args) {
+    void Message(const Formatter<char> format, Args&&... args) {
         MessagePrint<Logger>(format, std::forward<Args>(args)...);
     }
 
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<wchar_t>& format, Args&&... args) {
+    void Message(const Formatter<wchar_t> format, Args&&... args) {
         MessagePrint<Logger>(format, std::forward<Args>(args)...);
     }
 }
