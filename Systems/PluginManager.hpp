@@ -56,7 +56,7 @@ namespace Helena::Systems
     public:
         PluginManager(std::filesystem::path directory)
         {
-            Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
+            Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown, &PluginManager::OnPostShutdown>(this);
 
             std::error_code err;
             if(!std::filesystem::is_directory(directory, err)) {
@@ -71,7 +71,7 @@ namespace Helena::Systems
         }
 
         ~PluginManager() {
-            Helena::Engine::UnsubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
+            Helena::Engine::UnsubscribeEvent<Events::Engine::PostShutdown, &PluginManager::OnPostShutdown>(this);
         }
 
         PluginManager(const PluginManager&) = delete;
