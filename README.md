@@ -40,15 +40,18 @@ Other compilers have not been tested.
 #include <Helena/Helena.hpp>
 
 struct MyEvent {
-    int value;
+    int value{};
 };
 
 struct MySystem {  
     MySystem() {
-        // Let's listen to the signal that is called when our
-        // system is initialized inside the framework
-        // All framework signals in header: Helena/Engine/Events.hpp
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&MySystem::OnEventInit);
+        // Subscribe on event
+        // All framework events in header: Helena/Engine/Events.hpp
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnEventInit>(this);
+    }
+
+    ~MySystem() {
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnEventInit>(this);
     }
 
 private:
@@ -65,20 +68,19 @@ private:
 
 class MyContext : public Helena::Engine::Context {
 public:
-    // We can create an entry point in our own context
-    // It's not required, but you can
-    bool Main() override {
-        // -- We can register systems and signals right
+    // You can create your own entry point
+    void Main() override {
+        // Register systems and signals
         // Here is example of how to register listeners
-        Helena::Engine::SubscribeEvent<MyEvent>(+[](MyEvent& event){
+        Helena::Engine::SubscribeEvent<MyEvent, +[](MyEvent& event){
             // Let's show a message about which event the framework signals us
             HELENA_MSG_NOTICE("Hello event: {}", Helena::Traits::NameOf<MyEvent>{});
 
                 // And let's change value inside event (for example)
                 event.value = 100;
-        });
+        }>();
 
-        // -- Now let's throw a signal to the listeners
+        // Now let's throw a signal to the listeners
         // First method: we can use the event type and arguments
         // to create the event type inside the method.
         Helena::Engine::SignalEvent<MyEvent>(/*args...*/);
@@ -89,11 +91,20 @@ public:
         // auto value = event.value;
         // value now == 100
         HELENA_MSG_NOTICE("Event value: {}", event.value);
+        // or use deferred signals, they will be called in the next tick
+        Helena::Engine::EnqueueSignal<MyEvent>(/*args...*/);
 
         // Okay, now let's try register own system
         Helena::Engine::RegisterSystem<MySystem>(/*args for constructor...*/);
 
-        return true;  // return true if no error's
+        // The System Instance can be accessed from anywhere in the code
+        // Access from dynamic libraries is also supported
+        if(!Helena::Engine::HasSystem<MySystem>()) {
+            return;
+        }
+
+        // Accessing elements in O(1) without a hashmap
+        auto& mySystem = Helena::Engine::GetSystem<MySystem>();
     }
 };
 
