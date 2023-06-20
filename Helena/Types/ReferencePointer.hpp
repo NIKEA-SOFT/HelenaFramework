@@ -27,7 +27,7 @@ namespace Helena::Types
             : m_Container{new (std::nothrow) Container{
                 std::piecewise_construct,
                 std::forward_as_tuple(std::forward<Args>(args)...),
-                std::forward_as_tuple(1uLL)}} {}
+                std::forward_as_tuple(1)}} {}
 
         ~ReferencePointer() {
             Reset();

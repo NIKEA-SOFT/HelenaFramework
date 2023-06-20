@@ -16,7 +16,7 @@ namespace Helena::Types
         using Hasher = Hash<std::uint64_t>;
 
         struct Container {
-            std::vector<std::size_t> m_Keys;
+            std::vector<typename Hasher::value_type> m_Keys;
             Spinlock m_Lock;
         };
 
@@ -56,7 +56,7 @@ namespace Helena::Types
                 }
 
                 storage->m_Keys.emplace_back(m_Key);
-                return storage->m_Keys.size() - 1uLL;
+                return storage->m_Keys.size() - 1;
             }
 
             static constexpr auto m_Key = Hasher::template From<T>();
