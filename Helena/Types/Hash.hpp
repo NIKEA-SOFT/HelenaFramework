@@ -34,6 +34,14 @@ namespace Helena::Types
             return value;
         }
 
+        template <typename Container>
+        static constexpr bool RequiresContainer = requires(Container container) {
+            container.begin();
+            container.end();
+            container.begin() != container.end();
+            { *container.begin() } -> std::convertible_to<T>;
+        };
+
     public:
         Hash() = delete;
         ~Hash() = delete;
@@ -43,12 +51,7 @@ namespace Helena::Types
         Hash& operator=(Hash&&) noexcept = delete;
 
         template <typename Container>
-        requires requires(Container container) {
-            container.begin();
-            container.end();
-            container.begin() != container.end();
-            std::convertible_to<std::remove_cvref_t<decltype(*container.begin())>, T>;
-        }
+        requires RequiresContainer<Container>
         [[nodiscard]] static constexpr auto From(const Container& container) noexcept {
             return Calculate(container.begin(), container.end());
         }
