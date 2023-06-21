@@ -72,7 +72,7 @@ public:
     void Main() override {
         // Register systems and signals
         // Here is example of how to register listeners
-        Helena::Engine::SubscribeEvent<MyEvent, +[](MyEvent& event){
+        Helena::Engine::SubscribeEvent<MyEvent, [](MyEvent& event){
             // Let's show a message about which event the framework signals us
             HELENA_MSG_NOTICE("Hello event: {}", Helena::Traits::NameOf<MyEvent>{});
 
