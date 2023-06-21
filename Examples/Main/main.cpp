@@ -143,7 +143,7 @@ void example_signals()
 
     // Now let's start listening to this signal
     // Drop arguments if the signal type is std::is_empty_v<MySignal>
-    Helena::Engine::SubscribeEvent<MySignal, +[]() {
+    Helena::Engine::SubscribeEvent<MySignal, []() {
         HELENA_MSG_NOTICE("Hello signal: {}", Helena::Traits::NameOf<MySignal>);
     }>();
 
@@ -157,7 +157,7 @@ void example_signals()
     };
 
     // We cannot drop arguments because InfoSignal is not empty type
-    Helena::Engine::SubscribeEvent<InfoSignal, +[](const InfoSignal ev) {
+    Helena::Engine::SubscribeEvent<InfoSignal, [](const InfoSignal ev) {
         HELENA_MSG_NOTICE("Hello signal: {}, name: {}, age: {}",
             Helena::Traits::NameOf<InfoSignal>, ev.name, ev.age);
     }>();
@@ -282,7 +282,7 @@ void example_task_sheduler()
     // The scheduler cannot work by itself
     // You must call Update so that the scheduler calls events whose time has come
     // Let's use Engine for listen Update event
-    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, +[](Helena::Events::Engine::Update) {
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](Helena::Events::Engine::Update) {
         scheduler.Update();
     }>();
 
@@ -392,7 +392,7 @@ void AnimationSpline::StaticFunc() {
     // in oop
     // const auto fnLambda = [this]() {};
     // in modern design paradigm
-    // const auto ptr = +[]() {
+    // const auto ptr = []() {
     //   auto& self = CurrentSystem()->GetSubsystem<AnimationSpline>();
     // }
 }
@@ -423,19 +423,19 @@ private:
 
         Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>, []() {
             HELENA_MSG_NOTICE("PreCreate");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>, +[](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>, [](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
             HELENA_MSG_NOTICE("PostCreate {}", ev.resource.value);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>, +[](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>, [](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
             HELENA_MSG_NOTICE("PreRemove {}", ev.resource.value);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>, []() {
             HELENA_MSG_NOTICE("PostRemove");
         }>();
 
@@ -457,7 +457,7 @@ private:
         HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
 
         // Or Signals
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit, []() {
             HELENA_MSG_NOTICE("Hello from PreInit");
         }>();
 
@@ -469,7 +469,7 @@ private:
 
         HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, []() {
             HELENA_MSG_NOTICE("Hello from Init");
 
             if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
@@ -500,91 +500,91 @@ private:
             }
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit, []() {
             HELENA_MSG_NOTICE("Hello from PostInit");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreConfig, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreConfig, []() {
             HELENA_MSG_NOTICE("Hello from PreConfig");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config, []() {
             HELENA_MSG_NOTICE("Hello from Config");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostConfig, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostConfig, []() {
             HELENA_MSG_NOTICE("Hello from PostConfig");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreExecute, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreExecute, []() {
             HELENA_MSG_NOTICE("Hello from PreExecute");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute, []() {
             HELENA_MSG_NOTICE("Hello from Execute");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostExecute, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostExecute, []() {
             HELENA_MSG_NOTICE("Hello from PostExecute");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick, +[](Helena::Events::Engine::PreTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick, [](Helena::Events::Engine::PreTick ev) {
             HELENA_MSG_NOTICE("Hello from PreTick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, +[](Helena::Events::Engine::Tick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, [](Helena::Events::Engine::Tick ev) {
             HELENA_MSG_NOTICE("Hello from Tick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick, +[](Helena::Events::Engine::PostTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick, [](Helena::Events::Engine::PostTick ev) {
             HELENA_MSG_NOTICE("Hello from PostTick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate, +[](Helena::Events::Engine::PreUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate, [](Helena::Events::Engine::PreUpdate ev) {
             HELENA_MSG_NOTICE("Hello from PreUpdate");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, +[](Helena::Events::Engine::Update ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](Helena::Events::Engine::Update ev) {
             HELENA_MSG_NOTICE("Hello from Update");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate, +[](Helena::Events::Engine::PostUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate, [](Helena::Events::Engine::PostUpdate ev) {
             HELENA_MSG_NOTICE("Hello from PostUpdate");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender, +[](Helena::Events::Engine::PreRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender, [](Helena::Events::Engine::PreRender ev) {
             HELENA_MSG_NOTICE("Hello from PreRender");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render, +[](Helena::Events::Engine::Render ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render, [](Helena::Events::Engine::Render ev) {
             HELENA_MSG_NOTICE("Hello from Render");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender, +[](Helena::Events::Engine::PostRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender, [](Helena::Events::Engine::PostRender ev) {
             HELENA_MSG_NOTICE("Hello from PostRender");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreFinalize, +[](){
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreFinalize, [](){
             HELENA_MSG_NOTICE("Hello from PreFinalize");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize, []() {
             HELENA_MSG_NOTICE("Hello from Finalize");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostFinalize, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostFinalize, []() {
             HELENA_MSG_NOTICE("Hello from PostFinalize");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreShutdown, +[](){
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreShutdown, [](){
             HELENA_MSG_NOTICE("Hello from PreShutdown");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
             HELENA_MSG_NOTICE("Hello from Shutdown");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostShutdown, +[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostShutdown, []() {
             HELENA_MSG_NOTICE("Hello from PostShutdown");
         }>();
 
@@ -592,27 +592,27 @@ private:
         /* Hot reload test
         Helena::Engine::RegisterSystem<Helena::Systems::PluginManager>("D:\\Projects\\HelenaFramework\\Bin\\Bin");
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreLoad, +[](Helena::Events::PluginManager::PreLoad ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreLoad, [](Helena::Events::PluginManager::PreLoad ev) {
             HELENA_MSG_INFO("Event PreLoad plugin: {}", ev.name);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostLoad, +[](Helena::Events::PluginManager::PostLoad ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostLoad, [](Helena::Events::PluginManager::PostLoad ev) {
             HELENA_MSG_INFO("Event PostLoad plugin: {}, error: {}", ev.name, ev.error);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreReload, +[](Helena::Events::PluginManager::PreReload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreReload, [](Helena::Events::PluginManager::PreReload ev) {
             HELENA_MSG_INFO("Event PreReload plugin: {}", ev.name);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload, +[](Helena::Events::PluginManager::PostReload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload, [](Helena::Events::PluginManager::PostReload ev) {
             HELENA_MSG_INFO("Event PostReload plugin: {}, error: {}", ev.name, ev.error);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload, +[](Helena::Events::PluginManager::PreUnload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload, [](Helena::Events::PluginManager::PreUnload ev) {
             HELENA_MSG_INFO("Event PreUnload plugin: {}", ev.name);
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostUnload, +[](Helena::Events::PluginManager::PostUnload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostUnload, [](Helena::Events::PluginManager::PostUnload ev) {
             HELENA_MSG_INFO("Event PostUnload plugin: {}", ev.name);
         }>();
 
@@ -623,7 +623,7 @@ private:
         }
 
         // hot reload test by scheduler
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]{
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>([]{
             auto& self = Helena::Engine::GetContext<MyContext>();
             HELENA_MSG_DEBUG("Task created");
             self.m_Scheduler.Create(1, 20000, [](std::uint64_t id, std::uint64_t& time, std::uint32_t& repeat) {
@@ -636,7 +636,7 @@ private:
             });
         });
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>(+[](Helena::Events::Engine::PostUpdate) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>([](Helena::Events::Engine::PostUpdate) {
             Helena::Engine::GetContext<MyContext>().m_Scheduler.Update();
         });
         */
@@ -645,7 +645,7 @@ private:
         // Signals are mainly intended for class-systems.
         // But they also support lambdas without captures or static methods.
         // Believe me, this is enough to call a method of any class, let me demonstrate
-        //Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+        //Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>([]() {
         //    // example #1 for get current context by reference
         //    auto& context1 = Helena::Engine::GetContext<MyContext>();
 
@@ -662,7 +662,6 @@ private:
     //Helena::Types::TaskScheduler m_Scheduler;
 };
 
-
 // First method of initialization framework
 void Initialization_by_default()
 {
@@ -674,7 +673,7 @@ void Initialization_by_default()
     Helena::Engine::RegisterSystem<AnimationManager>();
 
     // Or Signals
-    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, +[]() {
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, []() {
         HELENA_MSG_NOTICE("Hello from Initialization_by_default");
     }>();
 }
@@ -686,7 +685,6 @@ void Initialization_with_my_Context() {
 }
 
 void test_allocators();
-
 
 int main(int argc, char** argv)
 {
