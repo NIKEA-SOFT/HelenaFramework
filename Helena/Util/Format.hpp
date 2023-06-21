@@ -15,8 +15,8 @@ namespace Helena::Util
             /*
             * Let's give some memory to get rid of allocations.
             * This is a little trick to optimize the formatting.
-            * WARNING: m_RingCache defines the maximum number of buffers that can be used at the same time.
-            * This means that if more than one m_RingCache buffer is used at the same time, the data will be overwritten.
+            * WARNING: m_BufferCount defines the maximum number of buffers that can be used at the same time.
+            * This means that if more than one m_BufferCount buffer is used at the same time, the data will be overwritten.
             * This is an efficient solution to use Format for temporary formatted strings,
             * e.g. before outputting something or immediately after receiving a formatted string.
             *
