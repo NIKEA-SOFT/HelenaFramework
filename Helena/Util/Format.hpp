@@ -1,8 +1,11 @@
 #ifndef HELENA_UTIL_FORMAT_HPP
 #define HELENA_UTIL_FORMAT_HPP
 
+#include <Helena/Platform/Defines.hpp>
 #include <Helena/Engine/Log.hpp>
+#include <Helena/Types/ReferencePointer.hpp>
 
+#include <array>
 #include <format>
 
 namespace Helena::Util
@@ -25,33 +28,50 @@ namespace Helena::Util
             * const auto& data = Format("Hello {}", "world");
             * print_message(data);
             *
-            * The allocator is not used here for backwards compatibility
-            *
-            * WARNING: Using this method at the time of freeing variables with static lifetimes is undefined behavior!
-            * For example: destructors of static variables are such. In this case, you can use std::vformat
+            * The allocator is not used here for backwards compatibility.
             */
-            static constexpr std::size_t m_RingCache = 20;
+            inline constexpr std::size_t m_BufferCount{20};
+            inline constexpr std::size_t m_BufferCapacity{512};
+            inline thread_local std::size_t m_BufferID{};
+
             template <typename Char>
-            static thread_local std::basic_string<Char> m_Buffer[m_RingCache]{};
-            static thread_local std::size_t m_BufferID{};
+            inline thread_local auto m_Buffers = []{
+                std::array<Types::ReferencePointer<std::basic_string<Char>>, m_BufferCount> array;
+                for(auto& buffer : array) {
+                    buffer = Types::ReferencePointer<std::basic_string<Char>>::Create(m_BufferCapacity, 0);
+                }
+                return array;
+            }();
+
+            template <typename Char>
+            [[nodiscard]] decltype(auto) BufferSwitch() noexcept
+            {
+                const auto id = std::exchange(m_BufferID, (m_BufferID + 1) % m_BufferCount);
+                auto& buffer = m_Buffers<Char>[id];
+                if(buffer) [[likely]] {
+                    return buffer;
+                }
+
+                return (buffer = std::remove_cvref_t<decltype(buffer)>::Create(m_BufferCapacity, 0));
+            }
 
             template <typename Char, typename... Args>
             [[nodiscard]] const std::basic_string<Char>& Format(const std::basic_string_view<Char> msg, Args&&... args) noexcept
             {
-                auto& buffer = m_Buffer<Char>[std::exchange(m_BufferID, (m_BufferID + 1) % m_RingCache)];
+                const auto& buffer = BufferSwitch<Char>();
 
                 try {
-                    buffer.resize(0);
-                    std::vformat_to(std::back_inserter(buffer), msg, std::make_format_args(std::forward<Args>(args)...));
+                    buffer->resize(0);
+                    std::vformat_to(std::back_inserter(*buffer), msg, std::make_format_args(std::forward<Args>(args)...));
                 } catch(const std::format_error&) {
-                    buffer.resize(0);
+                    buffer->resize(0);
                     Log::Message<Log::Exception>(
                         "\n----------------------------------------\n"
                         "|| Error: format syntax invalid!\n"
                         "|| Format: {}"
                         "\n----------------------------------------", msg);
                 } catch(const std::bad_alloc&) {
-                    buffer.resize(0);
+                    buffer->resize(0);
                     Log::Message<Log::Exception>(
                         "\n----------------------------------------\n"
                         "|| Error: not enough memory for alloc\n"
@@ -59,18 +79,27 @@ namespace Helena::Util
                         "\n----------------------------------------", msg);
                 }
 
-                return buffer;
+                return *buffer;
             }
         };
     }
 
+
+    /*
+    * WARNING:
+    * The format is based on circular buffers that are reused.
+    * You should not store returned strings by reference, otherwise, sooner or later the
+    * buffer you store will be reused and the data will change.
+    * For storage you can copy string by value.
+    * This approach allows you not to allocate memory when formatting strings.
+    */
     template <typename... Args>
-    [[nodiscard]] decltype(auto) Format(const std::string_view msg, Args&&... args) {
+    [[nodiscard]] const std::string& Format(const std::string_view msg, Args&&... args) {
         return Internal::FormatStorage::Format(msg, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    [[nodiscard]] decltype(auto) Format(const std::wstring_view msg, Args&&... args) {
+    [[nodiscard]] const std::wstring& Format(const std::wstring_view msg, Args&&... args) {
         return Internal::FormatStorage::Format(msg, std::forward<Args>(args)...);
     }
 }
