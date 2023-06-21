@@ -49,7 +49,7 @@ namespace Helena::Traits
     }
 
     template <typename T>
-    static constexpr auto NameOf = Internal::NameOf<T>::NameStorage.data();
+    inline constexpr auto NameOf = Internal::NameOf<T>::NameStorage.data();
 }
 
 #endif // HELENA_TRAITS_NAMEOF_HPP
