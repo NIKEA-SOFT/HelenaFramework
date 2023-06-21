@@ -45,10 +45,9 @@ namespace Helena
         }() && Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && (std::is_member_function_pointer_v<Fn> == Member);
 
         template <typename T>
-        static constexpr auto RequiresConfig = requires {
-            std::invocable<decltype(T::Sleep)>;
+        static constexpr auto RequiresConfig =
+            std::invocable<decltype(T::Sleep)> &&
             std::convertible_to<decltype(T::Accumulate), std::uint32_t>;
-        };
 
         class Delegate
         {
