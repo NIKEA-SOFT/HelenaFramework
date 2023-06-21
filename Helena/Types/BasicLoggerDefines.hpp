@@ -44,10 +44,9 @@ namespace Helena::Log
     class ColorStyle;
 
     template <typename T>
-    concept DefinitionLogger = requires {
-        std::same_as<decltype(T::Prefix), std::string_view>;
-        std::same_as<decltype(T::Style), ColorStyle>;
-    };
+    concept DefinitionLogger =
+        std::same_as<std::remove_cvref_t<decltype(T::Prefix)>, std::string_view> &&
+        std::same_as<std::remove_cvref_t<decltype(T::Style)>, ColorStyle>;
 
     // Class with an implicit constructor for working with formatting
     template <typename Char>
