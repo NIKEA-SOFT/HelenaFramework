@@ -177,20 +177,32 @@ namespace Helena::Types
     protected:
         void* Allocate(std::size_t bytes, std::size_t alignment) override
         {
+        #if defined(__cpp_aligned_new)
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
                 return ::operator new(bytes, std::align_val_t{alignment});
             }
+        #endif
 
             return ::operator new(bytes);
         }
 
         void Free(void* ptr, [[maybe_unused]] std::size_t bytes, std::size_t alignment) override
         {
+        #if defined(__cpp_aligned_new)
             if(alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+            #if defined(__cpp_sized_deallocation)
                 return ::operator delete(ptr, bytes, std::align_val_t{alignment});
+            #else
+                return ::operator delete(ptr, std::align_val_t{alignment});
+            #endif
             }
+        #endif
 
+        #if defined(__cpp_sized_deallocation)
             ::operator delete(ptr, bytes);
+        #else
+            ::operator delete(ptr);
+        #endif
         }
 
         bool Equal(const IMemoryResource& other) const override {
