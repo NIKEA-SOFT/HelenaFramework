@@ -708,21 +708,29 @@ void test_allocators()
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::StackAllocator<sizeof(String) * 30, alignof(String)>> alloc;
+    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::MonotonicAllocator>> alloc;
     Helena::Types::IMemoryResource* memoryResource = &alloc;
     Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
 
     static constexpr auto name = alloc.Name();
     HELENA_MSG_NOTICE("Your allocator name: {}", alloc.Name());
 
-    vec_of_string.emplace_back("long message for got allocation", memoryResource);
-    vec_of_string.emplace_back("long message for got allocation", memoryResource);
-    vec_of_string.emplace_back("long message for got allocation", memoryResource);
-    vec_of_string.emplace_back("long message for got allocation", memoryResource);
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
 
     // Debug info
-    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
-        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 
     const auto vec_int = vec_of_string.get_allocator().AllocateObjects<std::vector<int>>();
     vec_of_string.get_allocator().ConstructObject(vec_int);
@@ -730,26 +738,26 @@ void test_allocators()
     vec_of_string.get_allocator().DestroyObject(vec_int);
     vec_of_string.get_allocator().FreeObjects(vec_int);
 
-    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
-        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 
-    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(true);
+    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(vec_of_string.get_allocator().MemoryResource());
     auto copy_vec = vec_of_string;
     for(auto& str : copy_vec) {
-        HELENA_MSG_NOTICE("Your copyied str: {}", str);
+        HELENA_MSG_NOTICE("Your copied str: {}", str);
     }
 
-    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
-        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 
-    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(false);
+    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(nullptr);
     auto copy_vec2 = vec_of_string;
     for(auto& str : copy_vec2) {
-        HELENA_MSG_NOTICE("Your copyied str 2: {}", str);
+        HELENA_MSG_NOTICE("Your copied str 2: {}", str);
     }
 
-    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {} | Capacity Remaining: {}",
-        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes(), alloc.Capacity() - alloc.Size());
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 }
 
 // Test specialization for logger
