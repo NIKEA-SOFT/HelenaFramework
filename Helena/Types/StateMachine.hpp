@@ -2,8 +2,8 @@
 #define HELENA_TYPES_STATEMACHINE_HPP
 
 #include <Helena/Traits/AnyOf.hpp>
-#include <Helena/Traits/Overloads.hpp>
 #include <Helena/Traits/UniqueTypes.hpp>
+#include <Helena/Types/Overloads.hpp>
 
 #include <variant>
 #include <utility>
@@ -62,7 +62,7 @@ namespace Helena::Types
         template <typename... Fn>
         requires (UniqueFunctions<Fn...> && (Invocable<Fn> && ...))
         constexpr void Visit(Fn&&... visitor) {
-            std::visit(Traits::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
+            std::visit(Types::Overloads{NoState{}, std::forward<Fn>(visitor)...}, m_States);
         }
 
         template <typename T>

@@ -39,7 +39,6 @@
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Traits/Identity.hpp>
 #include <Helena/Traits/NameOf.hpp>
-#include <Helena/Traits/Overloads.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Traits/Remove.hpp>
 #include <Helena/Traits/SameAll.hpp>
@@ -69,6 +68,7 @@
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Monostate.hpp>
 #include <Helena/Types/Mutex.hpp>
+#include <Helena/Types/Overloads.hpp>
 #include <Helena/Types/ReferencePointer.hpp>
 #include <Helena/Types/RWLock.hpp>
 #include <Helena/Types/SourceLocation.hpp>
@@ -91,7 +91,7 @@
 #include <Helena/Util/Cast.hpp>
 #include <Helena/Util/Format.hpp>
 #include <Helena/Util/Function.hpp>
-#include <Helena/Util/String.hpp>
 #include <Helena/Util/Sleep.hpp>
+#include <Helena/Util/String.hpp>
 
 #endif // HELENA_HPP

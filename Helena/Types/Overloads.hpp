@@ -1,9 +1,10 @@
-#ifndef HELENA_TRAITS_OVERLOADS_HPP
-#define HELENA_TRAITS_OVERLOADS_HPP
+#ifndef HELENA_TYPES_OVERLOADS_HPP
+#define HELENA_TYPES_OVERLOADS_HPP
 
 #include <type_traits>
 
-namespace Helena::Traits {
+namespace Helena::Types
+{
     template <typename... Fn>
     struct Overloads : Fn... {
         using Fn::operator()...;
@@ -13,4 +14,4 @@ namespace Helena::Traits {
     Overloads(Fn&&...) -> Overloads<Fn...>;
 }
 
-#endif // HELENA_TRAITS_OVERLOADS_HPP
+#endif // HELENA_TYPES_OVERLOADS_HPP
