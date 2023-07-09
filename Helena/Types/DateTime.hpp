@@ -235,7 +235,7 @@ namespace Helena::Types
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInMonth(std::int32_t year, std::int32_t month) noexcept {
             HELENA_ASSERT(month >= 1 && month <= Months);
-            return DaysPerMonth[month] - DaysPerMonth[static_cast<std::size_t>(month - 1)] + (month == 2 && IsLeapYear(year));
+            return DaysPerMonth[month] - DaysPerMonth[month - 1uLL] + (month == 2 && IsLeapYear(year));
         }
 
         [[nodiscard]] static constexpr std::int32_t GetDaysInYear(std::int32_t year) noexcept {
