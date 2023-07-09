@@ -63,8 +63,7 @@ namespace Helena::Types
                     if(!swapContainer || !swapContainer->empty())
                         return false;
                 } while(!m_Swap.compare_exchange_weak(swapContainer, m_WriterContainer, std::memory_order::release, std::memory_order::relaxed));
-                m_WriterContainer = swapContainer;
-                return true;
+                return m_WriterContainer = swapContainer;
             }
 
             return false;
@@ -107,8 +106,8 @@ namespace Helena::Types
         }
 
     private:
-        alignas(Traits::Cacheline) ContainerType* m_WriterContainer;
         alignas(Traits::Cacheline) AtomicContainerType m_Swap;
+        ContainerType* m_WriterContainer;
     };
 }
 
