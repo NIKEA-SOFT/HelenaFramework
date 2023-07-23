@@ -11,7 +11,7 @@ namespace Helena::Types
     };
 
     template <typename... Fn>
-    Overloads(Fn&&...) -> Overloads<Fn...>;
+    Overloads(Fn&&...) -> Overloads<std::remove_cvref_t<Fn>...>;
 }
 
 #endif // HELENA_TYPES_OVERLOADS_HPP
