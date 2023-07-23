@@ -76,14 +76,6 @@ namespace Helena::Types
             Free(ptr, bytes, alignment);
         }
 
-        void CopyableAllocator(IMemoryResource* resource) noexcept {
-            m_CopyableAllocator = resource;
-        }
-
-        [[nodiscard]] IMemoryResource* CopyableAllocator() const noexcept {
-            return m_CopyableAllocator;
-        }
-
         [[nodiscard]] bool CompareResource(const IMemoryResource& other) const noexcept {
             return Equal(other);
         }
@@ -140,9 +132,6 @@ namespace Helena::Types
         virtual void* Allocate(std::size_t bytes, std::size_t alignment) = 0;
         virtual void Free(void* ptr, std::size_t bytes, std::size_t alignment) = 0;
         virtual bool Equal(const IMemoryResource& other) const = 0;
-
-    private:
-        IMemoryResource* m_CopyableAllocator{};
     };
 
     /**
@@ -161,6 +150,7 @@ namespace Helena::Types
     */
     class DefaultAllocator : public IMemoryResource
     {
+        static DefaultAllocator Default;
         static inline IMemoryResource* m_Resource{};
 
     public:
@@ -227,6 +217,7 @@ namespace Helena::Types
     */
     class NulledAllocator : public IMemoryResource
     {
+        static NulledAllocator Default;
         static inline IMemoryResource* m_Resource{};
 
     public:
@@ -629,7 +620,7 @@ namespace Helena::Types
         MemoryAllocator(const MemoryAllocator&) = default;
 
         template <typename Other>
-        MemoryAllocator(const MemoryAllocator<Other>& allocator) noexcept : m_Resource{allocator.m_Resource} {
+        explicit MemoryAllocator(const MemoryAllocator<Other>& allocator) noexcept : m_Resource{allocator.m_Resource} {
             HELENA_ASSERT(allocator.m_Resource, "Resource pointer cannot be nullptr");
         }
 
@@ -678,12 +669,12 @@ namespace Helena::Types
 
         template <typename U, typename... Args>
         void ConstructObject(U* const ptr, Args&&... args) {
-            std::uninitialized_construct_using_allocator(ptr, *this, std::forward<Args>(args)...);
+            construct(ptr, std::forward<Args>(args)...);
         }
 
         template <typename U>
         void DestroyObject(U* const ptr) noexcept {
-            std::allocator_traits<MemoryAllocator>::destroy(*this, ptr);
+            destroy(ptr);
         }
 
         [[nodiscard]] IMemoryResource* MemoryResource() const noexcept {
@@ -780,7 +771,7 @@ namespace Helena::Types
 
         template <typename U>
         void delete_object(U* const ptr) noexcept {
-            std::allocator_traits<MemoryAllocator>::destroy(*this, ptr);
+            destroy(ptr);
             deallocate_object(ptr);
         }
 
@@ -789,12 +780,12 @@ namespace Helena::Types
             std::uninitialized_construct_using_allocator(ptr, *this, std::forward<Args>(args)...);
         }
 
-        [[nodiscard]] MemoryAllocator select_on_container_copy_construction() const noexcept
-        {
-            if(m_Resource->CopyableAllocator()) {
-                return MemoryAllocator(m_Resource->CopyableAllocator());
-            }
+        template <typename U>
+        void destroy(U* const ptr) noexcept {
+            std::destroy_at(ptr);
+        }
 
+        [[nodiscard]] MemoryAllocator select_on_container_copy_construction() const noexcept {
             return MemoryAllocator();
         }
 
@@ -832,22 +823,23 @@ namespace Helena::Types
 
     [[nodiscard]] inline IMemoryResource* DefaultAllocator::Get() noexcept
     {
-        if(!DefaultAllocator::m_Resource) [[unlikely]] {
-            static DefaultAllocator resource{};
-            DefaultAllocator::m_Resource = &resource;
+        if(!m_Resource) [[unlikely]] {
+            m_Resource = &Default;
         }
 
-        return DefaultAllocator::m_Resource;
+        return m_Resource;
     }
 
     [[nodiscard]] inline IMemoryResource* NulledAllocator::Get() noexcept
     {
-        if(!NulledAllocator::m_Resource) [[unlikely]] {
-            static NulledAllocator resource{};
-            NulledAllocator::m_Resource = &resource;
+        if(!m_Resource) [[unlikely]] {
+            m_Resource = &Default;
         }
 
-        return NulledAllocator::m_Resource;
+        return m_Resource;
     }
+
+    DefaultAllocator DefaultAllocator::Default{};
+    NulledAllocator NulledAllocator::Default{};
 }
 #endif // HELENA_TYPES_STACKALLOCATOR_HPP
