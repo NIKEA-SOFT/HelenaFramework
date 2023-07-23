@@ -45,7 +45,7 @@ namespace Helena::Types
 
         ReferencePointer& operator=(const ReferencePointer& other)
         {
-            if(this != std::addressof(other) && m_Container != other.m_Container) [[likely]]
+            if(m_Container != other.m_Container) [[likely]]
             {
                 if(ExchangeReset(other.m_Container); m_Container) {
                     ++m_Container->Second();
@@ -55,12 +55,9 @@ namespace Helena::Types
             return *this;
         }
 
-        ReferencePointer& operator=(ReferencePointer&& other) noexcept
-        {
-            if(const auto temp = std::exchange(other.m_Container, nullptr); m_Container != temp) [[likely]] {
-                ExchangeReset(temp);
-            }
-
+        ReferencePointer& operator=(ReferencePointer&& other) noexcept {
+            ExchangeReset(other.m_Container);
+            other.m_Container = nullptr;
             return *this;
         }
 
