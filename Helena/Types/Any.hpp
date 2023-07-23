@@ -152,7 +152,7 @@ namespace Helena::Types
                 return m_Name;
             }
 
-            [[nodiscard]] constexpr auto Hash() const noexcept {
+            [[nodiscard]] constexpr auto TypeHash() const noexcept {
                 return m_Hash;
             }
 
@@ -313,7 +313,7 @@ namespace Helena::Types
         [[nodiscard]] constexpr bool Contain() const noexcept {
             if(!Empty()) [[likely]] {
                 constexpr auto hash = HashOf<std::decay_t<T>>;
-                return m_Pair.First()->Hash() == hash;
+                return m_Pair.First()->TypeHash() == hash;
             }
             return false;
         }
@@ -327,10 +327,10 @@ namespace Helena::Types
             return nullptr;
         }
 
-        [[nodiscard]] constexpr auto Hash() const noexcept
+        [[nodiscard]] constexpr auto TypeHash() const noexcept
         {
             if(!Empty()) {
-                return m_Pair.First()->Hash();
+                return m_Pair.First()->TypeHash();
             }
             return HasherValue{};
         }
@@ -374,7 +374,7 @@ namespace Helena::Types
 
         [[nodiscard]] constexpr bool operator==(const Any& other) const noexcept {
             return m_Pair.First() && other.m_Pair.First()
-                && m_Pair.First()->Hash() == other.m_Pair.First()->Hash();
+                && m_Pair.First()->TypeHash() == other.m_Pair.First()->TypeHash();
         }
 
         [[nodiscard]] constexpr explicit operator bool() const noexcept {
@@ -409,7 +409,7 @@ namespace Helena::Types
             // branch suppressing
             if(const auto vtable = m_Pair.First()) [[likely]] {
                 const void* result[]{nullptr, vtable->Data(*this)};
-                return result[vtable->Hash() == HashOf<T>];
+                return result[vtable->TypeHash() == HashOf<T>];
             }
 
             return nullptr;
