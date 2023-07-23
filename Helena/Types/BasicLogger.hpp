@@ -2,14 +2,20 @@
 #define HELENA_TYPES_BASICLOGGER_HPP
 
 #include <Helena/Types/BasicLoggerDefines.hpp>
+#include <Helena/Types/DateTime.hpp>
 #include <Helena/Types/ReferencePointer.hpp>
+
+#include <array>
+#include <locale>
+#include <string>
+#include <new>
 
 namespace Helena::Log
 {
     namespace Internal
     {
         template <typename Char>
-        static thread_local auto UniqueBuffer = Types::ReferencePointer<std::basic_string<Char>>::Create(1024, 0);
+        inline thread_local auto UniqueBuffer = Types::ReferencePointer<std::basic_string<Char>>::Create(1024, 0);
 
         template <typename Char>
         [[nodiscard]] static auto BufferSwitch() noexcept
@@ -22,9 +28,6 @@ namespace Helena::Log
             return buffer;
         }
     }
-
-    template <DefinitionLogger T>
-    static constexpr auto UseLogger = T{};
 
     template <DefinitionLogger Logger, typename Char, typename... Args>
     void MessagePrint(const Formatter<Char> format, Args&&... args)
@@ -52,9 +55,9 @@ namespace Helena::Log
 
         try {
             const auto fnFormatStyle = [&](const Char* file, const Char* prefix) {
-                const auto timeNow = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+                const auto dateTime = Types::DateTime::FromLocalTime();
                 std::vformat_to(std::back_inserter(*buffer), Print<Char>::FormatStyle,
-                    std::make_format_args<typename Print<Char>::Context>(timeNow, prefix, file, format.Line()));
+                    std::make_format_args<typename Print<Char>::Context>(dateTime, prefix, file, format.Line()));
             };
 
             // Convert Prefix and Location from const char* to wchar_t* using stack memory
@@ -68,7 +71,8 @@ namespace Helena::Log
                     std::size_t i{};
                     while(i < size && src[i] != '\0') {
                         data[i] = facet.widen(src[i]); ++i;
-                    }   data[i] = facet.widen('\0');
+                    }
+                    data[i] = facet.widen('\0');
                     return ++i;
                 };
 

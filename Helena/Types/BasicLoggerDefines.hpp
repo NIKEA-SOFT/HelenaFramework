@@ -1,21 +1,14 @@
 #ifndef HELENA_TYPES_BASICLOGGERSDEF_HPP
 #define HELENA_TYPES_BASICLOGGERSDEF_HPP
 
-#include <Helena/Platform/Defines.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Types/SourceLocation.hpp>
 #include <Helena/Util/Cast.hpp>
 
 #include <cstdint>
 #include <cstdio>
-#include <ctime>
-#include <chrono>
-#include <new>
 #include <format>
-#include <iterator>
-#include <locale>
-#include <string>
-#include <utility>
+#include <type_traits>
 #include <concepts>
 
 namespace Helena::Log
@@ -41,7 +34,37 @@ namespace Helena::Log
         BrightWhite
     };
 
-    class ColorStyle;
+    class ColorStyle
+    {
+    public:
+        static constexpr auto ColorSize = 10;
+        static constexpr auto ColorSizeEnd = 4;
+
+    public:
+        constexpr ColorStyle(Color front = Color::Default, Color back = Color::Default)
+            : m_Front{front}, m_Back{back} {}
+
+        template <typename Char>
+        void BeginColor(std::basic_string<Char>& buffer) const {
+            const Char color[]{0x1B, 0x5B, 0x30,
+                0x3B, static_cast<Char>(Util::Cast(m_Front) >> 0x08), static_cast<Char>(Util::Cast(m_Front) & 0xFF),
+                0x3B, static_cast<Char>(((Util::Cast(m_Back) >> 0x08) + 0x06) & 0xFF), static_cast<Char>(Util::Cast(m_Back) & 0xFF),
+                0x6D};
+            static_assert(std::size(color) == ColorSize);
+            buffer.append(color, std::size(color));
+        }
+
+        template <typename Char>
+        static void EndColor(std::basic_string<Char>& buffer) {
+            constexpr Char colorReset[]{0x1B, 0x5B, 0x30, 0x6D};
+            static_assert(std::size(colorReset) == ColorSizeEnd);
+            buffer.append(colorReset, std::size(colorReset));
+        }
+
+    private:
+        Color m_Front;
+        Color m_Back;
+    };
 
     template <typename T>
     concept DefinitionLogger =
@@ -92,7 +115,7 @@ namespace Helena::Log
     {
         using Context = std::format_context;
 
-        static constexpr auto FormatStyle = "[{:%Y.%m.%d %H:%M:%S}][{}][{}:{}] ";
+        static constexpr auto FormatStyle = "[{}][{}][{}:{}] ";
         static constexpr auto AllocateError =
             "\n----------------------------------------\n"
             "|| Error: alloc memory failed!\n"
@@ -111,7 +134,7 @@ namespace Helena::Log
         #elif defined(HELENA_PLATFORM_LINUX)
             if(isatty(fileno(stream)))
         #endif
-                (void)std::fputs(message.data(), stream);
+            (void)std::fputs(message.data(), stream);
         }
     };
 
@@ -120,7 +143,7 @@ namespace Helena::Log
     {
         using Context = std::wformat_context;
 
-        static constexpr auto FormatStyle = L"[{:%Y.%m.%d %H:%M:%S}][{}][{}:{}] ";
+        static constexpr auto FormatStyle = L"[{}][{}][{}:{}] ";
         static constexpr auto AllocateError =
             L"\n----------------------------------------\n"
             L"|| Error: alloc memory failed!\n"
@@ -139,7 +162,7 @@ namespace Helena::Log
         #elif defined(HELENA_PLATFORM_LINUX)
             if(isatty(fileno(stream)))
         #endif
-                (void)std::fputws(message.data(), stream);
+            (void)std::fputws(message.data(), stream);
         }
     };
 
@@ -163,38 +186,6 @@ namespace Helena::Log
         static bool Muted() {
             return false;
         }
-    };
-
-    class ColorStyle
-    {
-    public:
-        static constexpr auto m_ColorSize = 10;
-        static constexpr auto m_ColorSizeEnd = 4;
-
-    public:
-        constexpr ColorStyle(Color front = Color::Default, Color back = Color::Default)
-            : m_Front{front}, m_Back{back} {}
-
-        template <typename Char>
-        void BeginColor(std::basic_string<Char>& buffer) const {
-            const Char color[]{0x1B, 0x5B, 0x30,
-                0x3B, static_cast<Char>(Util::Cast(m_Front) >> 0x08), static_cast<Char>(Util::Cast(m_Front) & 0xFF),
-                0x3B, static_cast<Char>(((Util::Cast(m_Back) >> 0x08) + 0x06) & 0xFF), static_cast<Char>(Util::Cast(m_Back) & 0xFF),
-                0x6D};
-            static_assert(std::size(color) == m_ColorSize);
-            buffer.append(color, std::size(color));
-        }
-
-        template <typename Char>
-        void EndColor(std::basic_string<Char>& buffer) const {
-            const Char colorReset[]{0x1B, 0x5B, 0x30, 0x6D};
-            static_assert(std::size(colorReset) == m_ColorSizeEnd);
-            buffer.append(colorReset, std::size(colorReset));
-        }
-
-    private:
-        Color m_Front;
-        Color m_Back;
     };
 
     // Util functions for creating logging structures
