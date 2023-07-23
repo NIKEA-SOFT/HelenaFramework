@@ -2,7 +2,6 @@
 #define HELENA_TYPES_BENCHMARKSCOPED_HPP
 
 #include <Helena/Types/BasicLogger.hpp>
-#include <chrono>
 
 namespace Helena::Types
 {
