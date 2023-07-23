@@ -1,12 +1,11 @@
 #ifndef HELENA_TYPES_DATETIME_HPP
 #define HELENA_TYPES_DATETIME_HPP
 
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
-#include <array>
 #include <ctime>
 #include <charconv>
 #include <chrono>
+#include <format>
 
 // #define HELENA_ZONED_TIME -> enable use of zoned_time forcibly
 
@@ -27,9 +26,10 @@ namespace Helena::Types
         static constexpr std::int64_t m_TicksPerHours = 60LL * m_TicksPerMinutes;
         static constexpr std::int64_t m_TicksPerDays = 24LL * m_TicksPerHours;
 
-        static constexpr auto DaysPerMonth = std::array{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
-        static constexpr auto DaysInWeek = 7;
-        static constexpr auto Months = 12;
+        static constexpr std::int32_t DaysPerMonth[]{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+        static constexpr std::int64_t DaysInWeek = 7;
+        static constexpr std::int32_t Months = 12;
+
     public:
         enum class EMonths : std::uint8_t {
             January = 1,
@@ -62,7 +62,9 @@ namespace Helena::Types
         explicit constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
         explicit constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
             std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t millisecond = 0) : m_Ticks{} {
-            HELENA_ASSERT(Valid(year, month, day, hour, minute, second, millisecond));
+            if(!Valid(year, month, day, hour, minute, second, millisecond)) [[unlikely]] {
+                throw std::logic_error("Invalid date value!");
+            }
             m_Ticks = DateToTicks(year, month, day) + TimeToTicks(hour, minute, second) + millisecond * m_TicksPerMilliseconds;
         }
         constexpr DateTime& operator=(const DateTime&) = default;
@@ -90,7 +92,7 @@ namespace Helena::Types
                 #error Unknown platform detected!
             #endif
             return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
-                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec)};
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeNow % 1000)};
         #endif
         }
 
@@ -112,7 +114,7 @@ namespace Helena::Types
                 #error Unknown platform detected!
             #endif
             return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
-                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec)};
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeNow % 1000)};
         #endif
         }
 
@@ -132,7 +134,7 @@ namespace Helena::Types
         // %s - seconds
         // %ms - milliseconds
         // Currently this function not constexpr because used from_chars
-        [[nodiscard]] static DateTime FromString(std::string_view format, std::string_view time) noexcept
+        [[nodiscard]] static DateTime FromString(std::string_view format, std::string_view time)
         {
             if(format.empty() || time.empty()) {
                 return DateTime{};
@@ -153,25 +155,24 @@ namespace Helena::Types
                     const auto data = buffer.substr(offset, read_length);
 
                     // Buffer can be small, need compare for check
-                    HELENA_ASSERT(data.size() == read_length, "Parse data: \"{}\" failed, data size less than read_length", data);
-                    if(data.size() == read_length)
+                    if(data.size() == read_length) [[likely]]
                     {
                         // Cast string to int
                         const auto [ptr, err] = std::from_chars(data.data(), data.data() + data.size(), out);
-                        HELENA_ASSERT(err == std::errc{}, "Cast data: \"{}\" failed", data);
 
                         // Check cast result
-                        if(err == std::errc{}) {
+                        if(err == std::errc{}) [[likely]] {
                             // Add size to offset for parse other data in next time
                             offset += data.size();
                             return true;
                         }
+                        else throw std::runtime_error("Cast data failed!");
                     }
+                    else throw std::runtime_error("Parse data failed, data size less than read_length");
                 }
 
                 return false;
             };
-
 
             while(true)
             {
@@ -181,49 +182,47 @@ namespace Helena::Types
                     case '%': break;
 
                     case 'D': {
-                        HELENA_ASSERT(!day);
-                        if(!fnParse(time, offsetTime, 2uLL, day)) goto RETURN;
+                        if(day) [[unlikely]] throw std::logic_error("Day has already been initialized!");
+                        if(!fnParse(time, offsetTime, 2, day)) goto RETURN;
                     } break;
 
                     case 'M': {
-                        HELENA_ASSERT(!month);
-                        if(!fnParse(time, offsetTime, 2uLL, month)) goto RETURN;
+                        if(month) [[unlikely]] throw std::logic_error("Month has already been initialized!");
+                        if(!fnParse(time, offsetTime, 2, month)) goto RETURN;
                     } break;
 
                     case 'Y': {
-                        HELENA_ASSERT(!year);
-                        if(!fnParse(time, offsetTime, 4uLL, year)) goto RETURN;
+                        if(year) [[unlikely]] throw std::logic_error("Year has already been initialized!");
+                        if(!fnParse(time, offsetTime, 4, year)) goto RETURN;
                     } break;
 
                     case 'h': {
-                        HELENA_ASSERT(!hour);
-                        if(!fnParse(time, offsetTime, 2uLL, hour)) goto RETURN;
+                        if(hour) [[unlikely]] throw std::logic_error("Hour has already been initialized!");
+                        if(!fnParse(time, offsetTime, 2, hour)) goto RETURN;
                     } break;
 
                     case 'm':
                     {
                         if((offsetFormat + 1) < format.size() && format[offsetFormat + 1] == 's') {
-                            HELENA_ASSERT(!milliseconds);
+                            if(milliseconds) [[unlikely]] throw std::logic_error("Milliseconds has already been initialized!");
                             fnNextChar(format, offsetFormat);
-                            key = fnParse(time, offsetTime, 3uLL, milliseconds);
+                            key = fnParse(time, offsetTime, 3, milliseconds);
                         } else {
-                            HELENA_ASSERT(!minutes);
-                            key = fnParse(time, offsetTime, 2uLL, minutes);
+                            if(minutes) [[unlikely]] throw std::logic_error("Minutes has already been initialized!");
+                            key = fnParse(time, offsetTime, 2, minutes);
                         }
 
                         if(!key) goto RETURN;
                     } break;
 
                     case 's': {
-                        HELENA_ASSERT(!seconds);
-                        if(!fnParse(time, offsetTime, 2uLL, seconds)) goto RETURN;
+                        if(seconds) [[unlikely]] throw std::logic_error("Seconds has already been initialized!");
+                        if(!fnParse(time, offsetTime, 2, seconds)) goto RETURN;
                     } break;
 
                     default: {
-                        if(key != fnNextChar(time, offsetTime)) {
-                            HELENA_ASSERT(key == fnNextChar(time, offsetTime),
-                                "Format: \"{}\" and Time: \"{}\" separators do not match!", key, fnNextChar(time, offsetTime));
-                            goto RETURN;
+                        if(key != fnNextChar(time, offsetTime)) [[unlikely]] {
+                            throw std::logic_error("Format and Time separators do not match!");
                         }
                     } break;
                 }
@@ -233,30 +232,50 @@ namespace Helena::Types
             return DateTime{};
         }
 
-        [[nodiscard]] static constexpr std::int32_t GetDaysInMonth(std::int32_t year, std::int32_t month) noexcept {
-            HELENA_ASSERT(month >= 1 && month <= Months);
-            return DaysPerMonth[month] - DaysPerMonth[month - 1uLL] + (month == 2 && IsLeapYear(year));
+        [[nodiscard]] static constexpr std::int32_t GetDaysInMonth(std::int32_t year, std::int32_t month)
+        {
+            if(!(month >= 1 && month <= Months)) {
+                throw std::overflow_error("Invalid month!");
+            }
+
+            return DaysPerMonth[month] - DaysPerMonth[month - 1] + (month == 2 && IsLeapYear(year));
         }
 
-        [[nodiscard]] static constexpr std::int32_t GetDaysInYear(std::int32_t year) noexcept {
-            HELENA_ASSERT(year >= 1 && year <= 9999);
+        [[nodiscard]] static constexpr std::int32_t GetDaysInYear(std::int32_t year)
+        {
+            if(!(year >= 1 && year <= 9999)) [[unlikely]] {
+                throw std::overflow_error("Invalid year!");
+            }
+
             return IsLeapYear(year) ? 366 : 365;
         }
 
-        [[nodiscard]] static constexpr bool IsLeapYear(std::int32_t year) noexcept {
-            HELENA_ASSERT(year >= 1 && year <= 9999);
+        [[nodiscard]] static constexpr bool IsLeapYear(std::int32_t year)
+        {
+            if(!(year >= 1 && year <= 9999)) [[unlikely]] {
+                throw std::overflow_error("Invalid year!");
+            }
+
             return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
         }
 
-        [[nodiscard]] static constexpr std::int64_t DateToTicks(std::int32_t year, std::int32_t month, std::int32_t day) noexcept {
-            HELENA_ASSERT(Valid(year, month, day));
+        [[nodiscard]] static constexpr std::int64_t DateToTicks(std::int32_t year, std::int32_t month, std::int32_t day)
+        {
+            if(!Valid(year, month, day)) [[unlikely]] {
+                throw std::logic_error("Invalid date value!");
+            }
+
             --year; --month; --day;
             return (year * 365LL + year / 4 - year / 100 + year / 400 + DaysPerMonth[month] + day + (month > 2 && IsLeapYear(year + 1))) * m_TicksPerDays;
         }
 
         [[nodiscard]] static constexpr std::int64_t TimeToTicks(std::int32_t hour, std::int32_t minute = 0,
-                                                                std::int32_t second = 0, std::int32_t millisecond = 0) noexcept {
-            HELENA_ASSERT(Valid(hour, minute, second, millisecond));
+                                                                std::int32_t second = 0, std::int32_t millisecond = 0)
+        {
+            if(!Valid(hour, minute, second, millisecond)) [[unlikely]] {
+                throw std::logic_error("Invalid date value!");
+            }
+
             return hour * m_TicksPerHours + minute * m_TicksPerMinutes + second * m_TicksPerSeconds + millisecond * m_TicksPerMilliseconds;
         }
 
@@ -265,7 +284,7 @@ namespace Helena::Types
             return Valid(year, month, day) && Valid(hour, minute, second, millisecond);
         }
 
-        [[nodiscard]] static constexpr bool Valid(std::int32_t year, std::int32_t month, std::int32_t day) noexcept {
+        [[nodiscard]] static constexpr bool Valid(std::int32_t year, std::int32_t month, std::int32_t day) {
             return (year >= 1 && year <= 9999)
                 && (month >= 1 && month <= Months)
                 && (day >= 1 && day <= GetDaysInMonth(year, month));
@@ -326,7 +345,7 @@ namespace Helena::Types
             return static_cast<std::int32_t>((m_Ticks / m_TicksPerMinutes) % 60LL);
         }
 
-        [[nodiscard]] constexpr std::int32_t GetHour() const noexcept {
+        [[nodiscard]] constexpr std::int32_t GetHours() const noexcept {
             return static_cast<std::int32_t>((m_Ticks / m_TicksPerHours) % 24LL);
         }
 
@@ -418,7 +437,6 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr DateTime operator/(const DateTime other) const noexcept {
-            HELENA_ASSERT(other.m_Ticks, "Divide by zero");
             return DateTime{m_Ticks / other.m_Ticks};
         }
 
@@ -438,7 +456,6 @@ namespace Helena::Types
         }
 
         [[nodiscard]] constexpr DateTime& operator/=(const DateTime other) noexcept {
-            HELENA_ASSERT(other.m_Ticks, "Divide by zero");
             m_Ticks /= other.m_Ticks;
             return *this;
         }
@@ -447,6 +464,23 @@ namespace Helena::Types
 
     private:
         std::int64_t m_Ticks;
+    };
+}
+
+namespace std
+{
+    template <typename Char>
+    struct formatter<Helena::Types::DateTime, Char>
+    {
+        constexpr auto parse(auto& ctx) {
+            return ctx.begin();
+        }
+
+        auto format(const Helena::Types::DateTime dateTime, auto& ctx) const {
+            return std::format_to(ctx.out(), "{:04}.{:02}.{:02} {:02}:{:02}:{:02}.{:03}",
+                dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
+                dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds(), dateTime.GetMilliseconds());
+        }
     };
 }
 
