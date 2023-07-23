@@ -38,7 +38,7 @@ namespace Helena::Util
             inline thread_local auto m_Buffers = []{
                 std::array<Types::ReferencePointer<std::basic_string<Char>>, m_BufferCount> array;
                 for(auto& buffer : array) {
-                    buffer = Types::ReferencePointer<std::basic_string<Char>>::Create(m_BufferCapacity, 0);
+                    buffer = decltype(array)::value_type::Create(m_BufferCapacity, 0);
                 }
                 return array;
             }();
