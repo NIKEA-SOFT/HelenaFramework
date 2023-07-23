@@ -416,6 +416,8 @@ private:
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
 
+        sizeof(AnimationManager);
+
         /*
         struct MyResource {
             std::size_t value;
@@ -448,52 +450,52 @@ private:
         Helena::Engine::RemoveSystem<Helena::Systems::ResourceManager>();
         */
 
-        if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+        if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
             HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
         } else {
             HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
         }
 
-        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
 
         // Or Signals
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit, []() {
             HELENA_MSG_NOTICE("Hello from PreInit");
         }>();
 
-        if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+        if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
             HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
         } else {
             HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
         }
 
-        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
 
         Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, []() {
             HELENA_MSG_NOTICE("Hello from Init");
 
-            if(Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit>()) {
+            if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
                 HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
             } else {
                 HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
             }
 
-            HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::SubscribersEvent<Helena::Events::Engine::PreInit>());
+            HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
 
-            const auto [hasPreInit, hasInit] = Helena::Engine::HasSubscribersEvent<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>();
+            const auto [hasPreInit, hasInit] = Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>();
             if(hasPreInit && hasInit) {
                 HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS TRUE");
             } else {
                 HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS FALSE, BUT PRE INIT: {}, INIT: {}", hasPreInit, hasInit);
             }
 
-            if(Helena::Engine::AnySubscribersEvent<Helena::Events::Engine::PreInit>()) {
+            if(Helena::Engine::AnySubscribers<Helena::Events::Engine::PreInit>()) {
                 HELENA_MSG_WARNING("TEST: ANY PRE INIT TRUE");
             } else {
                 HELENA_MSG_WARNING("TEST: ANY PRE INIT FALSE");
             }
 
-            if(Helena::Engine::AnySubscribersEvent<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>()) {
+            if(Helena::Engine::AnySubscribers<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>()) {
                 HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT TRUE");
             } else {
                 HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT FALSE");
@@ -741,8 +743,7 @@ void test_allocators()
     HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
         alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 
-    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(vec_of_string.get_allocator().MemoryResource());
-    auto copy_vec = vec_of_string;
+    auto copy_vec = Vector(vec_of_string, vec_of_string.get_allocator());
     for(auto& str : copy_vec) {
         HELENA_MSG_NOTICE("Your copied str: {}", str);
     }
@@ -750,7 +751,6 @@ void test_allocators()
     HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
         alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 
-    vec_of_string.get_allocator().MemoryResource()->CopyableAllocator(nullptr);
     auto copy_vec2 = vec_of_string;
     for(auto& str : copy_vec2) {
         HELENA_MSG_NOTICE("Your copied str 2: {}", str);
