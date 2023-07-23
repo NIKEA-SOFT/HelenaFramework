@@ -29,7 +29,7 @@ namespace Helena
         const auto dateTime  = Types::DateTime::FromLocalTime();
         const auto& dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
                                 dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
-                                dateTime.GetHour(), dateTime.GetMinutes(), dateTime.GetSeconds());
+                                dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
         const auto hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -373,35 +373,32 @@ namespace Helena
 
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
-    [[nodiscard]]
-    auto Engine::SubscribersEvent()
+    [[nodiscard]] auto Engine::Subscribers()
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
             return ctx.m_Signals.template Has<Event...>() ? ctx.m_Signals.template Get<Event...>().size() : 0;
         } else {
-            return std::make_tuple(SubscribersEvent<Event>()...);
+            return std::make_tuple(Subscribers<Event>()...);
         }
     }
 
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
-    [[nodiscard]]
-    auto Engine::HasSubscribersEvent()
+    [[nodiscard]] auto Engine::HasSubscribers()
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
             return ctx.m_Signals.template Has<Event...>() && !ctx.m_Signals.template Get<Event...>().empty();
         } else {
-            return std::make_tuple(HasSubscribersEvent<Event>()...);
+            return std::make_tuple(HasSubscribers<Event>()...);
         }
     }
 
     template <typename... Event>
     requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
-    [[nodiscard]]
-    auto Engine::AnySubscribersEvent() {
-        return (HasSubscribersEvent<Event>() || ...);
+    [[nodiscard]] auto Engine::AnySubscribers() {
+        return (HasSubscribers<Event>() || ...);
     }
 
     template <typename Event, typename... Args>

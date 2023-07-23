@@ -469,7 +469,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static auto SubscribersEvent();
+        static auto Subscribers();
 
         /**
         * @brief Check has listeners subscribed to Events
@@ -480,7 +480,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static auto HasSubscribersEvent();
+        static auto HasSubscribers();
 
         /**
         * @brief Check has any listeners are subscribed to any of the Events.
@@ -491,7 +491,7 @@ namespace Helena
         template <typename... Event>
         requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
         [[nodiscard]]
-        static auto AnySubscribersEvent();
+        static auto AnySubscribers();
 
         /**
         * @brief Trigger an event for all listeners
