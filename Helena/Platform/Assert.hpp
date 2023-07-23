@@ -1,6 +1,7 @@
 #ifndef HELENA_PLATFORM_ASSERT_HPP
 #define HELENA_PLATFORM_ASSERT_HPP
 
+#include <Helena/Platform/Defines.hpp>
 #include <Helena/Types/BasicLoggerDefines.hpp>
 #include <tuple>
 
