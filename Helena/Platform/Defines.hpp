@@ -60,7 +60,7 @@
 
 /* ----------- [Features] ----------- */
 #if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-    #define HELENA_FORCEINLINE          __attribute__((always_inline)
+    #define HELENA_FORCEINLINE          __attribute__((always_inline))
 #elif defined(HELENA_COMPILER_MSVC)
     #define HELENA_FORCEINLINE          __forceinline
 #endif
