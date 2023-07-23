@@ -131,11 +131,17 @@ namespace Helena::Types
     FixedBuffer(const Char(&)[Capacity]) -> FixedBuffer<Capacity, Char>;
 }
 
-namespace std {
+namespace std
+{
     template <std::size_t N, typename Char>
-    struct formatter<Helena::Types::FixedBuffer<N, Char>> : formatter<string_view> {
-        auto format(const Helena::Types::FixedBuffer<N, Char>& name, format_context& ctx) const {
-            return std::format_to(ctx.out(), "{}", static_cast<string_view>(name));
+    struct formatter<Helena::Types::FixedBuffer<N, Char>, Char>
+    {
+        constexpr auto parse(auto& ctx) {
+            return ctx.begin();
+        }
+
+        auto format(const Helena::Types::FixedBuffer<N, Char>& name, auto& ctx) const {
+            return std::format_to(ctx.out(), "{}", static_cast<const Char*>(name));
         }
     };
 }
