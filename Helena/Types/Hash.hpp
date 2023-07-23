@@ -56,7 +56,6 @@ namespace Helena::Types
             return Calculate(container.begin(), container.end());
         }
 
-
         [[nodiscard]] static constexpr auto From(const char* str) noexcept {
             return From(std::string_view{str});
         }
