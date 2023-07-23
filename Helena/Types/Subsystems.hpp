@@ -15,9 +15,9 @@ namespace Helena::Types
         Subsystems() noexcept : m_Subsystems{} {};
         ~Subsystems() noexcept = default;
         Subsystems(const Subsystems&) noexcept = delete;
+        Subsystems(Subsystems&&) noexcept = default;
         Subsystems& operator=(const Subsystems&) noexcept = delete;
-        Subsystems(Subsystems&&) noexcept = delete;
-        Subsystems& operator=(Subsystems&&) noexcept = delete;
+        Subsystems& operator=(Subsystems&&) noexcept = default;
 
         template <typename Subsystem, typename... Args>
         void RegisterSubsystem(Args&&... args) {
