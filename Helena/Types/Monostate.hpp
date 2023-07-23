@@ -1,7 +1,7 @@
 #ifndef HELENA_TYPES_MONOSTATE_HPP
 #define HELENA_TYPES_MONOSTATE_HPP
 
-#include <Helena/Types/FixedBuffer.hpp>
+#include <cstdint>
 
 namespace Helena::Types
 {
