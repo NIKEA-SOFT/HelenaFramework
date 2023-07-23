@@ -1,9 +1,10 @@
 #ifndef HELENA_TYPES_UNIQUEINDEXER_HPP
 #define HELENA_TYPES_UNIQUEINDEXER_HPP
 
+#include <Helena/Platform/Defines.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/Spinlock.hpp>
-#include <Helena/Platform/Assert.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -17,7 +18,6 @@ namespace Helena::Types
 
         struct Container {
             std::vector<typename Hasher::value_type> m_Keys;
-            Spinlock m_Lock;
         };
 
         template <typename T>
@@ -27,12 +27,12 @@ namespace Helena::Types
         UniqueIndexer() = default;
         ~UniqueIndexer() = default;
         UniqueIndexer(const UniqueIndexer&) = delete;
-        UniqueIndexer(UniqueIndexer&&) noexcept = delete;
+        UniqueIndexer(UniqueIndexer&&) noexcept = default;
         UniqueIndexer& operator=(const UniqueIndexer&) = delete;
-        UniqueIndexer& operator=(UniqueIndexer&&) noexcept = delete;
+        UniqueIndexer& operator=(UniqueIndexer&&) noexcept = default;
 
         template <typename T>
-        [[nodiscard]] std::size_t Get() const {
+        [[nodiscard]] HELENA_FORCEINLINE std::size_t Get() const {
             if(m_TypeIndex<T> == (std::numeric_limits<std::size_t>::max)()) [[unlikely]] {
                 m_TypeIndex<T> = TypeIndexer<T>::GetIndex(m_Indexes);
                 HELENA_ASSERT(m_TypeIndex<T> < m_Indexes->m_Keys.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
@@ -48,9 +48,8 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] static std::size_t GetIndex(const std::unique_ptr<Container>& storage)
+            [[nodiscard]] HELENA_NOINLINE static std::size_t GetIndex(const std::unique_ptr<Container>& storage)
             {
-                std::lock_guard lock{storage->m_Lock};
                 if(const auto it = std::find(storage->m_Keys.cbegin(), storage->m_Keys.cend(), m_Key); it != storage->m_Keys.cend()) {
                     return std::distance(storage->m_Keys.cbegin(), it);
                 }
