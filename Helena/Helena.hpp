@@ -52,8 +52,6 @@
 #include <Helena/Traits/UniqueTypes.hpp>
 
 // Types
-#include <Helena/Types/AlignedStorage.hpp>
-#include <Helena/Types/AlignedStorageV2.hpp>
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
 #include <Helena/Types/BasicLogger.hpp>
@@ -75,13 +73,10 @@
 #include <Helena/Types/Spinlock.hpp>
 #include <Helena/Types/SPSCVector.hpp>
 #include <Helena/Types/StateMachine.hpp>
-#include <Helena/Types/StaticVector.hpp>
-#include <Helena/Types/Storage.hpp>
 #include <Helena/Types/Subsystems.hpp>
 #include <Helena/Types/System.hpp>
 #include <Helena/Types/TaskScheduler.hpp>
 #include <Helena/Types/TimeSpan.hpp>
-#include <Helena/Types/UndefinedContainer.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorKVAny.hpp>
