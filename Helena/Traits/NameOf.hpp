@@ -4,7 +4,6 @@
 #include <Helena/Platform/Compiler.hpp>
 #include <array>
 #include <string_view>
-//#include <format>
 #include <utility>
 
 namespace Helena::Traits
