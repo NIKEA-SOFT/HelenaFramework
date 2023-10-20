@@ -190,22 +190,20 @@ if(NOT UNIX AND NOT WIN32)
 endif()
 
 if(UNIX OR MINGW)
-	target_compile_options(Helena INTERFACE -Wall -Wextra -fvisibility=hidden
+	target_compile_options(Helena INTERFACE -Wall -Wextra #-fvisibility=hidden
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
         $<$<CONFIG:Release>:-O3>
 	)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(Helena INTERFACE -fno-gnu-unique)
-    if(MINGW)
-        target_compile_options(Helena INTERFACE -Wno-interference-size)
-    endif()
+    target_compile_options(Helena INTERFACE -Wno-interference-size)
 endif()
 
 if(WIN32)
     if(MINGW)
-        target_link_libraries(Helena INTERFACE -static -static-libgcc -static-libstdc++ winpthread)
+        #-static -static-libgcc -static-libstdc++
+        target_link_libraries(Helena INTERFACE winpthread)
     else()
         target_compile_options(Helena INTERFACE /Zc:preprocessor)
     endif()
