@@ -29,7 +29,6 @@ Other systems have not been tested or are not supported.
   
 | Compiler | Required flags |
 | ------ | ------ |
-| GCC | [-fno-gnu-unique](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) |
 | MSVC | [/Zc:preprocessor](https://learn.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-170) |
   
 WARNING: Clang libc++ is temporarily unsupported, waiting for chrono support for std::formatter  
