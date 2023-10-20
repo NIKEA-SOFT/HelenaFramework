@@ -54,7 +54,7 @@ namespace Helena::Systems
         using EntryPoint = void (EState, Engine::Context&);
 
     public:
-        PluginManager(std::filesystem::path directory)
+        PluginManager(const std::filesystem::path& directory)
         {
             Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown, &PluginManager::OnPostShutdown>(this);
 
