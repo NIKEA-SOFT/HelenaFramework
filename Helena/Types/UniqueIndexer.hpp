@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <array>
 
 namespace Helena::Types
 {
@@ -32,11 +33,12 @@ namespace Helena::Types
         UniqueIndexer& operator=(UniqueIndexer&&) noexcept = default;
 
         template <typename T>
-        [[nodiscard]] HELENA_FORCEINLINE std::size_t Get() const {
+        [[nodiscard]] HELENA_FORCEINLINE std::size_t Get() const noexcept
+        {
             if(m_TypeIndex<T> == (std::numeric_limits<std::size_t>::max)()) [[unlikely]] {
-                m_TypeIndex<T> = TypeIndexer<T>::GetIndex(m_Indexes);
-                HELENA_ASSERT(m_TypeIndex<T> < m_Indexes->m_Keys.size(), "UniqueIndexer with same UniqueKey should not be in multiple instances!");
+                TypeIndexer<T>::CacheIndex(m_Indexes);
             }
+
             return m_TypeIndex<T>;
         }
 
@@ -48,14 +50,14 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
-            [[nodiscard]] HELENA_NOINLINE static std::size_t GetIndex(const std::unique_ptr<Container>& storage)
+            HELENA_NOINLINE static void CacheIndex(const std::unique_ptr<Container>& storage) noexcept
             {
                 if(const auto it = std::find(storage->m_Keys.cbegin(), storage->m_Keys.cend(), m_Key); it != storage->m_Keys.cend()) {
-                    return std::distance(storage->m_Keys.cbegin(), it);
+                    m_TypeIndex<T> = std::distance(storage->m_Keys.cbegin(), it);
+                } else {
+                    storage->m_Keys.emplace_back(m_Key);
+                    m_TypeIndex<T> = storage->m_Keys.size() - 1;
                 }
-
-                storage->m_Keys.emplace_back(m_Key);
-                return storage->m_Keys.size() - 1;
             }
 
             static constexpr auto m_Key = Hasher::template From<T>();
