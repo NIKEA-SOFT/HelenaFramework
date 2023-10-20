@@ -119,15 +119,9 @@ namespace Helena
     }
 
     inline void Engine::Initialize(Context& ctx) noexcept {
-    #if defined(HELENA_COMPILER_GCC)
-        // WARNING: For plugins compiled on GCC, you must provide the flag: -fno-gnu-unique
-        // Otherwise, false positives of the assert are possible.
-        HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized or compiler flag: -fno-gnu-unique not used!");
-    #else
-        HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
-    #endif
-
-        InitContext({std::addressof(ctx), +[](const Context*){}});
+        if(m_Context) {
+            InitContext({std::addressof(ctx), +[](const Context*){}});
+        }
     }
 
     [[nodiscard]] inline bool Engine::HasContext() noexcept {
@@ -299,12 +293,21 @@ namespace Helena
 
     template <typename T, typename... Args>
     requires std::constructible_from<T, Args...>
-    void Engine::RegisterSystem(Args&&... args) {
+    void Engine::RegisterSystem(decltype(NoSignal), Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
     #if defined(HELENA_THREADSAFE_SYSTEMS)
         const std::lock_guard lock{MainContext().m_LockSystems};
     #endif
         MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    requires std::constructible_from<T, Args...>
+    void Engine::RegisterSystem(Args&&... args) {
+        if(GetState() == EState::Shutdown) [[unlikely]] return;
+        SignalEvent<Events::Engine::PreRegisterSystem<T>>();
+        RegisterSystem<T>(NoSignal, std::forward<Args>(args)...);
+        SignalEvent<Events::Engine::PostRegisterSystem<T>>();
     }
 
     template <typename... T>
@@ -332,21 +335,100 @@ namespace Helena
     }
 
     template <typename... T>
-    void Engine::RemoveSystem() {
+    void Engine::RemoveSystem(decltype(NoSignal)) {
     #if defined(HELENA_THREADSAFE_SYSTEMS)
         const std::lock_guard lock{MainContext().m_LockSystems};
     #endif
         MainContext().m_Systems.template Remove<T...>();
     }
 
+    template <typename... T>
+    void Engine::RemoveSystem()
+    {
+        if constexpr(Traits::Arguments<T...>::Single)
+        {
+            if(!HasSystem<T...>())
+                return;
+
+            SignalEvent<Events::Engine::PreRemoveSystem<T...>>();
+            RemoveSystem<T...>(NoSignal);
+            SignalEvent<Events::Engine::PostRemoveSystem<T...>>();
+
+        } else (RemoveSystem<T>(), ...);
+    }
+
+    template <typename T, typename... Args>
+    requires std::constructible_from<T, Args...>
+    void Engine::RegisterComponent(decltype(NoSignal), Args&&... args) {
+    #if defined(HELENA_THREADSAFE_COMPONENTS)
+        const std::lock_guard lock{MainContext().m_LockComponents};
+    #endif
+        MainContext().m_Components.template Create<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    requires std::constructible_from<T, Args...>
+    void Engine::RegisterComponent(Args&&... args) {
+        SignalEvent<Events::Engine::PreRegisterComponent<T>>();
+        RegisterComponent<T>(NoSignal, std::forward<Args>(args)...);
+        SignalEvent<Events::Engine::PostRegisterComponent<T>>();
+    }
+
+    template <typename... T>
+    [[nodiscard]] bool Engine::HasComponent() {
+    #if defined(HELENA_THREADSAFE_COMPONENTS)
+        const std::lock_guard lock{MainContext().m_LockComponents};
+    #endif
+        return MainContext().m_Components.template Has<T...>();
+    }
+
+    template <typename... T>
+    [[nodiscard]] bool Engine::AnyComponent() {
+    #if defined(HELENA_THREADSAFE_COMPONENTS)
+        const std::lock_guard lock{MainContext().m_LockComponents};
+    #endif
+        return MainContext().m_Components.template Any<T...>();
+    }
+
+    template <typename... T>
+    [[nodiscard]] decltype(auto) Engine::GetComponent() {
+    #if defined(HELENA_THREADSAFE_COMPONENTS)
+        const std::lock_guard lock{MainContext().m_LockComponents};
+    #endif
+        return MainContext().m_Components.template Get<T...>();
+    }
+
+    template <typename... T>
+    void Engine::RemoveComponent(decltype(NoSignal)) {
+    #if defined(HELENA_THREADSAFE_COMPONENTS)
+        const std::lock_guard lock{MainContext().m_LockComponents};
+    #endif
+        MainContext().m_Components.template Remove<T...>();
+    }
+
+    template <typename... T>
+    void Engine::RemoveComponent()
+    {
+        if constexpr(Traits::Arguments<T...>::Single)
+        {
+            if(!HasComponent<T...>())
+                return;
+
+            SignalEvent<Events::Engine::PreRemoveComponent<T...>>();
+            RemoveComponent<T...>(NoSignal);
+            SignalEvent<Events::Engine::PostRemoveComponent<T...>>();
+
+        } else (RemoveComponent<T>(), ...);
+    }
+
     template <typename Event, auto Callback>
-    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+    requires Engine::RequiresCallback<Event, Callback, /* Member function */ false>
     void Engine::SubscribeEvent() {
         return SubscribeEvent(typename Delegate::Args<Event, Callback>{}, nullptr);
     }
 
     template <typename Event, auto Callback>
-    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+    requires Engine::RequiresCallback<Event, Callback, /* Member function */ true>
     void Engine::SubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance) {
         return SubscribeEvent(typename Delegate::Args<Event, Callback>{}, instance);
     }
@@ -454,13 +536,13 @@ namespace Helena
     }
 
     template <typename Event, auto Callback>
-    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ false>
+    requires Engine::RequiresCallback<Event, Callback, /* Member function */ false>
     void Engine::UnsubscribeEvent() {
         return UnsubscribeEvent(typename Delegate::Args<Event, Callback>{}, nullptr);
     }
 
     template <typename Event, auto Callback>
-    requires Engine::RequiresCallback<Event, decltype(Callback), /* Member function */ true>
+    requires Engine::RequiresCallback<Event, Callback, /* Member function */ true>
     void Engine::UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance) {
         return UnsubscribeEvent(typename Delegate::Args<Event, Callback>{}, instance);
     }
