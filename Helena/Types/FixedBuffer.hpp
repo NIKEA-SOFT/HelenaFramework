@@ -119,7 +119,7 @@ namespace Helena::Types
             return m_Buffer;
         }
 
-        [[nodiscard]] constexpr operator std::string_view() const noexcept {
+        [[nodiscard]] constexpr operator std::basic_string_view<Char>() const noexcept {
             return {m_Buffer, m_Size};
         }
 
