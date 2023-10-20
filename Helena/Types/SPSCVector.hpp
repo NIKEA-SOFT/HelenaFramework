@@ -77,11 +77,11 @@ namespace Helena::Types
             return m_WriterContainer->size();
         }
 
-        [[nodiscard]] decltype(auto) Container() const noexcept {
+        [[nodiscard]] const ContainerType& Container() const noexcept {
             return *m_WriterContainer;
         }
 
-        [[nodiscard]] decltype(auto) Container() noexcept {
+        [[nodiscard]] ContainerType& Container() noexcept {
             return *m_WriterContainer;
         }
 
