@@ -1,6 +1,7 @@
 #ifndef HELENA_ENGINE_LOG_HPP
 #define HELENA_ENGINE_LOG_HPP
 
+#include <Helena/Platform/Defines.hpp>
 #include <Helena/Types/BasicLogger.hpp>
 
 // NOTE MSVC: If you get an error, make sure you add a preprocessor /Zc:preprocessor for support VA_OPT
