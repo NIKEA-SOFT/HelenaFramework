@@ -34,7 +34,7 @@ namespace Example01
 			{
 				case WM_DESTROY: {
 					Helena::Engine::Shutdown("WND Msg destroy");
-					::PostQuitMessage(EXIT_SUCCESS);
+					//::PostQuitMessage(EXIT_SUCCESS);
 				} break;
 
 				default: return ::DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -45,7 +45,7 @@ namespace Example01
 		}
 
 	public:
-		bool Main() override
+		void Main() override
 		{
 			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
 			m_WindowClassEx.style = CS_HREDRAW | CS_VREDRAW;
@@ -61,32 +61,30 @@ namespace Example01
 			m_WindowClassEx.lpfnWndProc = &WindowProc;
 
 			Helena::Engine::SetTickrate(60.);
-			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&OnTick);
-			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, &OnTick>();
+			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
 				auto reason = Helena::Engine::ShutdownReason();
 				if(!reason.empty()) {
 					reason = Helena::Util::Format("Error:\n{}", reason);
 					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
 				}
-			});
+			}>();
 
 			if(!::RegisterClassEx(&m_WindowClassEx)) {
-				HELENA_MSG_ERROR("RegisterClass window failure!");
-				return false;
+				Helena::Engine::Shutdown("RegisterClass window failure!");
+				return;
 			}
 
 			m_WindowHWND = ::CreateWindow(m_WindowClassEx.lpszClassName, m_AppName.c_str(),
 				WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, m_WindowWidth, m_WindowHeight, nullptr, nullptr, ::GetModuleHandle(NULL), nullptr);
 
 			if(!m_WindowHWND) {
-				HELENA_MSG_ERROR("CreateWindows failure!");
-				return false;
+				Helena::Engine::Shutdown("CreateWindows failure!");
+				return;
 			}
 
 			::ShowWindow(m_WindowHWND, SW_SHOW);
 			::UpdateWindow(m_WindowHWND);
-
-			return true;
 		};
 
 		static void OnTick(Helena::Events::Engine::Tick) 

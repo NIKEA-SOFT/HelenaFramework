@@ -2,7 +2,7 @@
 #define HELENA_SYSTEMS_PLUGINMANAGER_HPP
 
 #include <Helena/Types/Hash.hpp>
-#include <Helena/Types/ModernDesign.hpp>
+#include <Helena/Types/System.hpp>
 
 #include <bit>
 #include <filesystem>
@@ -38,7 +38,7 @@ namespace Helena::Events::PluginManager
 
 namespace Helena::Systems
 {
-    class PluginManager final : public Types::ModernDesign<PluginManager>
+    class PluginManager final : Types::System<PluginManager>
     {
     public:
         enum class EState : std::uint8_t {
@@ -54,9 +54,9 @@ namespace Helena::Systems
         using EntryPoint = void (EState, Engine::Context&);
 
     public:
-        PluginManager(std::filesystem::path directory)
+        PluginManager(const std::filesystem::path& directory)
         {
-            Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
+            Helena::Engine::SubscribeEvent<Events::Engine::PostShutdown, &PluginManager::OnPostShutdown>(this);
 
             std::error_code err;
             if(!std::filesystem::is_directory(directory, err)) {
@@ -65,13 +65,13 @@ namespace Helena::Systems
             }
 
             if(m_Directory = std::filesystem::absolute(directory, err); err) {
-	            HELENA_MSG_ERROR("Path: \"{}\" failed cast to absolute path, error: {}, message: {}", directory.string(), err.value(), err.message());
-	            return;
+                HELENA_MSG_ERROR("Path: \"{}\" failed cast to absolute path, error: {}, message: {}", directory.string(), err.value(), err.message());
+                return;
             }
         }
 
         ~PluginManager() {
-            Helena::Engine::UnsubscribeEvent<Events::Engine::PostShutdown>(&PluginManager::OnPostShutdown);
+            Helena::Engine::UnsubscribeEvent<Events::Engine::PostShutdown, &PluginManager::OnPostShutdown>(this);
         }
 
         PluginManager(const PluginManager&) = delete;

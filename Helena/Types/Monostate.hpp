@@ -1,11 +1,11 @@
 #ifndef HELENA_TYPES_MONOSTATE_HPP
 #define HELENA_TYPES_MONOSTATE_HPP
 
-#include <Helena/Types/FixedBuffer.hpp>
+#include <cstdint>
 
 namespace Helena::Types
 {
-    template <FixedBuffer Key>
+    template <std::uint64_t Key>
     struct Monostate
     {
         template <typename Type>
@@ -20,7 +20,7 @@ namespace Helena::Types
 
     private:
         template <typename Type>
-        inline static Type m_Data = {};
+        static inline Type m_Data = {};
     };
 }
 

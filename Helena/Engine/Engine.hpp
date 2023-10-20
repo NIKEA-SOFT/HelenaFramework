@@ -3,14 +3,19 @@
 
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Traits/Conditional.hpp>
+#include <Helena/Traits/Constructible.hpp>
+#include <Helena/Traits/Function.hpp>
 #if defined(HELENA_THREADSAFE_SYSTEMS)
     #include <Helena/Types/Spinlock.hpp>
 #endif
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
+#include <Helena/Util/Sleep.hpp>
+#include <Helena/Util/Function.hpp>
 
 #include <atomic>
+#include <cstring>
 #include <functional>
 #include <string>
 
@@ -23,95 +28,93 @@ namespace Helena
         struct IUniqueKey {};
 
         //! Unique key for storage systems type index
-        using UKSystems = IUniqueKey<0>;
+        using UKSystems     = IUniqueKey<0>;
+
+        //! Unique key for storage systems type index
+        using UKComponents  = IUniqueKey<1>;
 
         //! Unique key for storage signals type index
-        using UKSignals = IUniqueKey<1>;
+        using UKSignals     = IUniqueKey<2>;
 
         //! Unique key for storage messages type index
-        using UKMessages = IUniqueKey<2>;
+        using UKMessages    = IUniqueKey<3>;
 
-        template <typename Event, typename... Args>
-        static constexpr auto RequiresCallback = Traits::Conditional<std::is_empty_v<Event>,
-            Traits::Conditional<Traits::Arguments<Args...>::Orphan, std::true_type, std::false_type>,
-            Traits::Conditional<Traits::Arguments<Args...>::Single && (Traits::SameAs<Event, Traits::RemoveCVRP<Args>> && ...),
-                std::true_type, std::false_type>
-        >::value && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>;
+        template <auto Fn>
+        static constexpr bool NotTemplateFunction = requires {
+            typename Traits::Function<decltype(Fn)>::Class;
+        };
 
-        //! Event callback storage with type erasure
-        struct CallbackStorage
+        template <typename Event, auto Fn, bool Member>
+        static constexpr auto RequiresCallback = []() {
+            if constexpr(std::is_empty_v<Event>) {
+                if constexpr(NotTemplateFunction<Fn>) {
+                    return Traits::Function<decltype(Fn)>::Orphan;
+                } return false;
+            } else if constexpr(!Member && std::is_member_function_pointer_v<decltype(Fn)> == Member) {
+                return std::is_invocable_v<decltype(Fn), Event>;
+            } else if constexpr(Member && std::is_member_function_pointer_v<decltype(Fn)> == Member) {
+                if constexpr(NotTemplateFunction<Fn>) {
+                    return std::is_invocable_v<decltype(Fn), typename Traits::Function<decltype(Fn)>::Class&, Event&>;
+                } return false;
+            } return false;
+        }() && Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && (std::is_member_function_pointer_v<decltype(Fn)> == Member);
+
+        template <typename T>
+        static constexpr auto RequiresConfig =
+            std::invocable<decltype(T::Sleep)> &&
+            std::convertible_to<decltype(T::Accumulate), std::uint32_t>;
+
+        class Delegate
         {
-            using Function = void (*)();
-            using MemberFunction = void (CallbackStorage::*)();
-            union alignas(16) Storage {
-                Function m_Callback;
-                MemberFunction m_CallbackMember;
-
-                template <typename T>
-                [[nodiscard]] T As() const noexcept
-                {
-                    T fn{};
-                    if constexpr(std::is_member_function_pointer_v<T>) {
-                        new (&fn) decltype(m_CallbackMember){m_CallbackMember};
+            template <typename Event, auto Callback>
+            static void Caller([[maybe_unused]] void* instance, void* ev)
+            {
+                if constexpr(std::is_member_function_pointer_v<decltype(Callback)>) {
+                    HELENA_ASSERT(instance, "Instance is nullptr");
+                    if constexpr(std::is_empty_v<Event>) {
+                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)();
                     } else {
-                        new (&fn) decltype(m_Callback){m_Callback};
+                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)(*static_cast<Event*>(ev));
                     }
-                    return fn;
+                } else {
+                    if constexpr(std::is_empty_v<Event>) {
+                        Callback();
+                    } else {
+                        Callback(*static_cast<Event*>(ev));
+                    }
                 }
-            };
-            using Callback = void (*)(const Storage&, void*);
-
-            template <typename Ret, typename... Args>
-            CallbackStorage(Ret (*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                new (&m_Storage) decltype(callback){callback};
             }
 
-            template <typename Ret, typename T, typename... Args>
-            CallbackStorage(Ret (T::*callback)(Args...), const Callback cb) : m_Callback{cb} {
-                new (&m_Storage) decltype(callback){callback};
+            using Callback = void (void*, void*);
+
+        public:
+            template<typename Event, auto Callback>
+            struct Args {};
+
+        public:
+            template<typename Event, auto Fn>
+            Delegate(Args<Event, Fn>, void* instance)
+                : m_Callback{Caller<Event, Fn>}
+                , m_Instance{instance} {}
+            ~Delegate() = default;
+            Delegate(const Delegate&) = default;
+            Delegate(Delegate&&) noexcept = default;
+            Delegate& operator=(const Delegate&) = default;
+            Delegate& operator=(Delegate&&) noexcept = default;
+
+            template <typename... Args>
+            void operator()(Args&&... args) const {
+                m_Callback(m_Instance, std::forward<Args>(args)...);
             }
 
-            CallbackStorage(const CallbackStorage& rhs) = default;
-            CallbackStorage(CallbackStorage&& rhs) noexcept = default;
-            CallbackStorage& operator=(const CallbackStorage& rhs) = default;
-            CallbackStorage& operator=(CallbackStorage&& rhs) noexcept = default;
-
-            template <typename Ret, typename... Args>
-            CallbackStorage& operator=(Ret (*callback)(Args...)) noexcept {
-                new (&m_Storage) decltype(callback){callback};
-                return *this;
+            template <typename Event, auto Fn>
+            [[nodiscard]] bool Compare(void* instance = nullptr) const noexcept {
+                return m_Instance == instance && m_Callback == Caller<Event, Fn>;
             }
 
-            template <typename Ret, typename T, typename... Args>
-            CallbackStorage& operator=(Ret (T::*callback)(Args...)) noexcept {
-                new (&m_Storage) decltype(callback){callback};
-                return *this;
-            }
-
-            template <typename Ret, typename... Args>
-            [[nodiscard]] bool operator==(Ret (*callback)(Args...)) const noexcept {
-                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
-                return fn == callback;
-            }
-
-            template <typename Ret, typename T, typename... Args>
-            [[nodiscard]] bool operator==(Ret (T::*callback)(Args...)) const noexcept {
-                decltype(callback) fn{}; std::memcpy(&fn, &m_Storage, sizeof(callback));
-                return fn == callback;
-            }
-
-            template <typename Ret, typename... Args>
-            [[nodiscard]] bool operator!=(Ret (*callback)(Args...)) const noexcept {
-                return !(*this == callback);
-            }
-
-            template <typename Ret, typename T, typename... Args>
-            [[nodiscard]] bool operator!=(Ret (T::*callback)(Args...)) const noexcept {
-                return !(*this == callback);
-            }
-
-            Callback m_Callback;
-            Storage m_Storage;
+        private:
+            Callback* m_Callback;
+            void* m_Instance;
         };
 
         template <typename...>
@@ -126,6 +129,14 @@ namespace Helena
             Shutdown
         };
 
+        //! Default Heartbeat configuration
+        struct DefaultConfig {
+            static constexpr auto Sleep = Util::Function::BindFront(
+                static_cast<void (*)(const std::uint64_t)>(Util::Sleep), 1 /* msec */);
+            static constexpr auto Accumulate = 5;
+        };
+
+        //! Structure for control engine heartbeat behaviour
         static constexpr struct {} NoSignal{};
 
         //! Context for storage framework data
@@ -146,8 +157,9 @@ namespace Helena
         public:
             Context() noexcept
                 : m_Systems{}
+                , m_Components{}
                 , m_Signals{}
-                , m_SignalsPool{}
+                , m_DeferredSignals{}
                 , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
                 , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
@@ -158,11 +170,15 @@ namespace Helena
             #if defined(HELENA_THREADSAFE_SYSTEMS)
                 , m_LockSystems{}
             #endif
+            #if defined(HELENA_THREADSAFE_COMPONENTS)
+                , m_LockComponents{}
+            #endif
                 , m_State{EState::Undefined} {}
 
             virtual ~Context() {
                 m_Signals.Clear();
                 m_Systems.Clear();
+                m_Components.Clear();
             }
 
             Context(const Context&) = delete;
@@ -171,15 +187,16 @@ namespace Helena
             Context& operator=(Context&&) noexcept = delete;
 
         private:
-            virtual bool Main() { return true; }
+            virtual void Main() {}
 
         private:
             // Systems
             Types::VectorAny<UKSystems> m_Systems;
+            Types::VectorAny<UKComponents> m_Components;
 
             // Signals
-            Types::VectorUnique<UKSignals, Pool<CallbackStorage>> m_Signals;
-            SignalsPool m_SignalsPool;
+            Types::VectorUnique<UKSignals, Pool<Delegate>> m_Signals;
+            SignalsPool m_DeferredSignals;
 
             // Reason
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
@@ -198,6 +215,11 @@ namespace Helena
             Types::Spinlock m_LockSystems;
         #endif
 
+        #if defined(HELENA_THREADSAFE_COMPONENTS)
+            // Thread safe components
+            Types::Spinlock m_LockComponents;
+        #endif
+
             // Engine state
             std::atomic<EState> m_State;
         };
@@ -208,7 +230,6 @@ namespace Helena
         inline static ContextStorage m_Context{nullptr, nullptr};
 
         static void InitContext(ContextStorage context) noexcept;
-        [[nodiscard]] static bool HasContext() noexcept;
         [[nodiscard]] static Context& MainContext() noexcept;
 
     private:
@@ -232,7 +253,7 @@ namespace Helena
         * @note The context can be inherited
         */
         template <std::derived_from<Engine::Context> T = Context, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void Initialize([[maybe_unused]] Args&&... args);
 
         /**
@@ -241,6 +262,13 @@ namespace Helena
         * @note This overload is used to share the context object between the executable and plugins
         */
         static void Initialize(Context& ctx) noexcept;
+
+        /**
+        * @brief Has context of Engine
+        * @note This method can be used to check the initialization of the framework.
+        * @return Return a reference to context
+        */
+        [[nodiscard]] static bool HasContext() noexcept;
 
         /**
         * @brief Get context of Engine
@@ -276,8 +304,7 @@ namespace Helena
 
         /**
         * @brief Heartbeat of the engine
-        * @param sleepMS Sleep time in milliseconds
-        * @param accumulator Count of steps to reduce accumulated time in Update events
+        * @tparam HeartbeatConfig Structure with fields: "Sleep" and "Accumulate" for Heartbeat control
         * @code{.cpp}
         * while(Helena::Engine::Heartbeat()) {}
         * @endcode
@@ -285,15 +312,17 @@ namespace Helena
         * @return True if successful or false if an error is detected or called shutdown
         * @note 
         * - Heartbeat: You have to call heartbeat in a loop to keep the framework running
-        * Use the definition of HELENA_ENGINE_NO SLEEP to prevent sleep.
         * The thread will not sleep if your operations consume a lot of CPU time
-        * - Accumulator: if your loop is too busy, then there may be an accumulation of delta time
+        * Field: Accumulate -> if your loop is too busy, then there may be an accumulation of delta time
         * that cannot be repaid by a single Update call, which will cause more Update calls to
         * follow immediately to reduce the accumulated time.
-        * It is not recommended to use a large value, your thread may get stuck in a loop.
+        * It is not recommended to use a large value for Accumulate, your thread may get stuck in a loop.
         * The correct solution is to offload the thread by finding a performance bottleneck.
+        * Field: Sleep -> your own sleep function.
         */
-        [[nodiscard]] static bool Heartbeat(std::size_t sleepMS = 1, std::uint8_t accumulator = 5);
+        template <typename HeartbeatConfig = DefaultConfig>
+        requires Engine::RequiresConfig<HeartbeatConfig>
+        [[nodiscard]] static bool Heartbeat();
 
         /**
         * @brief Check if the engine is currently running
@@ -330,18 +359,36 @@ namespace Helena
 
         /**
         * @brief Register the system in the engine
-        * 
+        *
+        * @code{.cpp}
+        * struct MySystem {};
+        * Helena::Engine::RegisterSystem<MySystem>(Helena::Engine::NoSignal);
+        * @endcode
+        *
+        * @tparam T Type of system
+        * @tparam Args Types of arguments
+        * @param NoSignal Use Engine::NoSignal to not notify listeners
+        * @param args Arguments for system initialization
+        */
+        template <typename T, typename... Args>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
+        static void RegisterSystem(decltype(NoSignal), Args&&... args);
+
+        /**
+        * @brief Register the system in the engine
+        * This overload notifies listeners of a system registration event.
+        *
         * @code{.cpp}
         * struct MySystem {};
         * Helena::Engine::RegisterSystem<MySystem>();
         * @endcode
-        * 
+        *
         * @tparam T Type of system
         * @tparam Args Types of arguments
         * @param args Arguments for system initialization
         */
         template <typename T, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void RegisterSystem(Args&&... args);
 
         /**
@@ -403,7 +450,27 @@ namespace Helena
 
         /**
         * @brief Remove the system from engine
+        *
+        * @code{.cpp}
+        * struct MySystemA{};
+        * struct MySystemB{};
+        *
+        * Helena::Engine::RegisterSystem<MySystemA>();
+        * Helena::Engine::RegisterSystem<MySystemB>();
+        *
+        * Helena::Engine::RemoveSystem<MySystemA, MySystemB>();
+        * @endcode
         * 
+        * @tparam T Types of systems
+        * @param NoSignal Use Engine::NoSignal to not notify listeners
+        */
+        template <typename... T>
+        static void RemoveSystem(decltype(NoSignal));
+
+        /**
+        * @brief Remove the system from engine
+        * This overload notifies listeners of a system registration event.
+        *
         * @code{.cpp}
         * struct MySystemA{};
         * struct MySystemB{};
@@ -420,23 +487,151 @@ namespace Helena
         static void RemoveSystem();
 
         /**
+        * @brief Register the component in the engine
+        *
+        * @code{.cpp}
+        * struct MyComponent {};
+        * Helena::Engine::RegisterComponent<MyComponent>(Helena::Engine::NoSignal);
+        * @endcode
+        *
+        * @tparam T Type of component
+        * @tparam Args Types of arguments
+        * @param NoSignal Use Engine::NoSignal to not notify listeners
+        * @param args Arguments for component initialization
+        */
+        template <typename T, typename... Args>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
+        static void RegisterComponent(decltype(NoSignal), Args&&... args);
+
+        /**
+        * @brief Register the component in the engine
+        * This overload notifies listeners of a component registration event.
+        *
+        * @code{.cpp}
+        * struct MyComponent {};
+        * Helena::Engine::RegisterComponent<MyComponent>();
+        * @endcode
+        *
+        * @tparam T Type of component
+        * @tparam Args Types of arguments
+        * @param args Arguments for component initialization
+        */
+        template <typename T, typename... Args>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
+        static void RegisterComponent(Args&&... args);
+
+        /**
+        * @brief Check the exist of component
+        *
+        * @code{.cpp}
+        * struct MyComponentA{};
+        * struct MyComponentB{};
+        *
+        * Helena::Engine::RegisterComponent<MyComponentA, MyComponentB>();
+        * if(Helena::Engine::HasComponent<MyComponentA, MyComponentB>()) {
+        *   // ok
+        * }
+        * @endcode
+        *
+        * @tparam T Types of components
+        * @return True if all types of components exist, or false
+        */
+        template <typename... T>
+        [[nodiscard]] static bool HasComponent();
+
+        /**
+        * @brief Check the exist of any component
+        *
+        * @code{.cpp}
+        * struct MyComponentA{};
+        * struct MyComponentB{};
+        *
+        * Helena::Engine::RegisterComponent<MyComponentA>();
+        * if(Helena::Engine::AnyComponent<MyComponentA, MyComponentB>()) {
+        *   // ok
+        * }
+        * @endcode
+        *
+        * @tparam T Types of components
+        * @return True if any types of components exist, or false
+        */
+        template <typename... T>
+        [[nodiscard]] static bool AnyComponent();
+
+        /**
+        * @brief Get a reference to the component
+        *
+        * @code{.cpp}
+        * struct MyComponentA{};
+        * struct MyComponentB{};
+        *
+        * Helena::Engine::RegisterComponent<MyComponentA>();
+        * Helena::Engine::RegisterComponent<MyComponentB>();
+        *
+        * const auto& [componentA, componentB] = Helena::Engine::GetComponent<MyComponentA, MyComponentB>();
+        * @endcode
+        *
+        * @tparam T Types of components
+        * @return Reference to a component or tuple if multiple types of components are passed
+        */
+        template <typename... T>
+        [[nodiscard]] static decltype(auto) GetComponent();
+
+        /**
+        * @brief Remove the component from engine
+        *
+        * @code{.cpp}
+        * struct MyComponentA{};
+        * struct MyComponentB{};
+        *
+        * Helena::Engine::RegisterComponent<MyComponentA>();
+        * Helena::Engine::RegisterComponent<MyComponentB>();
+        *
+        * Helena::Engine::RemoveComponent<MyComponentA, MyComponentB>(Helena::Engine::NoSignal);
+        * @endcode
+        *
+        * @tparam T Types of components
+        * @param NoSignal Use Engine::NoSignal to not notify listeners
+        */
+        template <typename... T>
+        static void RemoveComponent(decltype(NoSignal));
+
+        /**
+        * @brief Remove the component from engine
+        * This overload notifies listeners of a component registration event.
+        *
+        * @code{.cpp}
+        * struct MyComponentA{};
+        * struct MyComponentB{};
+        *
+        * Helena::Engine::RegisterComponent<MyComponentA>();
+        * Helena::Engine::RegisterComponent<MyComponentB>();
+        *
+        * Helena::Engine::RemoveComponent<MyComponentA, MyComponentB>();
+        * @endcode
+        *
+        * @tparam T Types of components
+        */
+        template <typename... T>
+        static void RemoveComponent();
+
+        /**
         * @brief Listening to the event
-        * 
+        *
         * @code{.cpp}
         * void OnInit() {
         *   // The event is called when the engine is initialized
         * }
-        * 
-        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&OnInit);
+        *
+        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &OnInit>();
         * @endcode
-        * 
+        *
         * @tparam Event Type of event
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Function
         */
-        template <typename Event, typename... Args>
-        requires Engine::RequiresCallback<Event, Args...>
-        static void SubscribeEvent(void (*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, Callback, /* Member function */ false>
+        static void SubscribeEvent();
 
         /**
         * @brief Listening to the event
@@ -447,17 +642,49 @@ namespace Helena
         *       // The event is called when the engine is initialized
         *   }
         * };
-        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&MySystem::OnInit);
+        * Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnInit>(this);
         * @endcode
         *
         * @tparam Event Type of event
-        * @tparam System Type of system
-        * @tparam Args Types of events
-        * @param callback Callback function
+        * @tparam Callback Member function
+        * @param instance Instance of object
         */
-        template <typename Event, typename System, typename... Args>
-        requires Engine::RequiresCallback<Event, Args...>
-        static void SubscribeEvent(void (System::*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, Callback, /* Member function */ true>
+        static void SubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
+
+        /**
+        * @brief Returns the count or tuple with counts of listeners subscribed to Event
+        *
+        * @tparam Event Types of event
+        * @return Count or tuple with counts of listeners subscribed to Event
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static auto Subscribers();
+
+        /**
+        * @brief Check has listeners subscribed to Events
+        *
+        * @tparam Event Type of event
+        * @return True if listeners are subscribed to all of the listed Events
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static auto HasSubscribers();
+
+        /**
+        * @brief Check has any listeners are subscribed to any of the Events.
+        *
+        * @tparam Event Type of event
+        * @return True if any listeners are subscribed to any of the listed Events
+        */
+        template <typename... Event>
+        requires (Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && ...)
+        [[nodiscard]]
+        static auto AnySubscribers();
 
         /**
         * @brief Trigger an event for all listeners
@@ -502,24 +729,21 @@ namespace Helena
 
         /**
         * @brief Stop listening to the event
+        *
+        * void OnInit() {
+        *     // The event is called when the engine is initialized
+        * }
         * 
-        * @code{.cpp}
-        * struct MySystem {
-        *   void OnInit() {
-        *       // The event is called when the engine is initialized
-        *   }
-        * };
-        * 
-        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&OnInit);
+        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init, &OnInit>();
         * @endcode
         * 
         * @tparam Event Type of event
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Function
         */
-        template <typename Event, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (*callback)(Args...));
+
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, Callback, /* Member function */ false>
+        static void UnsubscribeEvent();
 
         /**
         * @brief Stop listening to the event
@@ -531,26 +755,25 @@ namespace Helena
         *   }
         * };
         * 
-        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&MySystem::OnInit);
+        * Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init, &MySystem::OnInit>(this);
         * @endcode
         * 
         * @tparam Event Type of event
-        * @tparam System Type of system
-        * @tparam Args Types of arguments
-        * @param callback Callback function
+        * @tparam Callback Member function
+        * @param instance Instance of object
         */
-        template <typename Event, typename System, typename... Args>
-        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(void (System::*callback)(Args...));
+        template <typename Event, auto Callback>
+        requires Engine::RequiresCallback<Event, Callback, /* Member function */ true>
+        static void UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
 
     private:
-        template <typename Event, typename Callback, typename SignalFunctor>
+        template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void SubscribeEvent(Callback&& callback, SignalFunctor&& fn);
+        static void SubscribeEvent(Delegate::Args<Event, Callback>, void* instance);
 
-        template <typename Event, typename Comparator>
+        template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-        static void UnsubscribeEvent(Comparator&& comparator);
+        static void UnsubscribeEvent(Delegate::Args<Event, Callback>, void* instance);
     };
 }
 

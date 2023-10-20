@@ -7,17 +7,17 @@ namespace Helena::Types
 {
     template <typename System>
     requires std::is_class_v<System>
-    class SubsystemDesign
+    class Subsystems
     {
         struct UniqueKey {};
 
     public:
-        SubsystemDesign() noexcept : m_Subsystems{} {};
-        ~SubsystemDesign() noexcept = default;
-        SubsystemDesign(const SubsystemDesign&) noexcept = delete;
-        SubsystemDesign& operator=(const SubsystemDesign&) noexcept = delete;
-        SubsystemDesign(SubsystemDesign&&) noexcept = delete;
-        SubsystemDesign& operator=(SubsystemDesign&&) noexcept = delete;
+        Subsystems() noexcept : m_Subsystems{} {};
+        ~Subsystems() noexcept = default;
+        Subsystems(const Subsystems&) noexcept = delete;
+        Subsystems(Subsystems&&) noexcept = default;
+        Subsystems& operator=(const Subsystems&) noexcept = delete;
+        Subsystems& operator=(Subsystems&&) noexcept = default;
 
         template <typename Subsystem, typename... Args>
         void RegisterSubsystem(Args&&... args) {

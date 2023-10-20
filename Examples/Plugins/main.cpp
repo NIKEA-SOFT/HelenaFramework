@@ -28,14 +28,14 @@ class AudioLogger
 public:
 	AudioLogger() {
 		// Start listening AudioSystem event
-		Helena::Engine::SubscribeEvent<Events::AudioSystem::Play>(&AudioLogger::OnAudioPlay);
+		Helena::Engine::SubscribeEvent<Events::AudioSystem::Play, &AudioLogger::OnAudioPlay>(this);
 
 		// The current listener is only used for hot reload testing
 		//Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&AudioLogger::OnInit);
 	}
 
 	~AudioLogger() {
-		Helena::Engine::UnsubscribeEvent<Events::AudioSystem::Play>(&AudioLogger::OnAudioPlay);
+		Helena::Engine::UnsubscribeEvent<Events::AudioSystem::Play, &AudioLogger::OnAudioPlay>(this);
 		//Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&AudioLogger::OnInit);
 	}
 
@@ -100,5 +100,5 @@ HELENA_PLUGIN_API void PluginMain(Helena::Systems::PluginManager::EState state, 
 
 			Helena::Engine::RemoveSystem<AudioLogger>();
 		} break;
-	};
+	}
 }

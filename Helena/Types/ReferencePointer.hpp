@@ -4,6 +4,8 @@
 #include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Platform/Assert.hpp>
 
+#include <memory>
+
 namespace Helena::Types
 {
     template <typename T>
@@ -11,7 +13,7 @@ namespace Helena::Types
     {
         using Container = CompressedPair<T, std::size_t>;
 
-        void Reset(Container* newValue) noexcept {
+        void ExchangeReset(Container* newValue) noexcept {
             if(const auto old = std::exchange(m_Container, newValue); old && !--old->Second()) {
                 delete old;
             }
@@ -25,7 +27,7 @@ namespace Helena::Types
             : m_Container{new (std::nothrow) Container{
                 std::piecewise_construct,
                 std::forward_as_tuple(std::forward<Args>(args)...),
-                std::forward_as_tuple(1uLL)}} {}
+                std::forward_as_tuple(1)}} {}
 
         ~ReferencePointer() {
             Reset();
@@ -45,7 +47,7 @@ namespace Helena::Types
         {
             if(m_Container != other.m_Container) [[likely]]
             {
-                if(Reset(other.m_Container); m_Container) {
+                if(ExchangeReset(other.m_Container); m_Container) {
                     ++m_Container->Second();
                 }
             }
@@ -53,12 +55,9 @@ namespace Helena::Types
             return *this;
         }
 
-        ReferencePointer& operator=(ReferencePointer&& other) noexcept
-        {
-            if(const auto temp = std::exchange(other.m_Container, nullptr); m_Container != temp) [[likely]] {
-                Reset(temp);
-            }
-
+        ReferencePointer& operator=(ReferencePointer&& other) noexcept {
+            ExchangeReset(other.m_Container);
+            other.m_Container = nullptr;
             return *this;
         }
 
@@ -86,7 +85,7 @@ namespace Helena::Types
         }
 
         void Reset() noexcept {
-            Reset(nullptr);
+            ExchangeReset(nullptr);
         }
 
         [[nodiscard]] explicit operator bool() const noexcept {

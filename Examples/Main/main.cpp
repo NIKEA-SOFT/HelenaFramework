@@ -2,35 +2,38 @@
 #include <Systems/PluginManager.hpp>
 #include <Systems/ResourceManager.hpp>
 
+struct Range {
+    enum End : int {};
+};
+
 class TestSystemA
 {
 public:
     TestSystemA() {
         // Start listen events
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&TestSystemA::OnInit);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>(&TestSystemA::OnConfig);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute>(&TestSystemA::OnExecute);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(&TestSystemA::OnTick);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>(&TestSystemA::OnUpdate);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render>(&TestSystemA::OnRender);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystemA::OnFinalize);
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystemA::OnShutdown);
-    }
-    ~TestSystemA() {
-        // Unsubscribe from events
-        // If listeners are system classes, then such classes can be automatically unsubscribed
-        // from events if an object of this class-system has been removed from the Engine.
-        // Just remember that this is a good tone
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init>(&TestSystemA::OnInit);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Config>(&TestSystemA::OnConfig);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Execute>(&TestSystemA::OnExecute);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Tick>(&TestSystemA::OnTick);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Update>(&TestSystemA::OnUpdate);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Render>(&TestSystemA::OnRender);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Finalize>(&TestSystemA::OnFinalize);
-        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Shutdown>(&TestSystemA::OnShutdown);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init,        &TestSystemA::OnInit>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config,      &TestSystemA::OnConfig>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute,     &TestSystemA::OnExecute>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick,        &TestSystemA::OnTick>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update,      &TestSystemA::OnUpdate>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render,      &TestSystemA::OnRender>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize,    &TestSystemA::OnFinalize>(this);
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown,    &TestSystemA::OnShutdown>(this);
     }
 
+    ~TestSystemA() {
+        // Unsubscribe from events
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Init,      &TestSystemA::OnInit>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Config,    &TestSystemA::OnConfig>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Execute,   &TestSystemA::OnExecute>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Tick,      &TestSystemA::OnTick>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Update,    &TestSystemA::OnUpdate>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Render,    &TestSystemA::OnRender>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Finalize,  &TestSystemA::OnFinalize>(this);
+        Helena::Engine::UnsubscribeEvent<Helena::Events::Engine::Shutdown,  &TestSystemA::OnShutdown>(this);
+    }
+
+private:
     // Note that some events are just empty types,
     // so there is no need to specify them in the callback as an argument.
     // OnInit called once when the system has been registered -> RegisterSystem<T>(...)
@@ -69,7 +72,7 @@ public:
     // This event is called every tick
     void OnRender(const Helena::Events::Engine::Render event) {
         // You can uncomment this line, but it is called too often
-        HELENA_MSG_DEBUG("EngineRender: alhpa: {:.6f}, delta: {:.6f}", event.alpha, event.deltaTime);
+        HELENA_MSG_DEBUG("EngineRender: alpha: {:.6f}, delta: {:.6f}", event.alpha, event.deltaTime);
     }
 
     // This event is called when the Engine shutdown
@@ -91,12 +94,13 @@ struct TestSystemB {
 
 void example_systems()
 {
-    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemA>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemA>{});
+
+    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemA>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemA>);
     [[maybe_unused]] auto& testSystem = Helena::Engine::GetSystem<TestSystemA>();
 
     // also we can RegisterSystem in other place
     Helena::Engine::RegisterSystem<TestSystemB>(10);    // register with args...
-    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemB>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemB>{});
+    HELENA_ASSERT(Helena::Engine::HasSystem<TestSystemB>(), "System: {} not registered!", Helena::Traits::NameOf<TestSystemB>);
 
     // also we can use multiple systems by refs
     const auto& [testSystemA, testSystemB] = Helena::Engine::GetSystem<TestSystemA, TestSystemB>();
@@ -106,12 +110,12 @@ void example_systems()
 
     // check if all systems are registered
     if(Helena::Engine::HasSystem<TestSystemA, TestSystemB>()) {
-        HELENA_MSG_NOTICE("Systems: {} and {} registered!", Helena::Traits::NameOf<TestSystemA>{}, Helena::Traits::NameOf<TestSystemB>{});
+        HELENA_MSG_NOTICE("Systems: {} and {} registered!", Helena::Traits::NameOf<TestSystemA>, Helena::Traits::NameOf<TestSystemB>);
     }
 
     // check if any systems are registered
     if(Helena::Engine::AnySystem<TestSystemA, TestSystemB>()) {
-        HELENA_MSG_NOTICE("Systems: {} or {} registered!", Helena::Traits::NameOf<TestSystemA>{}, Helena::Traits::NameOf<TestSystemB>{});
+        HELENA_MSG_NOTICE("Systems: {} or {} registered!", Helena::Traits::NameOf<TestSystemA>, Helena::Traits::NameOf<TestSystemB>);
     }
 
     // OK, now remove systems
@@ -143,9 +147,9 @@ void example_signals()
 
     // Now let's start listening to this signal
     // Drop arguments if the signal type is std::is_empty_v<MySignal>
-    Helena::Engine::SubscribeEvent<MySignal>(+[]() {
-        HELENA_MSG_NOTICE("Hello signal: {}", Helena::Traits::NameOf<MySignal>{});
-    });
+    Helena::Engine::SubscribeEvent<MySignal, []() {
+        HELENA_MSG_NOTICE("Hello signal: {}", Helena::Traits::NameOf<MySignal>);
+    }>();
 
     // Now to notify listeners, it is enough to call
     Helena::Engine::SignalEvent<MySignal>();
@@ -157,10 +161,10 @@ void example_signals()
     };
 
     // We cannot drop arguments because InfoSignal is not empty type
-    Helena::Engine::SubscribeEvent<InfoSignal>(+[](const InfoSignal ev) {
+    Helena::Engine::SubscribeEvent<InfoSignal, [](const InfoSignal ev) {
         HELENA_MSG_NOTICE("Hello signal: {}, name: {}, age: {}",
-            Helena::Traits::NameOf<InfoSignal>{}, ev.name, ev.age);
-    });
+            Helena::Traits::NameOf<InfoSignal>, ev.name, ev.age);
+    }>();
 
     // Notify
     Helena::Engine::SignalEvent<InfoSignal>("Alex", 30);
@@ -282,9 +286,9 @@ void example_task_sheduler()
     // The scheduler cannot work by itself
     // You must call Update so that the scheduler calls events whose time has come
     // Let's use Engine for listen Update event
-    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>(+[](Helena::Events::Engine::Update) {
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](Helena::Events::Engine::Update) {
         scheduler.Update();
-    });
+    }>();
 
     // Print active task count;
     HELENA_MSG_INFO("Task count: {}", scheduler.Count());
@@ -305,6 +309,31 @@ void example_task_sheduler()
     //  Update task (Remove): O(1) + O(logN) (when need remove task)
 }
 
+/* -------------- [Components] ------------- */
+// How use components to share data between systems.
+// You don't need to know which system class owns them, this will reduce dependency in the code
+void example_components(int value)
+{
+    struct ComponentAudio { int value;};
+    struct ComponentTexture {int value;};
+
+    Helena::Engine::RegisterComponent<ComponentAudio>(value);
+    Helena::Engine::RegisterComponent<ComponentTexture>(value);
+
+    if(!Helena::Engine::HasComponent<ComponentAudio, ComponentTexture>()) {
+        return;
+    }
+
+    if(!Helena::Engine::AnyComponent<ComponentAudio, ComponentTexture>()) {
+        return;
+    }
+
+    const auto& [audio, texture] = Helena::Engine::GetComponent<ComponentAudio, ComponentTexture>();
+    HELENA_MSG_NOTICE("Audio value: {} | Texture value: {}", audio.value, texture.value);
+    Helena::Engine::RemoveComponent<ComponentAudio, ComponentTexture>();
+}
+
+
 /* -------------- [Subsystems] ------------- */
 #include <Helena/Types/Subsystems.hpp>
 
@@ -313,9 +342,9 @@ struct AnimationSkeleton {};
 
 // it's subsystem of AnimationManager
 struct AnimationSpline
-    // ModernDesign can be used in Systems (for get `this` from static methods)
+    // Helena::Types::System<ParentSystem> can be used in Systems (for get `this` from static methods)
     // or in Subsystems for get owner System instance
-    : public Helena::Types::ModernDesign<class AnimationManager>
+    : public Helena::Types::System<class AnimationManager>
 {
     static void StaticFunc();
     void NonStaticFunc();
@@ -326,13 +355,22 @@ private:
 
 // it's System
 class AnimationManager
-    : public Helena::Types::ModernDesign<AnimationManager>     // -> Get current system from static methods using CurrentSystem
-    , public Helena::Types::SubsystemDesign<AnimationManager>  // -> Create, Any, Has, Remove subsystems
+    : public Helena::Types::System<AnimationManager>     // -> Get current system from static methods using CurrentSystem
+    , public Helena::Types::Subsystems<AnimationManager>  // -> Create, Any, Has, Remove subsystems
 {
 
 public:
     AnimationManager() {
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(&OnInit);  // Subscribe on engine event
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, &OnInit>();  // Subscribe on engine event
+    }
+
+
+    static void PrintMessage()
+    {
+        auto& self = CurrentSystem(); // O(1) for get instance (inside CurrentSystem called Helena::Engine::GetSystem<T>)
+
+        HELENA_MSG_NOTICE("HELLO FROM PRINT MESSAGE OF ANIMATION MANAGER");
+        Helena::Util::Sleep(10000);
     }
 
 private:
@@ -383,7 +421,7 @@ void AnimationSpline::StaticFunc() {
     // in oop
     // const auto fnLambda = [this]() {};
     // in modern design paradigm
-    // const auto ptr = +[]() {
+    // const auto ptr = []() {
     //   auto& self = CurrentSystem()->GetSubsystem<AnimationSpline>();
     // }
 }
@@ -399,14 +437,15 @@ private:
     // We can override Main function for some logic
     // for example: RegisterSystems and Signals here or initialize our configs
     // Main function called when you call Helena::Engine::Context::Initialize<MyContext>();
-    bool Main() override
+    void Main() override
     {
-        Helena::Engine::SetTickrate(30.f);
+        Helena::Engine::SetTickrate(30);
 
         // Register system's
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
 
+        sizeof(AnimationManager);
 
         /*
         struct MyResource {
@@ -415,21 +454,21 @@ private:
 
         Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>, []() {
             HELENA_MSG_NOTICE("PreCreate");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>>(+[](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>, [](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
             HELENA_MSG_NOTICE("PostCreate {}", ev.resource.value);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>>(+[](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>, [](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
             HELENA_MSG_NOTICE("PreRemove {}", ev.resource.value);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>, []() {
             HELENA_MSG_NOTICE("PostRemove");
-        });
+        }>();
 
         Helena::Systems::ResourceManager::Create<MyResource>(100);
         [[maybe_unused]] auto has_result = Helena::Systems::ResourceManager::Has<MyResource>();
@@ -440,130 +479,173 @@ private:
         Helena::Engine::RemoveSystem<Helena::Systems::ResourceManager>();
         */
 
+        if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+        } else {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+        }
+
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
+
         // Or Signals
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreInit, []() {
             HELENA_MSG_NOTICE("Hello from PreInit");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+        if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+        } else {
+            HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+        }
+
+        HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, []() {
             HELENA_MSG_NOTICE("Hello from Init");
-        });
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]() {
+            if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
+                HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS FALSE");
+            }
+
+            HELENA_MSG_WARNING("Subscribers: {}", Helena::Engine::Subscribers<Helena::Events::Engine::PreInit>());
+
+            const auto [hasPreInit, hasInit] = Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>();
+            if(hasPreInit && hasInit) {
+                HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: HAS PRE INIT AND INIT SUBSCRIBERS FALSE, BUT PRE INIT: {}, INIT: {}", hasPreInit, hasInit);
+            }
+
+            if(Helena::Engine::AnySubscribers<Helena::Events::Engine::PreInit>()) {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT FALSE");
+            }
+
+            if(Helena::Engine::AnySubscribers<Helena::Events::Engine::PreInit, Helena::Events::Engine::Init>()) {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT TRUE");
+            } else {
+                HELENA_MSG_WARNING("TEST: ANY PRE INIT OR INIT FALSE");
+            }
+        }>();
+
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit, []() {
             HELENA_MSG_NOTICE("Hello from PostInit");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreConfig>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreConfig, []() {
             HELENA_MSG_NOTICE("Hello from PreConfig");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Config, []() {
             HELENA_MSG_NOTICE("Hello from Config");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostConfig>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostConfig, []() {
             HELENA_MSG_NOTICE("Hello from PostConfig");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreExecute>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreExecute, []() {
             HELENA_MSG_NOTICE("Hello from PreExecute");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Execute, []() {
             HELENA_MSG_NOTICE("Hello from Execute");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostExecute>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostExecute, []() {
             HELENA_MSG_NOTICE("Hello from PostExecute");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick>(+[](Helena::Events::Engine::PreTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreTick");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick>(+[](Helena::Events::Engine::Tick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Tick");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick>(+[](Helena::Events::Engine::PostTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostTick");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate>(+[](Helena::Events::Engine::PreUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreUpdate");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update>(+[](Helena::Events::Engine::Update ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Update");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>(+[](Helena::Events::Engine::PostUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostUpdate");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender>(+[](Helena::Events::Engine::PreRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreRender");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render>(+[](Helena::Events::Engine::Render ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Render");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender>(+[](Helena::Events::Engine::PostRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostRender");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreFinalize>(+[](){
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreFinalize, [](){
             HELENA_MSG_NOTICE("Hello from PreFinalize");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Finalize, []() {
             HELENA_MSG_NOTICE("Hello from Finalize");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostFinalize>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostFinalize, []() {
             HELENA_MSG_NOTICE("Hello from PostFinalize");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreShutdown>(+[](){
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreShutdown, [](){
             HELENA_MSG_NOTICE("Hello from PreShutdown");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
             HELENA_MSG_NOTICE("Hello from Shutdown");
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostShutdown>(+[]() {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostShutdown, []() {
             HELENA_MSG_NOTICE("Hello from PostShutdown");
-        });
+        }>();
 
 
         /* Hot reload test
         Helena::Engine::RegisterSystem<Helena::Systems::PluginManager>("D:\\Projects\\HelenaFramework\\Bin\\Bin");
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreLoad>(+[](Helena::Events::PluginManager::PreLoad ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreLoad, [](Helena::Events::PluginManager::PreLoad ev) {
             HELENA_MSG_INFO("Event PreLoad plugin: {}", ev.name);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostLoad>(+[](Helena::Events::PluginManager::PostLoad ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostLoad, [](Helena::Events::PluginManager::PostLoad ev) {
             HELENA_MSG_INFO("Event PostLoad plugin: {}, error: {}", ev.name, ev.error);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreReload>(+[](Helena::Events::PluginManager::PreReload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreReload, [](Helena::Events::PluginManager::PreReload ev) {
             HELENA_MSG_INFO("Event PreReload plugin: {}", ev.name);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload>(+[](Helena::Events::PluginManager::PostReload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostReload, [](Helena::Events::PluginManager::PostReload ev) {
             HELENA_MSG_INFO("Event PostReload plugin: {}, error: {}", ev.name, ev.error);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload>(+[](Helena::Events::PluginManager::PreUnload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PreUnload, [](Helena::Events::PluginManager::PreUnload ev) {
             HELENA_MSG_INFO("Event PreUnload plugin: {}", ev.name);
-        });
+        }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostUnload>(+[](Helena::Events::PluginManager::PostUnload ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::PluginManager::PostUnload, [](Helena::Events::PluginManager::PostUnload ev) {
             HELENA_MSG_INFO("Event PostUnload plugin: {}", ev.name);
-        });
+        }>();
 
         if(Helena::Systems::PluginManager::Load("HelenaPlugin")) {
             HELENA_MSG_INFO("Plugin loaded!");
@@ -572,7 +654,7 @@ private:
         }
 
         // hot reload test by scheduler
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>(+[]{
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostInit>([]{
             auto& self = Helena::Engine::GetContext<MyContext>();
             HELENA_MSG_DEBUG("Task created");
             self.m_Scheduler.Create(1, 20000, [](std::uint64_t id, std::uint64_t& time, std::uint32_t& repeat) {
@@ -585,7 +667,7 @@ private:
             });
         });
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>(+[](Helena::Events::Engine::PostUpdate) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate>([](Helena::Events::Engine::PostUpdate) {
             Helena::Engine::GetContext<MyContext>().m_Scheduler.Update();
         });
         */
@@ -594,7 +676,7 @@ private:
         // Signals are mainly intended for class-systems.
         // But they also support lambdas without captures or static methods.
         // Believe me, this is enough to call a method of any class, let me demonstrate
-        //Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+        //Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>([]() {
         //    // example #1 for get current context by reference
         //    auto& context1 = Helena::Engine::GetContext<MyContext>();
 
@@ -602,8 +684,6 @@ private:
         //    // Now just call our class method
         //    context1.foo();
         //});
-
-        return true;    // true for "no error"
     }
 
     void foo() {
@@ -613,21 +693,20 @@ private:
     //Helena::Types::TaskScheduler m_Scheduler;
 };
 
-
 // First method of initialization framework
 void Initialization_by_default()
 {
     Helena::Engine::Initialize();                   // Initialize Context (Context used in Engine)
-    Helena::Engine::SetTickrate(30.);               // Set Update tickrate
+    Helena::Engine::SetTickrate(30.);       // Set Update tickrate
 
     // Register system's
     Helena::Engine::RegisterSystem<TestSystemA>();
     Helena::Engine::RegisterSystem<AnimationManager>();
 
     // Or Signals
-    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init>(+[]() {
+    Helena::Engine::SubscribeEvent<Helena::Events::Engine::Init, []() {
         HELENA_MSG_NOTICE("Hello from Initialization_by_default");
-    });
+    }>();
 }
 
 void Initialization_with_my_Context() {
@@ -636,7 +715,6 @@ void Initialization_with_my_Context() {
     // register system here or in your Context using `bool Main() override`
 }
 
-// TODO: test
 void test_allocators();
 
 int main(int argc, char** argv)
@@ -644,16 +722,15 @@ int main(int argc, char** argv)
     //Engine started from Initialize method
     //Initialization_by_default();          // default initialization
     Initialization_with_my_Context();       // initialization with own Context
-
     example_systems();          // ok, here just example how use systems
     example_signals();          // here example with signals
     example_task_sheduler();    // task scheduler example
+    example_components(argc);
 
     test_allocators();
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
-
     return 0;
 }
 
@@ -663,11 +740,69 @@ void test_allocators()
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    Helena::Types::StackAllocator<sizeof(String) * 10, alignof(String)> stack;
-    Vector vec_of_string{&stack}; vec_of_string.reserve(10);
+    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::MonotonicAllocator>> alloc;
+    Helena::Types::IMemoryResource* memoryResource = &alloc;
+    Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
 
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
-    vec_of_string.emplace_back("long message for got allocation", &stack);
+    static constexpr auto name = alloc.Name();
+    HELENA_MSG_NOTICE("Your allocator name: {}", alloc.Name());
+
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+    vec_of_string.emplace_back("long message for got allocation");
+
+    // Debug info
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
+
+    const auto vec_int = vec_of_string.get_allocator().AllocateObjects<std::vector<int>>();
+    vec_of_string.get_allocator().ConstructObject(vec_int);
+    vec_int->push_back(10);
+    vec_of_string.get_allocator().DestroyObject(vec_int);
+    vec_of_string.get_allocator().FreeObjects(vec_int);
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
+
+    auto copy_vec = Vector(vec_of_string, vec_of_string.get_allocator());
+    for(auto& str : copy_vec) {
+        HELENA_MSG_NOTICE("Your copied str: {}", str);
+    }
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
+
+    auto copy_vec2 = vec_of_string;
+    for(auto& str : copy_vec2) {
+        HELENA_MSG_NOTICE("Your copied str 2: {}", str);
+    }
+
+    HELENA_MSG_NOTICE("Used blocks: {} | Max used blocks: {} | Used bytes: {} | Max used bytes: {} | Max allocated bytes: {}",
+        alloc.UsedBlocks(), alloc.MaxUsedBlocks(), alloc.UsedBytes(), alloc.MaxUsedBytes(), alloc.MaxAllocatedBytes());
 }
+
+// Test specialization for logger
+template <>
+struct Helena::Log::CustomPrint<Helena::Log::Warning>
+{
+    template <typename Char>
+    static void Message(std::basic_string<Char>& message) {
+        Print<Char>::Message(message);
+    }
+};
+
+template <>
+struct Helena::Log::MuteController<Helena::Log::Warning> {
+    static bool Muted() {
+        return false;
+    }
+};

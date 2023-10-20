@@ -1,4 +1,4 @@
-name: Build
+﻿name: Build
 on: [push]
 
 jobs:
@@ -11,15 +11,24 @@ jobs:
         compiler: [Clang, GCC]
         include:
           - compiler: Clang
-            binary: clang++-13
+            binary: clang++-15
             install: |
+              sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+              sudo apt update
+              sudo apt install -y g++-13 cmake ninja-build
+              sudo apt upgrade
               sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-              sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
-              sudo apt install -y clang-13
+              sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main"
+              sudo apt update
+              sudo apt install -y clang-15
               sudo apt upgrade
           - compiler: GCC
-            binary: g++-11
-            install:
+            binary: g++-13
+            install: |
+              sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+              sudo apt update
+              sudo apt install -y g++-13 cmake ninja-build
+              sudo apt upgrade
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,15 +36,11 @@ jobs:
           submodules: true
       - name: Install compiler
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt update
-          sudo apt install -y g++-11 cmake ninja-build
           ${{ matrix.install }}
-          sudo apt upgrade
       - name: Configure
         env:
           CXX: ${{ matrix.binary }}
-        run:  cmake . -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+        run:  cmake -B Build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }} -DCMAKE_CXX_COMPILER=${{ matrix.binary }}
       - name: Build
         run:  cmake --build Build
       - name: Upload
@@ -53,7 +58,7 @@ jobs:
         compiler: [MSVC, Clang]
         include:
           - compiler: MSVC
-            toolset: -T"v142"
+            toolset: -T"v143"
           - compiler: Clang
             toolset: -T"ClangCL"
     steps:
@@ -62,7 +67,7 @@ jobs:
         with:
           submodules: true
       - name: Enable Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1.12.0
+        uses: ilammy/msvc-dev-cmd@v1.12.1
       - name: Configure
         run:  cmake -B Build -G "Visual Studio 17 2022" -A x64 ${{ matrix.toolset }}
       - name: Build
@@ -71,5 +76,49 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Helena (${{ matrix.compiler }} - ${{ matrix.build }})
+          path: ${{ github.workspace }}/Bin/HelenaMain.exe
+          if-no-files-found: error
+  windows_msys2:
+    name: "Windows [MSYS2]"
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      matrix:
+        build: [Debug, Release]
+        compiler: [MINGW32, MINGW64, UCRT64]
+        include:
+          - compiler: MINGW32
+            env: i686
+          - compiler: MINGW64
+            env: x86_64
+          - compiler: UCRT64
+            env: ucrt-x86_64
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: "Setup MSYS2"
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: ${{ matrix.compiler }}
+      - name: 'Install packages'
+        run: |
+          pacman --noconfirm -Syuu
+          pacman --noconfirm -S mingw-w64-${{ matrix.env }}-cmake
+          pacman --noconfirm -S mingw-w64-${{ matrix.env }}-ninja
+          pacman --noconfirm -S mingw-w64-${{ matrix.env }}-gcc
+      - name: 'Build'
+        run: |
+          cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+          cmake --build build
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Helena [MSYS2] (${{ matrix.compiler }} - ${{ matrix.build }})
           path: ${{ github.workspace }}/Bin/HelenaMain.exe
           if-no-files-found: error

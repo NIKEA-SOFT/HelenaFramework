@@ -21,6 +21,7 @@ namespace Helena::Types
         using hash_type = Traits::FNV1a<T>;
         using value_type = T;
 
+    private:
         template <std::input_iterator Iterator>
         [[nodiscard]] static constexpr auto Calculate(Iterator begin, const Iterator end) noexcept
         {
@@ -33,36 +34,39 @@ namespace Helena::Types
             return value;
         }
 
+        template <typename Container>
+        static constexpr bool RequiresContainer = requires(Container container) {
+            container.begin();
+            container.end();
+            container.begin() != container.end();
+            { *container.begin() } -> std::convertible_to<T>;
+        };
+
     public:
         Hash() = delete;
+        ~Hash() = delete;
         Hash(const Hash&) = delete;
         Hash(Hash&&) noexcept = delete;
         Hash& operator=(const Hash&) = delete;
         Hash& operator=(Hash&&) noexcept = delete;
 
         template <typename Container>
-        requires requires(Container container) {
-            container.begin();
-            container.end();
-            container.begin() != container.end();
-            { static_cast<T>(*container.begin()) } -> std::same_as<T>;
-        }
+        requires RequiresContainer<Container>
         [[nodiscard]] static constexpr auto From(const Container& container) noexcept {
             return Calculate(container.begin(), container.end());
         }
-
 
         [[nodiscard]] static constexpr auto From(const char* str) noexcept {
             return From(std::string_view{str});
         }
 
         [[nodiscard]] static constexpr auto From(const wchar_t* str) noexcept {
-            return From(std::basic_string_view{str});
+            return From(std::wstring_view{str});
         }
 
         template <typename Type>
         [[nodiscard]] static constexpr auto From() noexcept {
-            return From(Helena::Traits::NameOf<Type>::Value);
+            return From(Traits::NameOf<Type>);
         }
     };
 
@@ -81,6 +85,24 @@ namespace Helena::Types
         [[nodiscard]] std::size_t operator()(string_view str) const { return hash_type{}(str); }
         [[nodiscard]] std::size_t operator()(const T& str) const { return hash_type{}(str); }
     };
+}
+
+namespace Helena::Literals::Hash {
+    [[nodiscard]] constexpr auto operator""_Hash32(const char* data, std::size_t size) noexcept {
+        return Types::Hash<std::uint32_t>::From(std::string_view{data, size});
+    }
+
+    [[nodiscard]] constexpr auto operator""_Hash64(const char* data, std::size_t size) noexcept {
+        return Types::Hash<std::uint64_t>::From(std::string_view{data, size});
+    }
+
+    [[nodiscard]] constexpr auto operator""_Hash32(const wchar_t* data, std::size_t size) noexcept {
+        return Types::Hash<std::uint32_t>::From(std::wstring_view{data, size});
+    }
+
+    [[nodiscard]] constexpr auto operator""_Hash64(const wchar_t* data, std::size_t size) noexcept {
+        return Types::Hash<std::uint64_t>::From(std::wstring_view{data, size});
+    }
 }
 
 #endif // HELENA_TYPES_HASH_HPP

@@ -59,14 +59,16 @@
 #endif
 
 /* ----------- [Features] ----------- */
-#if defined(HELENA_DEBUG)
-    #if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-        #define HELENA_FORCEINLINE              __attribute__((always_inline)
-    #elif defined(HELENA_COMPILER_MSVC)
-        #define HELENA_FORCEINLINE              __forceinline
-    #endif
-#else
-    #define HELENA_FORCEINLINE
+#if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+    #define HELENA_FORCEINLINE          __attribute__((always_inline))
+#elif defined(HELENA_COMPILER_MSVC)
+    #define HELENA_FORCEINLINE          __forceinline
+#endif
+
+#if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+    #define HELENA_NOINLINE             __attribute__((noinline))
+#elif defined(HELENA_COMPILER_MSVC)
+    #define HELENA_NOINLINE             __declspec(noinline)
 #endif
 
 #if defined(HELENA_COMPILER_CLANG) || defined(HELENA_COMPILER_GCC)

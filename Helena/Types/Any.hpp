@@ -1,645 +1,468 @@
-// Modification of Any, taked from:
-// https://github.com/skypjack/entt
-
 #ifndef HELENA_TYPES_ANY_HPP
 #define HELENA_TYPES_ANY_HPP
 
+#include <Helena/Traits/Arguments.hpp>
+#include <Helena/Traits/Specialization.hpp>
+#include <Helena/Traits/PowerOf2.hpp>
+#include <Helena/Traits/NameOf.hpp>
+#include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Types/Hash.hpp>
-#include <Helena/Platform/Assert.hpp>
 
-#include <cstddef>
 #include <bit>
-#include <memory>
+#include <cstddef>
 #include <new>
+#include <memory>
+#include <typeinfo>
+#include <tuple>
 #include <utility>
 
 namespace Helena::Types
 {
-    namespace Internal {
-        /**
-         * @brief Utility class to disambiguate overloaded functions.
-         * @tparam N Number of choices available.
-         */
-        template<std::size_t N>
-        struct choice_t
-            // Unfortunately, doxygen cannot parse such a construct.
-            : /*! @cond TURN_OFF_DOXYGEN */ choice_t<N - 1> /*! @endcond */
-        {};
-
-        /*! @copybrief choice_t */
-        template<>
-        struct choice_t<0> {};
-    }
-
-    template<std::size_t Len = sizeof(double), std::size_t = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
-    class Any;
-
-    /**
-     * @brief A SBO friendly, type-safe container for single values of any type.
-     * @tparam Len Size of the storage reserved for the small buffer optimization.
-     * @tparam Align Optional alignment requirement.
-     */
-    template<std::size_t Len, std::size_t Align>
+    template <std::size_t Capacity = sizeof(void*), std::size_t Alignment = alignof(void*), typename Alloc = std::allocator<std::byte>>
+    requires Traits::IsPowerOf2<Alignment>
     class Any
     {
-        enum class EOperation : std::uint8_t {
-            Copy,
-            Move,
-            Transfer,
-            Assign,
-            Destroy,
-            Compare,
-            Get
-        };
-
-        enum class EPolicy : std::uint8_t {
-            Owner,
-            Ref,
-            CRef
-        };
-
-        template<typename, typename = void>
-        struct has_iterator_category: std::false_type {};
-
-        template<typename Type>
-        struct has_iterator_category<Type, std::void_t<typename std::iterator_traits<Type>::iterator_category>>: std::true_type {};
-
-         /**
-          * @brief Provides the member constant `value` to true if a given type is an
-          * iterator, false otherwise.
-          * @tparam Type The type to test.
-          */
-        template<typename Type, typename = void>
-        struct is_iterator : std::false_type {};
-
-        /*! @copydoc is_iterator */
-        template <typename Type>
-        struct is_iterator<Type, std::enable_if_t<!std::is_same_v<std::remove_const_t<std::remove_pointer_t<Type>>, void>>>
-            : has_iterator_category<Type> {};
-
-        /**
-         * @brief Helper variable template.
-         * @tparam Type The type to test.
-         */
-        template<typename Type>
-        static constexpr bool is_iterator_v = is_iterator<Type>::value;
-
-        /**
-         * @brief Provides the member constant `value` to true if a given type is
-         * complete, false otherwise.
-         * @tparam Type The type to test.
-         */
-        template<typename Type, typename = void>
-        struct is_complete : std::false_type {};
-
-        /*! @copydoc is_complete */
-        template<typename Type>
-        struct is_complete<Type, std::void_t<decltype(sizeof(Type))>> : std::true_type {};
-
-        /**
-         * @brief Helper variable template.
-         * @tparam Type The type to test.
-         */
-        template<typename Type>
-        static constexpr bool is_complete_v = is_complete<Type>::value;
-
-        /**
-        * @brief Variable template for the choice trick.
-        * @tparam N Number of choices available.
-        */
-        template<std::size_t N>
-        static constexpr Internal::choice_t<N> choice{};
-
-        template<typename, typename = void>
-        struct has_tuple_size_value : std::false_type {};
-
-        template<typename Type>
-        struct has_tuple_size_value<Type, std::void_t<decltype(std::tuple_size_v<const Type>)>> : std::true_type {};
-
-        /**
-         * @brief Provides the member constant `value` to true if a given type is
-         * equality comparable, false otherwise.
-         * @tparam Type The type to test.
-         */
-        template<typename Type, typename = void>
-        struct is_equality_comparable : std::false_type {};
-
-        template<typename>
-        [[nodiscard]] static constexpr bool maybe_equality_comparable(Internal::choice_t<0>) {
-            return true;
-        }
-
-        template<typename Type>
-        [[nodiscard]] static constexpr auto maybe_equality_comparable(Internal::choice_t<1>) -> decltype(std::declval<typename Type::value_type>(), bool{}) {
-            if constexpr(is_iterator_v<Type>) {
-                return true;
-            } else if constexpr(std::is_same_v<typename Type::value_type, Type>) {
-                return maybe_equality_comparable<Type>(choice<0>);
-            } else {
-                return is_equality_comparable<typename Type::value_type>::value;
-            }
-        }
-
-        template<typename Type>
-        [[nodiscard]] constexpr std::enable_if_t<is_complete_v<std::tuple_size<std::remove_const_t<Type>>>, bool> maybe_equality_comparable(Internal::choice_t<2>) {
-            if constexpr(has_tuple_size_value<Type>::value) {
-                return unpack_maybe_equality_comparable<Type>(std::make_index_sequence<std::tuple_size_v<Type>>{});
-            } else {
-                return maybe_equality_comparable<Type>(choice<1>);
-            }
-        }
-
-        /*! @copydoc is_equality_comparable */
-        template<typename Type>
-        struct is_equality_comparable<Type, std::void_t<decltype(std::declval<Type>() == std::declval<Type>())>>
-            : std::bool_constant<maybe_equality_comparable<Type>(choice<2>)> {};
-
-        /**
-         * @brief Helper variable template.
-         * @tparam Type The type to test.
-         */
-        template<typename Type>
-        static constexpr bool is_equality_comparable_v = is_equality_comparable<Type>::value;
-
-        struct Storage {
-            alignas(Align) std::byte data[Len + !Len];
-        };
-
-        using VTable = const void* (const EOperation, const Any&, const void*);
+        static_assert(std::is_same_v<typename Alloc::value_type, std::byte>, "Allocator value_type != std::byte");
 
     public:
-        using hash_type = Hash<std::uint32_t>;
+        using allocator_type    = Alloc;
+        using allocator_traits  = std::allocator_traits<allocator_type>;
+        using value_type        = typename allocator_traits::value_type;
+        using pointer           = typename allocator_traits::pointer;
+        using const_pointer     = typename allocator_traits::const_pointer;
+
+        using Hasher            = Hash<std::uint64_t>;
+        using HasherValue       = Hasher::value_type;
+
+        static constexpr std::size_t DefaultCapacity = sizeof(void*);
+        static constexpr std::size_t DefaultAlignment = alignof(void*);
+        static constexpr std::size_t DisableSBO = 0;
 
         template <typename T>
-        static constexpr auto HashOf = hash_type::template From<T>();
+        static constexpr bool AllowedParam = std::conjunction_v<
+            std::negation<std::is_same<std::decay_t<T>, void>>,
+            std::negation<std::is_lvalue_reference<T>>,
+            std::negation<std::is_function<std::remove_pointer_t<T>>>,
+            std::negation<std::is_member_function_pointer<T>>>;
+
+        template <typename T, typename... Args>
+        static constexpr bool RequiredParams = std::conjunction_v<
+            std::bool_constant<AllowedParam<T>>,
+            std::conditional_t<Traits::Arguments<Args...>::Orphan,
+                std::is_default_constructible<std::decay_t<T>>,
+                std::is_constructible<std::decay_t<T>, Args...>>>;
+
+        template <typename T>
+        static constexpr bool RequiredValue = std::conjunction_v<
+            std::negation<std::is_same<std::decay_t<T>, void>>,
+            std::negation<std::is_same<std::decay_t<T>, Any>>,
+            std::negation<std::is_function<std::remove_pointer_t<T>>>,
+            std::negation<std::is_member_function_pointer<T>>,
+            std::negation<Traits::SpecializationOf<std::decay_t<T>, std::in_place_type_t>>>;
 
     private:
-        template<typename Type>
-        static constexpr bool in_situ = Len && alignof(Type) <= alignof(Storage) && sizeof(Type) <= sizeof(Storage) && std::is_nothrow_move_constructible_v<Type>;
+        template <typename T>
+        static constexpr auto HashOf = Hasher::template From<T>();
 
-        template<typename Type>
-        static const void* VTableHandler([[maybe_unused]] const EOperation op, [[maybe_unused]] const Any& value, [[maybe_unused]] const void* other)
+        enum class ECommand : std::uint8_t {
+            Copy,
+            Move,
+            Destroy
+        };
+
+        template <auto... Fn>
+        struct CaptureFunctions {};
+
+        template <ECommand>
+        struct Command {};
+
+        struct Commands
         {
-            static_assert(!std::is_same_v<Type, void> && std::is_same_v<std::remove_cvref_t<Type>, Type>, "Invalid type");
-            const Type* element = nullptr;
+            using Tuple = std::tuple<
+                void (*)(const Any&, Any&),     // Copy
+                void (*)(Any&, Any&),           // Move
+                void (*)(Any&)                  // Destroy
+            >;
 
-            if constexpr(in_situ<Type>) {
-                element = value.Owner() ? std::bit_cast<const Type*>(&value.storage) : static_cast<const Type*>(value.instance);
-            } else {
-                element = static_cast<const Type*>(value.instance);
+            template <typename T>
+            static void Copy(const Any& current, Any& other)
+            {
+                if constexpr(Placementable<T>) {
+                    std::construct_at(std::bit_cast<T*>(std::addressof(other.m_Storage.m_Buffer)),
+                        *std::bit_cast<const T*>(std::addressof(current.m_Storage.m_Buffer)));
+                    other.m_Pair.First() = current.m_Pair.First();
+                } else {
+                    other.template Initialize<T>(*static_cast<const T*>(current.m_Instance));
+                }
             }
 
-            switch(op)
+            template <typename T>
+            static void Move(Any& current, Any& other) noexcept
             {
-                case EOperation::Copy: {
-                    if constexpr(std::is_copy_constructible_v<Type>) {
-                        static_cast<Any*>(const_cast<void*>(other))->template Initialize<Type>(*element);
-                    }
-                } break;
-
-                case EOperation::Move:
-                {
-                    if constexpr(in_situ<Type>) {
-                        if(value.Owner()) {
-                            return new(&static_cast<Any*>(const_cast<void*>(other))->storage) Type{std::move(*const_cast<Type*>(element))};
-                        }
-                    }
-
-                    return (static_cast<Any*>(const_cast<void*>(other))->instance = std::exchange(const_cast<Any&>(value).instance, nullptr));
-                }
-
-                case EOperation::Transfer: {
-                    if constexpr(std::is_move_assignable_v<Type>) {
-                        *const_cast<Type*>(element) = std::move(*static_cast<Type*>(const_cast<void*>(other)));
-                        return other;
-                    }
-                } [[fallthrough]];
-
-                case EOperation::Assign: {
-                    if constexpr(std::is_copy_assignable_v<Type>) {
-                        *const_cast<Type*>(element) = *static_cast<const Type*>(other);
-                        return other;
-                    }
-                } break;
-
-                case EOperation::Destroy: {
-                    if constexpr(in_situ<Type>) {
-                        element->~Type();
-                    } else if constexpr(std::is_array_v<Type>) {
-                        delete[] element;
-                    } else {
-                        delete element;
-                    }
-                } break;
-
-                case EOperation::Compare: {
-                    if constexpr(!std::is_function_v<Type> && !std::is_array_v<Type> && is_equality_comparable_v<Type>) {
-                        return *element == *static_cast<const Type *>(other) ? other : nullptr;
-                    } else {
-                        return (element == other) ? other : nullptr;
+                if constexpr(Placementable<T>) {
+                    std::construct_at(std::bit_cast<T*>(std::addressof(other.m_Storage.m_Buffer)),
+                        std::move(*std::bit_cast<T*>(std::addressof(current.m_Storage.m_Buffer))));
+                    other.m_Pair.First() = std::exchange(current.m_Pair.First(), nullptr);
+                    return;
+                } else if constexpr(!allocator_traits::is_always_equal::value) {
+                    if(current.m_Pair.Second() != other.m_Pair.Second()) {
+                        other.template Initialize<T>(std::move(*static_cast<T*>(current.m_Instance)));
+                        current.VTable<ECommand::Destroy>(current);
+                        return;
                     }
                 }
 
-                case EOperation::Get: {
-                    return element;
+                other.m_Instance = std::exchange(current.m_Instance, nullptr);
+                other.m_Pair.First() = std::exchange(current.m_Pair.First(), nullptr);
+            }
+
+            template <typename T>
+            static void Destroy(Any& current) noexcept
+            {
+                if constexpr(Placementable<T>) {
+                    std::destroy_at(std::bit_cast<T*>(std::addressof(current.m_Storage.m_Buffer)));
+                } else {
+                    allocator_traits::destroy(current.m_Pair.Second(), static_cast<T*>(current.m_Instance));
+                    allocator_traits::deallocate(current.m_Pair.Second(), static_cast<pointer>(current.m_Instance), sizeof(T));
+                    current.m_Instance = nullptr;
                 }
+
+                current.m_Pair.First() = nullptr;
+            }
+
+            template <ECommand Index, typename... Args>
+            constexpr decltype(auto) operator()(Command<Index>, Args&&... args) const noexcept {
+                return std::get<static_cast<std::underlying_type_t<ECommand>>(Index)>(m_Functors)(std::forward<Args>(args)...);
+            }
+
+            template <typename T, auto... Fn>
+            constexpr Commands(std::type_identity<T>, const CaptureFunctions<Fn...>) noexcept
+                : m_Functors{Fn...}
+                , m_Name{Traits::NameOf<T>}
+                , m_Hash{HashOf<T>}
+                , m_Size{sizeof(T)}
+                , m_Placementable{Placementable<T>} {}
+
+            [[nodiscard]] constexpr auto Data(const Any& current) const noexcept {
+                const void* result[]{current.m_Instance, std::addressof(current.m_Storage.m_Buffer)};
+                return result[m_Placementable];
+            }
+
+            [[nodiscard]] constexpr auto TypeName() const noexcept {
+                return m_Name;
+            }
+
+            [[nodiscard]] constexpr auto TypeHash() const noexcept {
+                return m_Hash;
+            }
+
+            [[nodiscard]] constexpr auto Size() const noexcept {
+                return m_Size;
+            }
+
+            [[nodiscard]] constexpr bool UsesSBO() const noexcept {
+                return m_Placementable;
+            }
+
+            const Tuple m_Functors;
+            const char* const m_Name;
+            const HasherValue m_Hash;
+            const std::size_t m_Size;
+            const bool m_Placementable;
+        };
+
+        template <typename T>
+        static constexpr auto CommandSwitch = Commands{
+            std::type_identity<T>{},
+            CaptureFunctions<
+                &Commands::template Copy<T>,
+                &Commands::template Move<T>,
+                &Commands::template Destroy<T>
+            >{}
+        };
+
+        struct Storage {
+            alignas(Alignment) value_type m_Buffer[Capacity + !Capacity];
+        };
+
+        template <typename T>
+        static constexpr bool Placementable = Capacity && sizeof(T) <= sizeof(Storage) && alignof(T) <= alignof(Storage)
+                                            && std::is_nothrow_move_constructible_v<T>;
+
+    public:
+        explicit Any() noexcept : m_Instance{}, m_Pair{} {}
+
+        explicit Any(std::allocator_arg_t, const Alloc& alloc) noexcept
+            : m_Instance{}
+            , m_Pair{std::piecewise_construct
+                , std::forward_as_tuple(nullptr)
+                , std::forward_as_tuple(alloc)} {}
+
+        template <typename T, typename... Args>
+        requires RequiredParams<T, Args...>
+        explicit Any(std::in_place_type_t<T>, Args&&... args)
+            : m_Instance{}
+            , m_Pair{std::piecewise_construct
+                , std::forward_as_tuple(nullptr)
+                , std::forward_as_tuple(Alloc())} {
+            Initialize<std::decay_t<T>>(std::forward<Args>(args)...);
+        }
+
+        template <typename T, typename... Args>
+        requires RequiredParams<T, Args...>
+        explicit Any(std::allocator_arg_t, const Alloc& alloc, std::in_place_type_t<T>, Args&&... args)
+            : m_Instance{}
+            , m_Pair{std::piecewise_construct
+                , std::forward_as_tuple(nullptr)
+                , std::forward_as_tuple(alloc)} {
+            Initialize<std::decay_t<T>>(std::forward<Args>(args)...);
+        }
+
+        template <typename T>
+        requires RequiredValue<T>
+        explicit Any(T&& value)
+            : Any(std::in_place_type<std::decay_t<T>>, std::forward<T>(value)) {}
+
+        template <typename T>
+        requires RequiredValue<T>
+        explicit Any(T&& value, const Alloc& alloc)
+            : Any(std::allocator_arg, alloc, std::in_place_type<std::decay_t<T>>, std::forward<T>(value)) {}
+
+        ~Any() noexcept {
+            Reset();
+        }
+
+        Any(const Any& other) : Any(std::allocator_arg,
+            allocator_traits::select_on_container_copy_construction(other.m_Pair.Second()))
+        {
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Copy>(other, *this);
+            }
+        }
+
+        Any(const Any& other, const Alloc& alloc) : Any(std::allocator_arg, alloc)
+        {
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Copy>(other, *this);
+            }
+        }
+
+        Any(Any&& other) noexcept : Any(std::allocator_arg, std::move(other.m_Pair.Second()))
+        {
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Move>(other, *this);
+            }
+        }
+
+        Any(Any&& other, const Alloc& alloc) noexcept : Any(std::allocator_arg, alloc)
+        {
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Move>(other, *this);
+            }
+        }
+
+        Any& operator=(const Any& other)
+        {
+            Reset();
+
+            if constexpr(!allocator_traits::is_always_equal::value
+                && allocator_traits::propagate_on_container_copy_assignment::value) {
+                if(m_Pair.Second() != other.m_Pair.Second()) {
+                    m_Pair.Second() = other.m_Pair.Second();
+                }
+            }
+
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Copy>(other, *this);
+            }
+
+            return *this;
+        }
+
+        Any& operator=(Any&& other) noexcept
+        {
+            Reset();
+
+            if constexpr(!allocator_traits::is_always_equal::value
+                && allocator_traits::propagate_on_container_move_assignment::value) {
+                if(m_Pair.Second() != other.m_Pair.Second()) {
+                    m_Pair.Second() = std::move(other.m_Pair.Second());
+                }
+            }
+
+            if(!other.Empty()) {
+                other.template VTable<ECommand::Move>(other, *this);
+            }
+
+            return *this;
+        }
+
+        template <typename T, typename... Args>
+        requires RequiredParams<T, Args...>
+        void Create(Args&&... args) {
+            Reset();
+            Initialize<std::decay_t<T>>(std::forward<Args>(args)...);
+        }
+
+        [[nodiscard]] constexpr bool Empty() const noexcept {
+            return !m_Pair.First();
+        }
+
+        // Check the type that is stored in Any
+        template <typename T>
+        [[nodiscard]] constexpr bool Contain() const noexcept {
+            if(!Empty()) [[likely]] {
+                constexpr auto hash = HashOf<std::decay_t<T>>;
+                return m_Pair.First()->TypeHash() == hash;
+            }
+            return false;
+        }
+
+        [[nodiscard]] constexpr auto TypeName() const noexcept -> const char*
+        {
+            if(!Empty()) {
+                return m_Pair.First()->TypeName();
             }
 
             return nullptr;
         }
 
-        template<typename Type, typename... Args>
-        void Initialize([[maybe_unused]] Args&&...args)
+        [[nodiscard]] constexpr auto TypeHash() const noexcept
         {
-            using ValueType = std::remove_cvref_t<Type>;
-            if constexpr(!std::is_void_v<Type>)
-            {
-                vtable = VTableHandler<ValueType>;
-                key = HashOf<ValueType>;
-
-                if constexpr(std::is_lvalue_reference_v<Type>) {
-                    static_assert(sizeof...(Args) == 1u && (std::is_lvalue_reference_v<Args> && ...), "Invalid arguments");
-                    mode = std::is_const_v<std::remove_reference_t<Type>> ? EPolicy::CRef : EPolicy::Ref;
-                    instance = (std::addressof(args), ...);
-                } else if constexpr(in_situ<ValueType>) {
-                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<ValueType>) {
-                        new(&storage) ValueType{std::forward<Args>(args)...};
-                    } else {
-                        new(&storage) ValueType(std::forward<Args>(args)...);
-                    }
-                } else {
-                    if constexpr(sizeof...(Args) != 0u && std::is_aggregate_v<ValueType>) {
-                        instance = new ValueType{std::forward<Args>(args)...};
-                    } else {
-                        instance = new ValueType(std::forward<Args>(args)...);
-                    }
-                }
+            if(!Empty()) {
+                return m_Pair.First()->TypeHash();
             }
+            return HasherValue{};
         }
 
-        Any(const Any& other, const EPolicy pol) noexcept
-            : instance{other.Data()}
-            , vtable{other.vtable}
-            , key{other.key}
-            , mode{pol} {}
-
-    public:
-        /*! @brief Size of the internal storage. */
-        static constexpr auto length = Len;
-        /*! @brief Alignment requirement. */
-        static constexpr auto alignment = Align;
-
-        /*! @brief Default constructor. */
-        constexpr Any() noexcept
-            : instance{}
-            , vtable{}
-            , key{HashOf<void>}
-            , mode{EPolicy::Owner} {}
-
-        /**
-         * @brief Constructs a wrapper by directly initializing the new object.
-         * @tparam Type Type of object to use to initialize the wrapper.
-         * @tparam Args Types of arguments to use to construct the new instance.
-         * @param args Parameters to use to construct the instance.
-         */
-        template<typename Type, typename... Args>
-        explicit Any(std::in_place_type_t<Type>, Args &&...args) : Any{} {
-            Initialize<Type>(std::forward<Args>(args)...);
+        [[nodiscard]] constexpr bool UsesSBO() const noexcept {
+            return m_Pair.First() && m_Pair.First()->UsesSBO();
         }
 
-        /**
-         * @brief Constructs a wrapper from a given value.
-         * @tparam Type Type of object to use to initialize the wrapper.
-         * @param value An instance of an object to use to initialize the wrapper.
-         */
-        template<typename Type, typename = std::enable_if_t<std::is_same_v<std::decay_t<Type>, Any>>>
-        Any(Type&& value) : Any{} {
-            Initialize<std::decay_t<Type>>(std::forward<Type>(value));
-        }
-
-        /**
-         * @brief Copy constructor.
-         * @param other The instance to copy from.
-         */
-        Any(const Any& other) : Any{} {
-            if(other.vtable) {
-                other.vtable(EOperation::Copy, other, this);
-            }
-        }
-
-        /**
-         * @brief Move constructor.
-         * @param other The instance to move from.
-         */
-        Any(Any&& other) noexcept : instance{}, vtable{other.vtable}, key{other.key}, mode{other.mode} {
-            if(other.vtable) {
-                other.vtable(EOperation::Move, other, this);
-            }
-        }
-
-        /*! @brief Frees the internal storage, whatever it means. */
-        ~Any() {
-            if(vtable && Owner()) {
-                vtable(EOperation::Destroy, *this, nullptr);
-            }
-        }
-
-        /**
-         * @brief Copy assignment operator.
-         * @param other The instance to copy from.
-         * @return This any object.
-         */
-        Any& operator=(const Any& other) {
-            Reset();
-
-            if(other.vtable) {
-                other.vtable(EOperation::Copy, other, this);
-            }
-
-            return *this;
-        }
-
-        /**
-         * @brief Move assignment operator.
-         * @param other The instance to move from.
-         * @return This any object.
-         */
-        Any& operator=(Any&& other) noexcept {
-            Reset();
-
-            if(other.vtable) {
-                other.vtable(EOperation::Move, other, this);
-                key = other.key;
-                vtable = other.vtable;
-                mode = other.mode;
-            }
-
-            return *this;
-        }
-
-        /**
-         * @brief Value assignment operator.
-         * @tparam Type Type of object to use to initialize the wrapper.
-         * @param value An instance of an object to use to initialize the wrapper.
-         * @return This any object.
-         */
-        template<typename Type, typename = std::enable_if_t<std::is_same_v<std::decay_t<Type>, Any>>>
-        Any& operator=(Type&& value) {
-            Create<std::decay_t<Type>>(std::forward<Type>(value));
-            return *this;
-        }
-
-        /**
-         * @brief Returns the object type if any, `hash_type::template From<void>()` otherwise.
-         * @return The object type if any, `hash_type::template From<void>()` otherwise.
-         */
-        [[nodiscard]] hash_type::value_type Key() const noexcept {
-            return key;
-        }
-
-        /**
-         * @brief Returns an opaque pointer to the contained instance.
-         * @return An opaque pointer the contained instance, if any.
-         */
-        [[nodiscard]] const void* Data() const noexcept {
-            return vtable ? vtable(EOperation::Get, *this, nullptr) : nullptr;
-        }
-
-        /**
-         * @brief Returns an opaque pointer to the contained instance.
-         * @param hash Expected type.
-         * @return An opaque pointer the contained instance, if any.
-         */
-        [[nodiscard]] const void* Data(hash_type::value_type hash) const noexcept {
-            return key == hash ? Data() : nullptr;
-        }
-
-        /**
-         * @brief Returns an opaque pointer to the contained instance.
-         * @return An opaque pointer the contained instance, if any.
-         */
-        [[nodiscard]] void* Data() noexcept {
-            return (!vtable || mode == EPolicy::CRef) ? nullptr : const_cast<void*>(vtable(EOperation::Get, *this, nullptr));
-        }
-
-        /**
-         * @brief Returns an opaque pointer to the contained instance.
-         * @param hash Expected type.
-         * @return An opaque pointer the contained instance, if any.
-         */
-        [[nodiscard]] void* Data(hash_type::value_type hash) noexcept {
-            return key == hash ? Data() : nullptr;
-        }
-
-        /**
-         * @brief Replaces the contained object by creating a new instance directly.
-         * @tparam Type Type of object to use to initialize the wrapper.
-         * @tparam Args Types of arguments to use to construct the new instance.
-         * @param args Parameters to use to construct the instance.
-         */
-        template<typename Type, typename... Args>
-        void Create(Args &&...args) {
-            Reset();
-            Initialize<Type>(std::forward<Args>(args)...);
-        }
-
-        /**
-         * @brief Assigns a value to the contained object without replacing it.
-         * @param other The value to assign to the contained object.
-         * @return True in case of success, false otherwise.
-         */
-        bool Assign(const Any& other) {
-            if(vtable && mode != EPolicy::CRef && key == other.key) {
-                return (vtable(EOperation::Assign, *this, other.Data()) != nullptr);
-            }
-
-            return false;
-        }
-
-        /*! @copydoc assign */
-        bool Assign(Any&& other) {
-            if(vtable && mode != EPolicy::CRef && key == other.key) {
-                if(auto* val = other.Data()) {
-                    return (vtable(EOperation::Transfer, *this, val) != nullptr);
-                } else {
-                    return (vtable(EOperation::Assign, *this, std::as_const(other).Data()) != nullptr);
-                }
-            }
-
-            return false;
-        }
-
-        /*! @brief Destroys contained object */
-        void Reset()
-        {
-            if(vtable && Owner()) {
-                vtable(EOperation::Destroy, *this, nullptr);
-            }
-
-            key = HashOf<void>;
-            vtable = nullptr;
-            mode = EPolicy::Owner;
-        }
-
-        /**
-         * @brief Returns false if a wrapper is empty, true otherwise.
-         * @return False if the wrapper is empty, true otherwise.
-         */
-        [[nodiscard]] explicit operator bool() const noexcept {
-            return vtable != nullptr;
-        }
-
-        /**
-         * @brief Checks if two wrappers differ in their content.
-         * @param other Wrapper with which to compare.
-         * @return False if the two objects differ in their content, true otherwise.
-         */
-        bool operator==(const Any& other) const noexcept {
-            if(vtable && key == other.key) {
-                return (vtable(EOperation::Compare, *this, other.Data()) != nullptr);
-            }
-
-            return (!vtable && !other.vtable);
-        }
-
-        /**
-         * @brief Aliasing constructor.
-         * @return A wrapper that shares a reference to an unmanaged object.
-         */
-        [[nodiscard]] Any Ref() noexcept {
-            return Any{*this, (mode == EPolicy::CRef ? EPolicy::CRef : EPolicy::Ref)};
-        }
-
-        /*! @copydoc as_ref */
-        [[nodiscard]] Any Ref() const noexcept {
-            return Any{*this, EPolicy::CRef};
-        }
-
-        /**
-         * @brief Returns true if a wrapper owns its object, false otherwise.
-         * @return True if the wrapper owns its object, false otherwise.
-         */
-        [[nodiscard]] bool Owner() const noexcept {
-            return (mode == EPolicy::Owner);
-        }
-
-        /**
-        * @brief Returns true if a hash of T and the hash of a current object are equal, otherwise false.
-        * @return True if hash of T and hash of current object are equal, false otherwise.
-        */
+        // Works similar to any_cast from STL
+        // if Any contain the value then As<int>, As<int&> and As<int*> is used.
+        // If Any contain the pointer then As<int*&> or As<int**> is used.
         template <typename T>
-        [[nodiscard]] bool Equal() const noexcept {
-            return key == HashOf<std::remove_cvref_t<T>>;
+        [[nodiscard]] constexpr decltype(auto) As()
+        {
+            void* instance = DataPtr<std::remove_cvref_t<std::remove_pointer_t<T>>>();
+            if constexpr(std::is_lvalue_reference_v<T>) {
+                CheckAndThrow(instance);
+                return *static_cast<std::remove_cvref_t<T>*>(instance);
+            } else if constexpr(std::is_pointer_v<T>) {
+                return static_cast<T>(instance);
+            } else {
+                CheckAndThrow(instance);
+                return *static_cast<std::remove_const_t<std::remove_cvref_t<T>>*>(instance);
+            }
+        }
+
+        template <typename T>
+        [[nodiscard]] constexpr decltype(auto) As() const
+        {
+            const void* instance = DataPtr<std::remove_cvref_t<std::remove_pointer_t<T>>>();
+            if constexpr(std::is_lvalue_reference_v<T>) {
+                CheckAndThrow(instance);
+                return *static_cast<const std::remove_cvref_t<T>*>(instance);
+            } else if constexpr(std::is_pointer_v<T>) {
+                return *static_cast<const std::remove_pointer_t<T>**>(instance);
+            } else {
+                CheckAndThrow(instance);
+                return *static_cast<const std::remove_cvref_t<T>*>(instance);
+            }
+        }
+
+        [[nodiscard]] constexpr bool operator==(const Any& other) const noexcept {
+            return m_Pair.First() && other.m_Pair.First()
+                && m_Pair.First()->TypeHash() == other.m_Pair.First()->TypeHash();
+        }
+
+        [[nodiscard]] constexpr explicit operator bool() const noexcept {
+            return !Empty();
+        }
+
+        constexpr void Reset() noexcept
+        {
+            if(!Empty()) {
+                VTable<ECommand::Destroy>(*this);
+            }
+        }
+
+    private:
+        template <typename T, typename... Args>
+        requires RequiredParams<T, Args...>
+        constexpr void Initialize(Args&&... args)
+            noexcept(noexcept(Construct<std::decay_t<T>>(std::forward<Args>(args)...))) {
+            using Type = std::decay_t<T>;
+            m_Pair.First() = std::addressof(CommandSwitch<T>);
+            Construct<Type>(std::forward<Args>(args)...);
+        }
+
+        template <typename T>
+        [[nodiscard]] constexpr void* DataPtr() noexcept {
+            return const_cast<void*>(static_cast<const Any*>(this)->DataPtr<T>());
+        }
+
+        template <typename T>
+        [[nodiscard]] constexpr const void* DataPtr() const noexcept
+        {
+            // branch suppressing
+            if(const auto vtable = m_Pair.First()) [[likely]] {
+                const void* result[]{nullptr, vtable->Data(*this)};
+                return result[vtable->TypeHash() == HashOf<T>];
+            }
+
+            return nullptr;
+        }
+
+        template <ECommand Index, typename... Args>
+        constexpr decltype(auto) VTable(Args&&... args) const {
+            constexpr auto cmd = Command<Index>{};
+            return (*m_Pair.First())(cmd, std::forward<Args>(args)...);
+        }
+
+        template <typename T, typename... Args>
+        constexpr void Construct(Args&&... args)
+        {
+            if constexpr(Placementable<T>) {
+                std::construct_at(std::bit_cast<T*>(&m_Storage.m_Buffer), std::forward<Args>(args)...);
+            } else {
+                m_Instance = allocator_traits::allocate(m_Pair.Second(), sizeof(T));
+                try {
+                    allocator_traits::construct(m_Pair.Second(), static_cast<T*>(m_Instance), std::forward<Args>(args)...);
+                } catch(...) {
+                    allocator_traits::deallocate(m_Pair.Second(), static_cast<pointer>(m_Instance), sizeof(T));
+                    m_Instance = nullptr;
+                    throw;
+                }
+            }
+        }
+
+        static void CheckAndThrow(const void* data) {
+            if(!data) [[unlikely]] {
+                ThrowBadCast();
+            }
+        }
+
+        [[noreturn]] static void ThrowBadCast()
+        {
+            class BadCast : public std::bad_cast {
+                [[nodiscard]] const char* what() const noexcept override {
+                    return "Bad cast in Any container";
+                }
+            };
+
+            throw BadCast{};
         }
 
     private:
         union {
-            const void* instance;
-            Storage storage;
+            void* m_Instance;
+            Storage m_Storage;
         };
-        VTable* vtable;
-        hash_type::value_type key;
-        EPolicy mode;
+
+        CompressedPair<const Commands*, Alloc> m_Pair;
     };
-
-    /**
-     * @brief Checks if two wrappers differ in their content.
-     * @tparam Len Size of the storage reserved for the small buffer optimization.
-     * @tparam Align Alignment requirement.
-     * @param lhs A wrapper, either empty or not.
-     * @param rhs A wrapper, either empty or not.
-     * @return True if the two wrappers differ in their content, false otherwise.
-     */
-    template<std::size_t Len, std::size_t Align>
-    [[nodiscard]] bool operator!=(const Any<Len, Align>& lhs, const Any<Len, Align>& rhs) noexcept {
-        return !(lhs == rhs);
-    }
-
-    /**
-     * @brief Performs type-safe access to the contained object.
-     * @tparam Type Type to which conversion is required.
-     * @tparam Len Size of the storage reserved for the small buffer optimization.
-     * @tparam Align Alignment requirement.
-     * @param data Target any object.
-     * @return The element converted to the requested type.
-     */
-    template<typename Type, std::size_t Len, std::size_t Align>
-    Type AnyCast(const Any<Len, Align>& data) noexcept {
-        const auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data);
-        HELENA_ASSERT(instance, "Invalid instance");
-        return static_cast<Type>(*instance);
-    }
-
-    /*! @copydoc AnyCast */
-    template<typename Type, std::size_t Len, std::size_t Align>
-    Type AnyCast(Any<Len, Align>& data) noexcept {
-        // forces const on non-reference types to make them work also with wrappers for const references
-        auto* const instance = AnyCast<std::remove_reference_t<const Type>>(&data);
-        HELENA_ASSERT(instance, "Invalid instance");
-        return static_cast<Type>(*instance);
-    }
-
-    /*! @copydoc AnyCast */
-    template<typename Type, std::size_t Len, std::size_t Align>
-    Type AnyCast(Any<Len, Align>&& data) noexcept {
-        if constexpr(std::is_copy_constructible_v<std::remove_cvref_t<Type>>) {
-            if(auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data); instance) {
-                return static_cast<Type>(std::move(*instance));
-            } else {
-                return AnyCast<Type>(data);
-            }
-        } else {
-            auto* const instance = AnyCast<std::remove_reference_t<Type>>(&data);
-            HELENA_ASSERT(instance, "Invalid instance");
-            return static_cast<Type>(std::move(*instance));
-        }
-    }
-
-    /*! @copydoc AnyCast */
-    template<typename Type, std::size_t Len, std::size_t Align>
-    const Type* AnyCast(const Any<Len, Align>* data) noexcept {
-        constexpr auto key = Any<>::HashOf<std::remove_cvref_t<Type>>;
-        return static_cast<const Type*>(data->Data(key));
-    }
-
-    /*! @copydoc AnyCast */
-    template<typename Type, std::size_t Len, std::size_t Align>
-    Type* AnyCast(Any<Len, Align>* data) noexcept {
-      if constexpr(std::is_const_v<Type>) {
-          // last attempt to make wrappers for const references return their values
-          return AnyCast<Type>(&std::as_const(*data));
-      } else {
-          constexpr auto key = Any<>::HashOf<std::remove_cvref_t<Type>>;
-          return static_cast<Type*>(data->Data(key));
-      }
-    }
-
-    /**
-     * @brief Constructs a wrapper from a given type, passing it all arguments.
-     * @tparam Type Type of object to use to initialize the wrapper.
-     * @tparam Len Size of the storage reserved for the small buffer optimization.
-     * @tparam Align Optional alignment requirement.
-     * @tparam Args Types of arguments to use to construct the new instance.
-     * @param args Parameters to use to construct the instance.
-     * @return A properly initialized wrapper for an object of the given type.
-     */
-    template<typename Type, std::size_t Len = Any<>::length, std::size_t Align = Any<Len>::alignment, typename... Args>
-    Any<Len, Align> AnyCreate(Args &&...args) {
-        return Any<Len, Align>{std::in_place_type<Type>, std::forward<Args>(args)...};
-    }
-
-    /**
-     * @brief Forwards its argument and avoids copies for lvalue references.
-     * @tparam Len Size of the storage reserved for the small buffer optimization.
-     * @tparam Align Optional alignment requirement.
-     * @tparam Type Type of argument to use to construct the new instance.
-     * @param value Parameter to use to construct the instance.
-     * @return A properly initialized and not necessarily owning wrapper.
-     */
-    template<std::size_t Len = Any<>::length, std::size_t Align = Any<Len>::alignment, typename Type>
-    Any<Len, Align> AnyForward(Type&& value) {
-        return Any<Len, Align>{std::in_place_type<Type>, std::forward<Type>(value)};
-    }
 }
 
 #endif // HELENA_TYPES_ANY_HPP

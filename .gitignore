@@ -47,6 +47,7 @@
 
 # Ignore Build CMake dist
 /build/*
+/Build/*
 /Out/*
 
 # Ignore Bin Debug/Release

@@ -32,7 +32,7 @@ namespace Helena::Types
                 m_Storage.resize(index + 1u);
             }
 
-            HELENA_ASSERT(!m_Storage[index], "Key: {} already exist!", Traits::NameOf<Key>{});
+            HELENA_ASSERT(!m_Storage[index], "Key: {} already exist!", Traits::NameOf<Key>);
             m_Storage[index] = std::make_unique<Type>(std::forward<Args>(args)...);
         }
 
@@ -60,7 +60,7 @@ namespace Helena::Types
         {
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
-                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
+                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>);
                 return *m_Storage[index];
             } else {
                 return std::forward_as_tuple(Get<Key>()...);
@@ -73,7 +73,7 @@ namespace Helena::Types
         {
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
-                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
+                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>);
                 return *m_Storage[index];
             } else {
                 return std::forward_as_tuple(Get<Key>()...);
@@ -108,7 +108,7 @@ namespace Helena::Types
         {
             if constexpr(Traits::Arguments<Key...>::Single) {
                 const auto index = m_TypeIndexer.template Get<Key...>();
-                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>{});
+                HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>);
                 m_Storage[index].reset();
             } else (Remove<Key>(), ...);
         }
