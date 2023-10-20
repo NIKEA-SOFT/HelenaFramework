@@ -106,7 +106,7 @@ namespace Helena
     }
 
     template <std::derived_from<Engine::Context> T, typename... Args>
-    requires std::constructible_from<T, Args...>
+    requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::Initialize([[maybe_unused]] Args&&... args)
     {
         HELENA_ASSERT_RUNTIME(!HasContext(), "Context already initialized!");
@@ -292,7 +292,7 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
-    requires std::constructible_from<T, Args...>
+    requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterSystem(decltype(NoSignal), Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
     #if defined(HELENA_THREADSAFE_SYSTEMS)
@@ -302,7 +302,7 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
-    requires std::constructible_from<T, Args...>
+    requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterSystem(Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
         SignalEvent<Events::Engine::PreRegisterSystem<T>>();
@@ -358,7 +358,7 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
-    requires std::constructible_from<T, Args...>
+    requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterComponent(decltype(NoSignal), Args&&... args) {
     #if defined(HELENA_THREADSAFE_COMPONENTS)
         const std::lock_guard lock{MainContext().m_LockComponents};
@@ -367,7 +367,7 @@ namespace Helena
     }
 
     template <typename T, typename... Args>
-    requires std::constructible_from<T, Args...>
+    requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterComponent(Args&&... args) {
         SignalEvent<Events::Engine::PreRegisterComponent<T>>();
         RegisterComponent<T>(NoSignal, std::forward<Args>(args)...);

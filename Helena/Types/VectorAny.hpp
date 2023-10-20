@@ -3,6 +3,7 @@
 
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/NameOf.hpp>
+#include <Helena/Traits/Constructible.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 
 #include <vector>
@@ -28,7 +29,7 @@ namespace Helena::Types
             std::bool_constant<AllowedParam<T>>,
             std::conditional_t<Traits::Arguments<Args...>::Orphan,
                 std::is_default_constructible<std::decay_t<T>>,
-                std::is_constructible<std::decay_t<T>, Args...>>>;
+                std::bool_constant<Traits::ConstructibleAggregateFrom<std::decay_t<T>, Args...>>>>;
 
     public:
         VectorAny() : m_TypeIndexer{}, m_Storage{} {}
@@ -48,7 +49,16 @@ namespace Helena::Types
             }
 
             HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>);
-            m_Storage[index] = UniquePointer(new T(std::forward<Args>(args)...), +[](const void* ptr) {
+
+            // Clang doesn't support aggregate initialization
+            T* instance{};
+            if constexpr(std::is_aggregate_v<T>) {
+                instance = new T{std::forward<Args>(args)...};
+            } else {
+                instance = new T(std::forward<Args>(args)...);
+            }
+
+            m_Storage[index] = UniquePointer(instance, +[](const void* ptr) {
                 delete static_cast<const T*>(ptr);
             });
         }

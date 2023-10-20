@@ -3,6 +3,7 @@
 
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Traits/Conditional.hpp>
+#include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/Function.hpp>
 #if defined(HELENA_THREADSAFE_SYSTEMS)
     #include <Helena/Types/Spinlock.hpp>
@@ -252,7 +253,7 @@ namespace Helena
         * @note The context can be inherited
         */
         template <std::derived_from<Engine::Context> T = Context, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void Initialize([[maybe_unused]] Args&&... args);
 
         /**
@@ -370,7 +371,7 @@ namespace Helena
         * @param args Arguments for system initialization
         */
         template <typename T, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void RegisterSystem(decltype(NoSignal), Args&&... args);
 
         /**
@@ -387,7 +388,7 @@ namespace Helena
         * @param args Arguments for system initialization
         */
         template <typename T, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void RegisterSystem(Args&&... args);
 
         /**
@@ -499,7 +500,7 @@ namespace Helena
         * @param args Arguments for component initialization
         */
         template <typename T, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void RegisterComponent(decltype(NoSignal), Args&&... args);
 
         /**
@@ -516,7 +517,7 @@ namespace Helena
         * @param args Arguments for component initialization
         */
         template <typename T, typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires Traits::ConstructibleAggregateFrom<T, Args...>
         static void RegisterComponent(Args&&... args);
 
         /**
