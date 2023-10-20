@@ -2,6 +2,10 @@
 #include <Systems/PluginManager.hpp>
 #include <Systems/ResourceManager.hpp>
 
+struct Range {
+    enum End : int {};
+};
+
 class TestSystemA
 {
 public:
@@ -68,7 +72,7 @@ private:
     // This event is called every tick
     void OnRender(const Helena::Events::Engine::Render event) {
         // You can uncomment this line, but it is called too often
-        HELENA_MSG_DEBUG("EngineRender: alhpa: {:.6f}, delta: {:.6f}", event.alpha, event.deltaTime);
+        HELENA_MSG_DEBUG("EngineRender: alpha: {:.6f}, delta: {:.6f}", event.alpha, event.deltaTime);
     }
 
     // This event is called when the Engine shutdown
@@ -305,6 +309,31 @@ void example_task_sheduler()
     //  Update task (Remove): O(1) + O(logN) (when need remove task)
 }
 
+/* -------------- [Components] ------------- */
+// How use components to share data between systems.
+// You don't need to know which system class owns them, this will reduce dependency in the code
+void example_components(int value)
+{
+    struct ComponentAudio { int value;};
+    struct ComponentTexture {int value;};
+
+    Helena::Engine::RegisterComponent<ComponentAudio>(value);
+    Helena::Engine::RegisterComponent<ComponentTexture>(value);
+
+    if(!Helena::Engine::HasComponent<ComponentAudio, ComponentTexture>()) {
+        return;
+    }
+
+    if(!Helena::Engine::AnyComponent<ComponentAudio, ComponentTexture>()) {
+        return;
+    }
+
+    const auto& [audio, texture] = Helena::Engine::GetComponent<ComponentAudio, ComponentTexture>();
+    HELENA_MSG_NOTICE("Audio value: {} | Texture value: {}", audio.value, texture.value);
+    Helena::Engine::RemoveComponent<ComponentAudio, ComponentTexture>();
+}
+
+
 /* -------------- [Subsystems] ------------- */
 #include <Helena/Types/Subsystems.hpp>
 
@@ -530,39 +559,39 @@ private:
             HELENA_MSG_NOTICE("Hello from PostExecute");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick, [](Helena::Events::Engine::PreTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreTick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreTick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, [](Helena::Events::Engine::Tick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Tick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Tick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick, [](Helena::Events::Engine::PostTick ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostTick, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostTick");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate, [](Helena::Events::Engine::PreUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreUpdate, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreUpdate");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](Helena::Events::Engine::Update ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Update, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Update");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate, [](Helena::Events::Engine::PostUpdate ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostUpdate, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostUpdate");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender, [](Helena::Events::Engine::PreRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PreRender, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PreRender");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render, [](Helena::Events::Engine::Render ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::Render, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from Render");
         }>();
 
-        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender, [](Helena::Events::Engine::PostRender ev) {
+        Helena::Engine::SubscribeEvent<Helena::Events::Engine::PostRender, [](auto ev) {
             HELENA_MSG_NOTICE("Hello from PostRender");
         }>();
 
@@ -696,6 +725,7 @@ int main(int argc, char** argv)
     example_systems();          // ok, here just example how use systems
     example_signals();          // here example with signals
     example_task_sheduler();    // task scheduler example
+    example_components(argc);
 
     test_allocators();
 
