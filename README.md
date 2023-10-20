@@ -153,7 +153,8 @@ Usage flags in cmake: `-DHELENA_FLAG_...=ON/OFF`
     > cd YourProject/Dependencies
     > git pull https://github.com/NIKEA-SOFT/HelenaFramework.git
     > # Edit your project CMakeLists.txt and add:
-    > # add_subdirectory(${CMAKE_CURRENT_LIST_DIR)/Dependencies/HelenaFramework)
+    > add_subdirectory(${CMAKE_CURRENT_LIST_DIR)/Dependencies/HelenaFramework)
+    > target_link_libraries(${YOUR_PROJECT} PRIVATE Helena::Helena)
     > # Open your project dir
     > cd YourProject
 
