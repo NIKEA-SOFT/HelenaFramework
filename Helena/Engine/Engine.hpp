@@ -5,7 +5,7 @@
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/Function.hpp>
-#if defined(HELENA_THREADSAFE_SYSTEMS)
+#if defined(HELENA_THREADSAFE_SYSTEMS) || defined(HELENA_THREADSAFE_COMPONENTS)
     #include <Helena/Types/Spinlock.hpp>
 #endif
 #include <Helena/Types/VectorAny.hpp>
@@ -30,7 +30,7 @@ namespace Helena
         //! Unique key for storage systems type index
         using UKSystems     = IUniqueKey<0>;
 
-        //! Unique key for storage systems type index
+        //! Unique key for storage components type index
         using UKComponents  = IUniqueKey<1>;
 
         //! Unique key for storage signals type index
@@ -38,6 +38,10 @@ namespace Helena
 
         //! Unique key for storage messages type index
         using UKMessages    = IUniqueKey<3>;
+
+        template <typename T>
+        using EventsPool = std::vector<T>;
+        using SignalsPool = EventsPool<std::function<void ()>>;
 
         template <auto Fn>
         static constexpr bool NotTemplateFunction = requires {
@@ -142,10 +146,6 @@ namespace Helena
         //! Context for storage framework data
         class Context
         {
-            template <typename T>
-            using Pool = std::vector<T>;
-            using SignalsPool = Pool<std::function<void ()>>;
-
             friend class Engine;
             struct ShutdownMessage {
                 std::string m_Message;
@@ -195,7 +195,7 @@ namespace Helena
             Types::VectorAny<UKComponents> m_Components;
 
             // Signals
-            Types::VectorUnique<UKSignals, Pool<Delegate>> m_Signals;
+            Types::VectorUnique<UKSignals, EventsPool<Delegate>> m_Signals;
             SignalsPool m_DeferredSignals;
 
             // Reason
@@ -767,6 +767,10 @@ namespace Helena
         static void UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
 
     private:
+        template <typename Event>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void SignalEvent(EventsPool<Delegate>& pool, Event& event);
+
         template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SubscribeEvent(Delegate::Args<Event, Callback>, void* instance);

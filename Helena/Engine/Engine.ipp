@@ -471,7 +471,10 @@ namespace Helena
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
-            return ctx.m_Signals.template Has<Event...>() && !ctx.m_Signals.template Get<Event...>().empty();
+            if(ctx.m_Signals.template Has<Event...>()) [[likely]] {
+                return !ctx.m_Signals.template Get<Event...>().empty();
+            }
+            return false;
         } else {
             return std::make_tuple(HasSubscribers<Event>()...);
         }
@@ -487,19 +490,27 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        if constexpr(std::is_empty_v<Event>) {
-            union { Event event; };
-            SignalEvent(event);
-        } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
-            Event event(std::forward<Args>(args)...);
-            SignalEvent(event);
-        } else if constexpr(requires {Event{std::forward<Args>(args)...};}) {
-            Event event{std::forward<Args>(args)...};
-            SignalEvent(event);
-        } else {
-            []<bool Constructible = false>() {
-                static_assert(Constructible, "Event type not constructible from args");
-            }();
+        auto pool = MainContext().m_Signals.template Ptr<Event>();
+        if(!pool) [[unlikely]] {
+            return;
+        }
+
+        if(!pool->empty())
+        {
+            if constexpr(std::is_empty_v<Event>) {
+                union { Event event; };
+                SignalEvent(*pool, event);
+            } else if constexpr(requires {Event(std::forward<Args>(args)...); }) {
+                Event event(std::forward<Args>(args)...);
+                SignalEvent(*pool, event);
+            } else if constexpr(requires {Event{std::forward<Args>(args)...}; }) {
+                Event event{std::forward<Args>(args)...};
+                SignalEvent(*pool, event);
+            } else {
+                [] <bool Constructible = false>() {
+                    static_assert(Constructible, "Event type not constructible from args");
+                }();
+            }
         }
     }
 
@@ -507,23 +518,27 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent(Event& event)
     {
-        auto& ctx = MainContext();
-        if(auto poolStorage = ctx.m_Signals.template Ptr<Event>())
-        {
-            auto& pool = *poolStorage;
-            for(std::size_t pos = pool.size(); pos; --pos) {
-                const auto& delegate = pool[pos - 1];
-                std::invoke(delegate, &event);
-            }
+        if(auto pool = MainContext().m_Signals.template Ptr<Event>()) [[likely]] {
+            SignalEvent(*pool, event);
+        }
+    }
 
-            if constexpr(Traits::AnyOf<Event,
-                Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
-                Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
-                Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
-                Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
-                Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
-                pool.clear();
-            }
+    template <typename Event>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::SignalEvent(EventsPool<Delegate>& pool, Event& event)
+    {
+        for(std::size_t pos = pool.size(); pos; --pos) {
+            const auto& delegate = pool[pos - 1];
+            std::invoke(delegate, &event);
+        }
+
+        if constexpr(Traits::AnyOf<Event,
+            Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
+            Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
+            Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
+            Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
+            Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
+            pool.clear();
         }
     }
 
