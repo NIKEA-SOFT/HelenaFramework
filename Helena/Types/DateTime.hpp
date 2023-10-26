@@ -71,7 +71,7 @@ namespace Helena::Types
         constexpr DateTime& operator=(DateTime&&) noexcept = default;
 
         [[nodiscard]] static DateTime FromTickTime() {
-            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+            return FromMilliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
 
         [[nodiscard]] static DateTime FromUTCTime() {
@@ -80,19 +80,21 @@ namespace Helena::Types
         // Windows: no backwards compatible with Windows 7 and 8
         #if defined(HELENA_ZONED_TIME)
             const auto timeZone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(timeZone.get_sys_time().time_since_epoch()).count());
+            return FromMilliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(timeZone.get_sys_time().time_since_epoch()).count());
         #else
-            const auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto timeNow = std::chrono::system_clock::now();
+            const auto timeSec = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto timeMS  = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow.time_since_epoch()).count();
             std::tm tm;
             #if defined(HELENA_PLATFORM_WIN)
-                (void)::gmtime_s(&tm, &timeNow);
+                (void)::gmtime_s(&tm, &timeSec);
             #elif defined(HELENA_PLATFORM_LINUX)
-                (void)::gmtime_r(&timeNow, &tm);
+                (void)::gmtime_r(&timeSec, &tm);
             #else
                 #error Unknown platform detected!
             #endif
             return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
-                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeNow % 1000)};
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeMS % 1000)};
         #endif
         }
 
@@ -102,19 +104,21 @@ namespace Helena::Types
         // Windows: no backwards compatible with Windows 7 and 8
         #if defined(HELENA_ZONED_TIME)
             const auto timeZone = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
-            return FromSeconds(std::chrono::duration_cast<std::chrono::seconds>(timeZone.get_local_time().time_since_epoch()).count());
+            return FromMilliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(timeZone.get_local_time().time_since_epoch()).count());
         #else
-            const auto timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto timeNow = std::chrono::system_clock::now();
+            const auto timeSec = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            const auto timeMS  = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow.time_since_epoch()).count();
             std::tm tm;
             #if defined(HELENA_PLATFORM_WIN)
-                (void)::localtime_s(&tm, &timeNow);
+                (void)::localtime_s(&tm, &timeSec);
             #elif defined(HELENA_PLATFORM_LINUX)
-                (void)::localtime_r(&timeNow, &tm);
+                (void)::localtime_r(&timeSec, &tm);
             #else
                 #error Unknown platform detected!
             #endif
             return DateTime{DateToTicks(1900 + tm.tm_year, ++tm.tm_mon, tm.tm_mday)
-                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeNow % 1000)};
+                + TimeToTicks(tm.tm_hour, tm.tm_min, tm.tm_sec, timeMS % 1000)};
         #endif
         }
 
