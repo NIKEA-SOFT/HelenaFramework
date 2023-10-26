@@ -3,7 +3,6 @@
 
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Types/SourceLocation.hpp>
-#include <Helena/Util/Cast.hpp>
 
 #include <cstdint>
 #include <cstdio>
@@ -47,8 +46,10 @@ namespace Helena::Log
         template <typename Char>
         void BeginColor(std::basic_string<Char>& buffer) const {
             const Char color[]{0x1B, 0x5B, 0x30,
-                0x3B, static_cast<Char>(Util::Cast(m_Front) >> 0x08), static_cast<Char>(Util::Cast(m_Front) & 0xFF),
-                0x3B, static_cast<Char>(((Util::Cast(m_Back) >> 0x08) + 0x06) & 0xFF), static_cast<Char>(Util::Cast(m_Back) & 0xFF),
+                0x3B, static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Front) >> 0x08),
+                static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Front) & 0xFF),
+                0x3B, static_cast<Char>(((static_cast<std::underlying_type_t<Color>>(m_Back) >> 0x08) + 0x06) & 0xFF),
+                static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Back) & 0xFF),
                 0x6D};
             static_assert(std::size(color) == ColorSize);
             buffer.append(color, std::size(color));
