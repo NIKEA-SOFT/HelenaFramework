@@ -1,14 +1,14 @@
 #ifndef HELENA_TYPES_FIXEDBUFFER_HPP
 #define HELENA_TYPES_FIXEDBUFFER_HPP
 
-#include <Helena/Util/String.hpp>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <utility>
 
 namespace Helena::Types
 {
-    template <std::size_t _Capacity, typename Char = char, std::size_t SearchDepth = (std::numeric_limits<std::size_t>::max)(), typename = std::char_traits<Char>>
+    template <std::size_t _Capacity, typename Char = char, std::size_t SearchDepth = (std::numeric_limits<std::size_t>::max)(), typename Trait = std::char_traits<Char>>
     struct FixedBuffer
     {
         static_assert(_Capacity > 0, "Capacity is too small");
@@ -19,8 +19,14 @@ namespace Helena::Types
 
         constexpr void FillBuffer(const Char* const data, std::size_t size = SearchDepth) noexcept
         {
+            constexpr auto fnLengthTruncated = [](const Char* data, std::size_t max) -> std::size_t {
+                if(!data || !max) return 0;
+                const auto found = Trait::find(data, max, 0);
+                return found ? std::distance(data, found) : max;
+            };
+
             if(data) {
-                size = Util::String::LengthTruncated(data, (std::min)(_Capacity, size));
+                size = fnLengthTruncated(data, (std::min)(_Capacity, size));
                 *std::copy_n(data, size, m_Buffer) = 0;
                 m_Size = static_cast<size_type>(size);
                 return;
