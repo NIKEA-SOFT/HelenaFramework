@@ -15,29 +15,16 @@ namespace Helena::Util
             static char path[PATH_MAX]{};
             auto length = ::readlink("/proc/self/exe", path, sizeof(path));
             length = length * !(length == -1 || length == sizeof(path));
+        #elif defined(HELENA_PLATFORM_WIN)
+            static char path[MAX_PATH]{};
+            auto length = ::GetModuleFileNameA(nullptr, path, MAX_PATH);
+        #else
+            #error Unsupported platform
+        #endif
             while(length--) {
                 const auto notFound = !(path[length] == HELENA_SEPARATOR);
                 if(path[length] = path[length] * notFound; !notFound) break;
             }
-        #elif defined(HELENA_PLATFORM_WIN)
-            static char empty{'\0'};
-            static char* path;
-            if(_get_pgmptr(&path) == NOERROR)
-            {
-                char* lastSeparator{};
-                for(auto begin = path; *begin; ++begin) {
-                    if(*begin == HELENA_SEPARATOR) {
-                        lastSeparator = begin;
-                    }
-                }
-
-                if(lastSeparator) {
-                    *lastSeparator = empty;
-                }
-            } else path = &empty;
-        #else
-            #error Unsupported platform
-        #endif
             return path;
         }();
 
