@@ -65,7 +65,7 @@ namespace Example01
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
 				auto reason = Helena::Engine::ShutdownReason();
 				if(!reason.empty()) {
-					reason = Helena::Util::Format("Error:\n{}", reason);
+					reason = Helena::Util::String::Format("Error:\n{}", reason);
 					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
 				}
 			}>();
