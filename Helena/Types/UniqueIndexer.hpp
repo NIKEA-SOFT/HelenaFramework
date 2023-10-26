@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <vector>
 #include <array>
+#include <memory>
 
 namespace Helena::Types
 {
