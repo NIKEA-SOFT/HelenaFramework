@@ -5,6 +5,7 @@
 #include <Helena/Types/FixedBuffer.hpp>
 #include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
+#include <Helena/Util/Math.hpp>
 
 #include <algorithm>
 #include <bit>
@@ -67,12 +68,12 @@ namespace Helena::Types
 
         [[nodiscard("This function allocates raw memory. Ignoring the return result will leak memory.")]]
         void* AllocateMemory(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
-            HELENA_ASSERT(IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
+            HELENA_ASSERT(Util::Math::IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
             return Allocate(bytes, alignment);
         }
 
         void FreeMemory(void* ptr, std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) noexcept {
-            HELENA_ASSERT(IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
+            HELENA_ASSERT(Util::Math::IsPowerOf2(alignment), "Alignment: {} must be a power of two.", alignment);
             Free(ptr, bytes, alignment);
         }
 
@@ -89,24 +90,6 @@ namespace Helena::Types
         }
 
     protected:
-        [[nodiscard]] static constexpr bool IsPowerOf2(std::size_t alignment) noexcept {
-            return alignment && !(alignment & (alignment - 1));
-        }
-
-        [[nodiscard]] static constexpr std::size_t PowerOf2(std::size_t alignment) noexcept
-        {
-            if(IsPowerOf2(alignment)) {
-                return alignment;
-            }
-
-            alignment |= alignment >> 1;
-            alignment |= alignment >> 2;
-            alignment |= alignment >> 4;
-            alignment |= alignment >> 8;
-            alignment |= alignment >> 16;
-            return ++alignment;
-        }
-
         [[nodiscard]] static constexpr void* Align(void* ptr, std::size_t& space, std::size_t size, std::size_t alignment) noexcept {
             const auto distance = AlignDistance(ptr, alignment);
             const auto success = space >= (distance + size);
@@ -115,7 +98,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static constexpr void* AlignForward(void* ptr, std::size_t alignment) noexcept {
-            HELENA_ASSERT(IsPowerOf2(alignment), "Alignment requirements are not met.");
+            HELENA_ASSERT(Util::Math::IsPowerOf2(alignment), "Alignment requirements are not met.");
             return std::bit_cast<void*>((std::bit_cast<std::uintptr_t>(ptr) + alignment - 1) & ~(alignment - 1));
         }
 
@@ -415,9 +398,12 @@ namespace Helena::Types
     * @brief LoggingAllocator (wrapper)
     * @tparam NameIdentifier Name identifier for debugging
     * @tparam Allocator Type of Allocator
+    * @tparam Callback for handle event
     *
     * @code{.cpp}
-    * Types::LoggingAllocator<"Test Allocator", Types::DefaultAllocator> allocator;
+    * Types::LoggingAllocator<Types::DefaultAllocator, "Test Allocator", [](const char* name, bool allocate, void* ptr, std::size_t bytes, std::size_t alignment){
+    *     HELENA_MSG_MEMORY("Allocator: {}, {} addr: {}, bytes: {}, alignment: {}", name, allocate ? "allocate" : "free", ptr, bytes, alignment);
+    * }> allocator;
     * @endcode
     *
     * @note
@@ -426,7 +412,8 @@ namespace Helena::Types
     * and then inherits from it, we do not want to take up extra bytes of memory,
     * and even more so to accept the allocators that we want to track as an upstream memory resource.
     */
-    template <FixedBuffer<64> NameIdentifier, typename Allocator>
+    template <typename Allocator, FixedBuffer<64> NameIdentifier, auto Callback>
+    requires requires{ Callback("", true, nullptr, std::size_t{}, std::size_t{}); }
     class LoggingAllocator : public Allocator
     {
         static_assert(!std::is_final_v<Allocator>, "Allocator type does not meet requirements!");
@@ -448,12 +435,12 @@ namespace Helena::Types
 
     protected:
         void* Allocate(std::size_t bytes, std::size_t alignment) override {
-            HELENA_MSG_MEMORY("[ID: {} | {}] Alloc bytes: {} | alignment: {}", NameIdentifier, IMemoryResource::NameOf<Allocator>, bytes, alignment);
-            return Allocator::Allocate(bytes, alignment);
+            const auto ptr = Allocator::Allocate(bytes, alignment);
+            return Callback(Name(), /* allocate */ true, ptr, bytes, alignment), ptr;
         }
 
         void Free(void* ptr, std::size_t bytes, std::size_t alignment) override {
-            HELENA_MSG_MEMORY("[ID: {} | {}] Free bytes: {} | alignment: {}", NameIdentifier, IMemoryResource::NameOf<Allocator>, bytes, alignment);
+            Callback(Name(), /* allocate */ false, ptr, bytes, alignment);
             Allocator::Free(ptr, bytes, alignment);
         }
     };
