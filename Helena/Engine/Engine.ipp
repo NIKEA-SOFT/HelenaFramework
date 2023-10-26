@@ -5,7 +5,7 @@
 #include <Helena/Engine/Events.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
-#include <Helena/Util/Format.hpp>
+#include <Helena/Util/String.hpp>
 
 namespace Helena
 {
@@ -27,7 +27,7 @@ namespace Helena
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
         const auto dateTime  = Types::DateTime::FromLocalTime();
-        const auto& dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
+        const auto& dumpName = Util::String::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
                                 dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
                                 dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
@@ -274,7 +274,7 @@ namespace Helena
         const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
         if(state != EState::Shutdown && !msg.m_Msg.empty()) {
             ctx.m_ShutdownMessage->m_Location = msg.m_Location;
-            ctx.m_ShutdownMessage->m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
+            ctx.m_ShutdownMessage->m_Message = Util::String::Format(msg.m_Msg, std::forward<Args>(args)...);
         }
     }
 
@@ -284,7 +284,7 @@ namespace Helena
         {
             const auto& [message, location] = *MainContext().m_ShutdownMessage;
             if(!message.empty()) {
-                return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), message);
+                return Util::String::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), message);
             }
         }
 

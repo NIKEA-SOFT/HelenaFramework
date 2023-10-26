@@ -11,7 +11,7 @@
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
-#include <Helena/Util/Sleep.hpp>
+#include <Helena/Util/Process.hpp>
 #include <Helena/Util/Function.hpp>
 
 #include <atomic>
@@ -136,7 +136,7 @@ namespace Helena
         //! Default Heartbeat configuration
         struct DefaultConfig {
             static constexpr auto Sleep = Util::Function::BindFront(
-                static_cast<void (*)(const std::uint64_t)>(Util::Sleep), 1 /* msec */);
+                static_cast<void (*)(const std::uint64_t)>(Util::Process::Sleep), 1 /* msec */);
             static constexpr auto Accumulate = 5;
         };
 
