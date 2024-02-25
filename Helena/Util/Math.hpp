@@ -3,6 +3,7 @@
 
 #include <limits>
 #include <bit>
+#include <concepts>
 
 namespace Helena::Util
 {
@@ -18,8 +19,8 @@ namespace Helena::Util
             return values[IsPowerOf2(value)];
         }
 
-        static constexpr auto Log2(std::size_t value) noexcept {
-            return std::numeric_limits<decltype(value)>::digits - std::countl_zero(value) - 1;
+        static constexpr auto Log2(std::unsigned_integral auto value) noexcept {
+            return static_cast<decltype(value)>(std::numeric_limits<decltype(value)>::digits - std::countl_zero(value) - 1);
         }
     };
 }
