@@ -1,10 +1,6 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Systems/PluginManager.hpp>
 
-struct Range {
-    enum End : int {};
-};
-
 class TestSystemA
 {
 public:
@@ -694,25 +690,26 @@ int main(int argc, char** argv)
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
-    return 0;
+    //return 0;
 }
 
+#include <memory_resource>
 // TODO: Wrapper's for containers in Helena with allocators
 void test_allocators()
 {
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    using LoggingAllocator = Helena::Types::LoggingAllocator<Helena::Types::MonotonicAllocator, "VectorOfString",
+    using LoggingAllocator = Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::MonotonicAllocator,
         [](auto name, auto allocated, auto ptr, auto bytes, auto alignment) {
             HELENA_MSG_MEMORY("Allocator: {}, {} addr: {}, bytes: {}, align: {}", name, allocated ? "alloc" : "free", ptr, bytes, alignment);
     }>;
 
     Helena::Types::DebuggingAllocator<"VectorOfString", LoggingAllocator> alloc;
     Helena::Types::IMemoryResource* memoryResource = &alloc;
-    Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
+    Vector vec_of_string{memoryResource};
+    vec_of_string.emplace_back("Hello world");
 
-    static constexpr auto name = alloc.Name();
     HELENA_MSG_NOTICE("Your allocator name: {}", alloc.Name());
 
     vec_of_string.emplace_back("long message for got allocation");
