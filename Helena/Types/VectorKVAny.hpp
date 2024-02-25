@@ -49,7 +49,7 @@ namespace Helena::Types
             }
 
             HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>);
-            m_Storage[index] = UniquePtr(new T(std::forward<Args>(args)...), +[](const void* ptr) {
+            m_Storage[index] = UniquePointer(new T(std::forward<Args>(args)...), +[](const void* ptr) {
                 delete static_cast<const T*>(ptr);
             });
         }
