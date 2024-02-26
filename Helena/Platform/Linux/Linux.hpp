@@ -15,8 +15,13 @@
     #include <dlfcn.h>
     #include <unistd.h>
     #include <errno.h>
+    #include <stdio.h>
     #include <fcntl.h>
     #include <sys/ptrace.h>
+
+    inline auto HELENA_PLATFORM_HAS_CONSOLE = []() {
+        return isatty(fileno(stdout));
+    };
 
     // Definition
     #define HELENA_SLEEP(ms)            usleep(ms * 1000)

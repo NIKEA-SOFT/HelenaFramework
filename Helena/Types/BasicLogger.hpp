@@ -40,11 +40,7 @@ namespace Helena::Log
 
         // No need to waste CPU time for formatting if the console is not available
         if constexpr(requires { typename CustomPrint<Logger>::DefaultFingerprint; }) {
-        #if defined(HELENA_PLATFORM_WIN)
-            if(!_isatty(_fileno(stdout)))
-        #elif defined(HELENA_PLATFORM_LINUX)
-            if(!isatty(fileno(stdout)))
-        #endif
+            if(!HELENA_PLATFORM_HAS_CONSOLE())
                 return;
         }
 

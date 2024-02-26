@@ -129,13 +129,10 @@ namespace Helena::Log
             "\n----------------------------------------";
         static constexpr auto Endline = '\n';
 
-        static void Message(const std::string_view message, std::FILE* stream = stdout) {
-        #if defined(HELENA_PLATFORM_WIN)
-            if(_isatty(_fileno(stream)))
-        #elif defined(HELENA_PLATFORM_LINUX)
-            if(isatty(fileno(stream)))
-        #endif
-            (void)std::fputs(message.data(), stream);
+        static void Message(const std::string_view message) {
+            if(HELENA_PLATFORM_HAS_CONSOLE()) {
+                (void)std::fputs(message.data(), stdout);
+            }
         }
     };
 
@@ -157,13 +154,10 @@ namespace Helena::Log
             L"\n----------------------------------------";
         static constexpr auto Endline = L'\n';
 
-        static void Message(const std::wstring_view message, std::FILE* stream = stdout) {
-        #if defined(HELENA_PLATFORM_WIN)
-            if(_isatty(_fileno(stream)))
-        #elif defined(HELENA_PLATFORM_LINUX)
-            if(isatty(fileno(stream)))
-        #endif
-            (void)std::fputws(message.data(), stream);
+        static void Message(const std::wstring_view message) {
+            if(HELENA_PLATFORM_HAS_CONSOLE()) {
+                (void)std::fputws(message.data(), stdout);
+            }
         }
     };
 
