@@ -24,35 +24,34 @@ namespace Helena::Log
                 return UniqueBuffer<Char>;
             }
 
-            auto buffer = decltype(UniqueBuffer<Char>)::Create(1024, 0);
-            return buffer;
+            return decltype(UniqueBuffer<Char>)::Create(1024, 0);
         }
     }
 
     template <DefinitionLogger Logger, typename Char, typename... Args>
     void MessagePrint(const Formatter<Char> format, Args&&... args)
     {
+        // No need to waste CPU time for formatting if the console is not available
+        if(!HELENA_PLATFORM_HAS_CONSOLE()) {
+            return;
+        }
+
         // Ignore messages from logger when `static inline bool Muted = true`
         if constexpr(!requires { typename MuteController<Logger>::DefaultFingerprint; }) {
             if(MuteController<Logger>::Muted())
                 return;
         }
 
-        // No need to waste CPU time for formatting if the console is not available
-        if constexpr(requires { typename CustomPrint<Logger>::DefaultFingerprint; }) {
-            if(!HELENA_PLATFORM_HAS_CONSOLE())
-                return;
-        }
-
         std::size_t offset{};
-        const auto buffer = Internal::BufferSwitch<Char>();
-        buffer->resize(0);
-        Logger::Style.BeginColor(*buffer);
+        auto& buffer = *Internal::BufferSwitch<Char>();
+        buffer.resize(0);
+
+        Logger::Style.BeginColor(buffer);
 
         try {
             const auto fnFormatStyle = [&](const Char* file, const Char* prefix) {
                 const auto dateTime = Types::DateTime::FromLocalTime();
-                std::vformat_to(std::back_inserter(*buffer), Print<Char>::FormatStyle,
+                std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatStyle,
                     std::make_format_args<typename Print<Char>::Context>(dateTime, prefix, file, format.Line()));
             };
 
@@ -80,22 +79,22 @@ namespace Helena::Log
                 fnFormatStyle(format.File(), Logger::Prefix.data());
             }
 
-            offset = buffer->size();
-            std::vformat_to(std::back_inserter(*buffer), format.Message(),
+            offset = buffer.size();
+            std::vformat_to(std::back_inserter(buffer), format.Message(),
                 std::make_format_args<typename Print<Char>::Context>(std::forward<Args>(args)...));
         } catch(const std::format_error&) {
-            buffer->resize(offset);
-            std::vformat_to(std::back_inserter(*buffer), Print<Char>::FormatError,
+            buffer.resize(offset);
+            std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatError,
                 std::make_format_args<typename Print<Char>::Context>(format.Message()));
         } catch(const std::bad_alloc&) {
-            buffer->resize(offset);
-            std::vformat_to(std::back_inserter(*buffer), Print<Char>::AllocateError,
+            buffer.resize(offset);
+            std::vformat_to(std::back_inserter(buffer), Print<Char>::AllocateError,
                 std::make_format_args<typename Print<Char>::Context>(format.Message()));
         }
 
-        Logger::Style.EndColor(*buffer);
-        buffer->push_back(Print<Char>::Endline);
-        CustomPrint<Logger>::Message(*buffer);
+        Logger::Style.EndColor(buffer);
+        buffer.push_back(Print<Char>::Endline);
+        CustomPrint<Logger>::Message(buffer);
     }
 
     template <DefinitionLogger Logger, typename... Args>

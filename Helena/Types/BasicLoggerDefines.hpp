@@ -44,19 +44,28 @@ namespace Helena::Log
             : m_Front{front}, m_Back{back} {}
 
         template <typename Char>
-        void BeginColor(std::basic_string<Char>& buffer) const {
+        void BeginColor(std::basic_string<Char>& buffer) const
+        {
+            if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+                return;
+
             const Char color[]{0x1B, 0x5B, 0x30,
                 0x3B, static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Front) >> 0x08),
                 static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Front) & 0xFF),
                 0x3B, static_cast<Char>(((static_cast<std::underlying_type_t<Color>>(m_Back) >> 0x08) + 0x06) & 0xFF),
                 static_cast<Char>(static_cast<std::underlying_type_t<Color>>(m_Back) & 0xFF),
                 0x6D};
+
             static_assert(std::size(color) == ColorSize);
             buffer.append(color, std::size(color));
         }
 
         template <typename Char>
-        static void EndColor(std::basic_string<Char>& buffer) {
+        static void EndColor(std::basic_string<Char>& buffer)
+        {
+            if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+                return;
+
             constexpr Char colorReset[]{0x1B, 0x5B, 0x30, 0x6D};
             static_assert(std::size(colorReset) == ColorSizeEnd);
             buffer.append(colorReset, std::size(colorReset));
@@ -130,9 +139,7 @@ namespace Helena::Log
         static constexpr auto Endline = '\n';
 
         static void Message(const std::string_view message) {
-            if(HELENA_PLATFORM_HAS_CONSOLE()) {
-                (void)std::fputs(message.data(), stdout);
-            }
+            (void)std::fputs(message.data(), stdout);
         }
     };
 
@@ -155,18 +162,13 @@ namespace Helena::Log
         static constexpr auto Endline = L'\n';
 
         static void Message(const std::wstring_view message) {
-            if(HELENA_PLATFORM_HAS_CONSOLE()) {
-                (void)std::fputws(message.data(), stdout);
-            }
+            (void)std::fputws(message.data(), stdout);
         }
     };
 
     // Structure to override `Print<Char>::Show` behavior of specific logger using specialization
     template <DefinitionLogger>
     struct CustomPrint {
-        // NOTE: Don't declare the given using in your own specializations (used for optimization)
-        using DefaultFingerprint = void;
-
         template <typename Char>
         static void Message(std::basic_string<Char>& message) {
             Print<Char>::Message(message);

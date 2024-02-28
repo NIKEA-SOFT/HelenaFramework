@@ -19,6 +19,7 @@
     #include <fcntl.h>
     #include <sys/ptrace.h>
 
+    inline constexpr auto HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING = true;
     inline auto HELENA_PLATFORM_HAS_CONSOLE = []() {
         return isatty(fileno(stdout));
     };
