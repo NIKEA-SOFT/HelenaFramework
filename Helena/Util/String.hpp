@@ -63,7 +63,7 @@ namespace Helena::Util
 
             try {
                 buffer->resize(0);
-                std::vformat_to(std::back_inserter(*buffer), msg, std::make_format_args(std::forward<Args>(args)...));
+                std::vformat_to(std::back_inserter(*buffer), msg, std::make_format_args(args...));
             } catch(const std::format_error&) {
                 buffer->resize(0);
                 Log::Message<Log::Exception>(

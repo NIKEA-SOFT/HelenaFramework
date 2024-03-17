@@ -46,13 +46,16 @@ namespace Helena::Log
         auto& buffer = *Internal::BufferSwitch<Char>();
         buffer.resize(0);
 
+        const auto fnFormatTo = [](auto inserter, const std::basic_string_view<Char> format, auto&&... args) {
+            std::vformat_to(inserter, format, std::make_format_args<typename Print<Char>::Context>(args...));
+        };
+
         Logger::Style.BeginColor(buffer);
 
         try {
             const auto fnFormatStyle = [&](const Char* file, const Char* prefix) {
                 const auto dateTime = Types::DateTime::FromLocalTime();
-                std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatStyle,
-                    std::make_format_args<typename Print<Char>::Context>(dateTime, prefix, file, format.Line()));
+                fnFormatTo(std::back_inserter(buffer), Print<Char>::FormatStyle, dateTime, prefix, file, format.Line());
             };
 
             // Convert Prefix and Location from const char* to wchar_t* using stack memory
@@ -80,16 +83,13 @@ namespace Helena::Log
             }
 
             offset = buffer.size();
-            std::vformat_to(std::back_inserter(buffer), format.Message(),
-                std::make_format_args<typename Print<Char>::Context>(std::forward<Args>(args)...));
+            fnFormatTo(std::back_inserter(buffer), format.Message(), std::forward<Args>(args)...);
         } catch(const std::format_error&) {
             buffer.resize(offset);
-            std::vformat_to(std::back_inserter(buffer), Print<Char>::FormatError,
-                std::make_format_args<typename Print<Char>::Context>(format.Message()));
+            fnFormatTo(std::back_inserter(buffer), Print<Char>::FormatError, format.Message());
         } catch(const std::bad_alloc&) {
             buffer.resize(offset);
-            std::vformat_to(std::back_inserter(buffer), Print<Char>::AllocateError,
-                std::make_format_args<typename Print<Char>::Context>(format.Message()));
+            fnFormatTo(std::back_inserter(buffer), Print<Char>::AllocateError, format.Message());
         }
 
         Logger::Style.EndColor(buffer);
