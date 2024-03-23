@@ -63,21 +63,13 @@ namespace Helena::Util
 
             try {
                 buffer->resize(0);
-                std::vformat_to(std::back_inserter(*buffer), msg, std::make_format_args(args...));
+                std::vformat_to(std::back_inserter(*buffer), msg, std::make_format_args<typename Log::Print<Char>::Context>(args...));
             } catch(const std::format_error&) {
                 buffer->resize(0);
-                Log::Message<Log::Exception>(
-                    "\n----------------------------------------\n"
-                    "|| Error: format syntax invalid!\n"
-                    "|| Format: {}"
-                    "\n----------------------------------------", msg);
+                Log::Message<Log::Exception>(Log::Print<Char>::FormatError, msg);
             } catch(const std::bad_alloc&) {
                 buffer->resize(0);
-                Log::Message<Log::Exception>(
-                    "\n----------------------------------------\n"
-                    "|| Error: not enough memory for alloc\n"
-                    "|| Format: {}"
-                    "\n----------------------------------------", msg);
+                Log::Message<Log::Exception>(Log::Print<Char>::AllocateError, msg);
             }
 
             return *buffer;
