@@ -50,9 +50,9 @@ namespace Helena::Log
             std::vformat_to(inserter, format, std::make_format_args<typename Print<Char>::Context>(args...));
         };
 
-        Logger::Style.BeginColor(buffer);
-
         try {
+            Logger::Style.BeginColor(buffer);
+
             const auto fnFormatStyle = [&](const Char* file, const Char* prefix) {
                 const auto dateTime = Types::DateTime::FromLocalTime();
                 fnFormatTo(std::back_inserter(buffer), Print<Char>::FormatStyle, dateTime, prefix, file, format.Line());
@@ -86,9 +86,11 @@ namespace Helena::Log
             fnFormatTo(std::back_inserter(buffer), format.Message(), std::forward<Args>(args)...);
         } catch(const std::format_error&) {
             buffer.resize(offset);
+            Exception::Style.BeginColor(buffer);
             fnFormatTo(std::back_inserter(buffer), Print<Char>::FormatError, format.Message());
         } catch(const std::bad_alloc&) {
             buffer.resize(offset);
+            Exception::Style.BeginColor(buffer);
             fnFormatTo(std::back_inserter(buffer), Print<Char>::AllocateError, format.Message());
         }
 
