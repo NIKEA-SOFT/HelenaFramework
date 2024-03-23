@@ -355,7 +355,7 @@ namespace Helena
         * @return Reason string if the engine State == EState::Shutdown and has a reason, empty otherwise
         * @warning No point in calling this function if State != EState::Shutdown
         */
-        [[nodiscard]] static auto ShutdownReason() noexcept;
+        [[nodiscard]] static std::string ShutdownReason() noexcept;
 
         /**
         * @brief Register the system in the engine

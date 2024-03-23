@@ -45,6 +45,8 @@ namespace Example01
 		}
 
 	public:
+		using Helena::Engine::Context::Context;
+
 		void Main() override
 		{
 			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
@@ -85,7 +87,7 @@ namespace Example01
 
 			::ShowWindow(m_WindowHWND, SW_SHOW);
 			::UpdateWindow(m_WindowHWND);
-		};
+		}
 
 		static void OnTick(Helena::Events::Engine::Tick) 
 		{

@@ -238,6 +238,7 @@ namespace Helena
                 ctx.m_Signals.Clear();
                 ctx.m_DeferredSignals.clear();
                 ctx.m_Systems.Clear();
+                ctx.m_Components.Clear();
 
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
                     Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message,
@@ -278,8 +279,8 @@ namespace Helena
         }
     }
 
-    [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
-    {;
+    [[nodiscard]] inline std::string Engine::ShutdownReason() noexcept
+    {
         if(GetState() == EState::Shutdown)
         {
             const auto& [message, location] = *MainContext().m_ShutdownMessage;

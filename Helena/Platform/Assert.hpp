@@ -21,7 +21,8 @@ if(!std::is_constant_evaluated()) {                                             
                                                                                 \
         std::exit(EXIT_FAILURE);                                                \
     }                                                                           \
-}
+}                                                                               \
+
 
 #ifdef HELENA_DEBUG
     #define HELENA_ASSERT(cond, ...)    HELENA_ASSERT_RUNTIME(cond, __VA_ARGS__)
