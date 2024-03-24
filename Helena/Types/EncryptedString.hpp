@@ -51,13 +51,16 @@ namespace Helena::Types
             }
         }
 
-        [[nodiscard]] auto Decrypt() const noexcept {
+        [[nodiscard]] auto Decrypt() const & noexcept {
             return DecryptedString<T, N>{const_cast<const volatile T (&)[N]>(m_Data)};
         }
 
-        [[nodiscard]] auto operator*() const noexcept {
+        [[nodiscard]] auto operator*() const & noexcept {
             return Decrypt();
         }
+
+        [[nodiscard]] auto Decryot() const && noexcept = delete;
+        [[nodiscard]] auto operator*() const && noexcept = delete;
 
     private:
         T m_Data[N];
