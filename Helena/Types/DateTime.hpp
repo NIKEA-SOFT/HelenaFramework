@@ -59,7 +59,7 @@ namespace Helena::Types
         constexpr DateTime() noexcept : m_Ticks{} {};
         constexpr DateTime(const DateTime&) noexcept = default;
         constexpr DateTime(DateTime&&) noexcept = default;
-        explicit constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
+        constexpr DateTime(std::int64_t ticks) : m_Ticks{ticks} {}
         explicit constexpr DateTime(std::int32_t year, std::int32_t month, std::int32_t day,
             std::int32_t hour = 0, std::int32_t minute = 0, std::int32_t second = 0, std::int32_t millisecond = 0) : m_Ticks{} {
             if(!Valid(year, month, day, hour, minute, second, millisecond)) [[unlikely]] {
