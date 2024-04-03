@@ -762,6 +762,7 @@ struct Helena::Log::CustomPrint<Helena::Log::Warning>
     template <typename Char>
     static void Message(std::basic_string<Char>& message) {
         Print<Char>::Message(message);
+        ColorStyle::RemoveColor(message); // remove color style from message before write to file (for example)
     }
 };
 

@@ -32,8 +32,11 @@ namespace Helena::Log
     void MessagePrint(const Formatter<Char> format, Args&&... args)
     {
         // No need to waste CPU time for formatting if the console is not available
-        if(!HELENA_PLATFORM_HAS_CONSOLE()) {
-            return;
+        const auto hasConsole = HELENA_PLATFORM_HAS_CONSOLE();
+        if constexpr(requires { typename CustomPrint<Logger>::DefaultFingerprint; }) {
+            if(!hasConsole) {
+                return;
+            }
         }
 
         // Ignore messages from logger when `static inline bool Muted = true`

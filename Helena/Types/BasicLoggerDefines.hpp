@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <format>
 #include <type_traits>
 #include <concepts>
@@ -69,6 +70,28 @@ namespace Helena::Log
             constexpr Char colorReset[]{0x1B, 0x5B, 0x30, 0x6D};
             static_assert(std::size(colorReset) == ColorSizeEnd);
             buffer.append(colorReset, std::size(colorReset));
+        }
+
+        template <typename Char>
+        static void RemoveColor(std::basic_string<Char>& buffer)
+        {
+            if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+                return;
+
+            if(buffer.size() < ColorSize + ColorSizeEnd)
+                return;
+
+            constexpr Char colorEnd[]{0x1B, 0x5B, 0x30, 0x6D};
+            const auto offsetEnd = buffer.size() - ColorSizeEnd - 1;
+            if(std::memcmp(buffer.c_str() + offsetEnd, colorEnd, sizeof(colorEnd)) == 0) {
+                buffer[offsetEnd] = buffer.back();
+                buffer.resize(offsetEnd + 1);
+            }
+
+            constexpr Char colorHeader[]{0x1B, 0x5B, 0x30, 0x3B};
+            if(std::memcmp(buffer.c_str(), colorHeader, sizeof(colorHeader)) == 0) {
+                buffer.erase(0, ColorSize);
+            }
         }
 
     private:
@@ -169,6 +192,9 @@ namespace Helena::Log
     // Structure to override `Print<Char>::Show` behavior of specific logger using specialization
     template <DefinitionLogger>
     struct CustomPrint {
+        // NOTE: Don't declare the given using in your own specializations (used for optimization)
+        using DefaultFingerprint = void;
+
         template <typename Char>
         static void Message(std::basic_string<Char>& message) {
             Print<Char>::Message(message);
