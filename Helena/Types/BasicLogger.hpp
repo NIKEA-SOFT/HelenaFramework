@@ -29,10 +29,10 @@ namespace Helena::Log
     }
 
     template <DefinitionLogger Logger, typename Char, typename... Args>
-    void MessagePrint(const Formatter<Char> format, Args&&... args)
+    void Message(const Formatter<Char> format, Args&&... args)
     {
         // No need to waste CPU time for formatting if the console is not available
-        const auto hasConsole = HELENA_PLATFORM_HAS_CONSOLE();
+        [[maybe_unused]] const auto hasConsole = HELENA_PLATFORM_HAS_CONSOLE();
         if constexpr(requires { typename CustomPrint<Logger>::DefaultFingerprint; }) {
             if(!hasConsole) {
                 return;
@@ -100,16 +100,6 @@ namespace Helena::Log
         Logger::Style.EndColor(buffer);
         buffer.push_back(Print<Char>::Endline);
         CustomPrint<Logger>::Message(buffer);
-    }
-
-    template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<char> format, Args&&... args) {
-        MessagePrint<Logger>(format, std::forward<Args>(args)...);
-    }
-
-    template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<wchar_t> format, Args&&... args) {
-        MessagePrint<Logger>(format, std::forward<Args>(args)...);
     }
 }
 

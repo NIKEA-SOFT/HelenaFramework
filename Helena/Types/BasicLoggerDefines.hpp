@@ -104,7 +104,7 @@ namespace Helena::Log
         std::same_as<std::remove_cvref_t<decltype(T::Prefix)>, std::string_view> &&
         std::same_as<std::remove_cvref_t<decltype(T::Style)>, ColorStyle>;
 
-    // Class with an implicit constructor for working with formatting
+    // Class with an implicit constructor for working with formatting of logging
     template <typename Char>
     struct Formatter
     {
@@ -113,6 +113,11 @@ namespace Helena::Log
             , m_Message{message} {}
 
         constexpr Formatter(const std::basic_string_view<Char> message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
+            : m_Location{location}
+            , m_Message{message} {}
+
+        // the message must meet lvalue reference requirements because the formatter uses a string view for m_Message member
+        constexpr Formatter(const std::basic_string<Char>& message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
             : m_Location{location}
             , m_Message{message} {}
 
@@ -135,9 +140,6 @@ namespace Helena::Log
         const Types::SourceLocation m_Location;
         const std::basic_string_view<Char> m_Message;
     };
-
-    template <typename Char>
-    Formatter(const Char*) -> Formatter<Char>;
 
     // Structures defining how to print message for different Char types
     template <typename>
@@ -279,14 +281,21 @@ namespace Helena::Log
 }
 
 
-// Forward declaration
+// Forward declaration and specialization
 namespace Helena::Log
 {
-    template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<char> format, Args&&... args);
+    template <DefinitionLogger Logger, typename Char, typename... Args>
+    void Message(const Formatter<Char> format, Args&&... args);
 
     template <DefinitionLogger Logger, typename... Args>
-    void Message(const Formatter<wchar_t> format, Args&&... args);
+    void Message(const Formatter<char> format, Args&&... args) {
+        Message<Logger, char>(format, std::forward<Args>(args)...);
+    }
+
+    template <DefinitionLogger Logger, typename... Args>
+    void Message(const Formatter<wchar_t> format, Args&&... args) {
+        Message<Logger, wchar_t>(format, std::forward<Args>(args)...);
+    }
 }
 
 #endif // HELENA_TYPES_BASICLOGGERSDEF_HPP
