@@ -241,8 +241,8 @@ namespace Helena
                 ctx.m_Components.Clear();
 
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
-                    Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message,
-                        ctx.m_ShutdownMessage->m_Location});
+                    const auto& [message, location] = *ctx.m_ShutdownMessage;
+                    Log::Message<Log::Shutdown>({message, location});
                 }
 
                 ctx.m_State.store(EState::Undefined, std::memory_order_release);
