@@ -16,51 +16,53 @@ namespace Helena::Types
         template <typename, std::size_t>
         friend class DecryptedString;
 
-        static constexpr auto m_Secret = Hash<std::uint64_t>::template From<decltype([] {})>();
-        static constexpr auto m_Capacity = N;
+        static constexpr auto Secret = Hash<std::uint64_t>::template From<EncryptedString>();
+        static constexpr auto CharBits = std::numeric_limits<T>::digits;
+        static constexpr auto CharMax = (std::numeric_limits<T>::max)();
+        static constexpr auto SecretBits = std::numeric_limits<decltype(Secret)>::digits;
+
+        static volatile inline auto NoOptimizeSecret = Secret;
 
     public:
-        template <typename R, std::size_t Size>
         class DecryptedString
         {
         public:
-        HELENA_OPTIMIZATION_DISABLE
-            DecryptedString(const volatile R(&data)[Size]) noexcept {
+            HELENA_FORCEINLINE DecryptedString(const T(&data)[N]) noexcept {
+                const auto secret = NoOptimizeSecret;
                 for(std::size_t i = 0; i < N; ++i) {
-                    m_Data[i] = data[i] ^ ((m_Secret >> i * 8 % std::numeric_limits<std::uint64_t>::digits) & 0xFF);
+                    m_Data[i] = data[i] ^ static_cast<T>(secret >> (i * CharBits & (SecretBits - CharBits)));
                 }
             }
-        HELENA_OPTIMIZATION_ENABLE
 
-            [[nodiscard]] operator const R* () const noexcept {
+            [[nodiscard]] HELENA_FORCEINLINE operator const T* () const noexcept {
                 return m_Data;
             }
 
-            [[nodiscard]] operator std::basic_string_view<R>() const noexcept {
-                return std::basic_string_view<R>{m_Data};
+            [[nodiscard]] HELENA_FORCEINLINE operator std::basic_string_view<T>() const noexcept {
+                return std::basic_string_view<T>{m_Data};
             }
 
         private:
-            R m_Data[Size];
+            T m_Data[N];
         };
 
     public:
         constexpr EncryptedString(const T(&data)[N]) noexcept : m_Data{} {
             for(std::size_t i = 0; i < N; ++i) {
-                m_Data[i] = data[i] ^ ((m_Secret >> i * 8 % std::numeric_limits<std::uint64_t>::digits) & 0xFF);
+                m_Data[i] = data[i] ^ static_cast<T>(Secret >> (i * CharBits & (SecretBits - CharBits)));
             }
         }
 
-        [[nodiscard]] auto Decrypt() const & noexcept {
-            return DecryptedString<T, N>{const_cast<const volatile T (&)[N]>(m_Data)};
+        [[nodiscard]] HELENA_FORCEINLINE auto Decrypt() const & noexcept {
+            return DecryptedString{m_Data};
         }
 
-        [[nodiscard]] auto operator*() const & noexcept {
+        [[nodiscard]] HELENA_FORCEINLINE auto operator*() const & noexcept {
             return Decrypt();
         }
 
-        [[nodiscard]] auto Decryot() const && noexcept = delete;
-        [[nodiscard]] auto operator*() const && noexcept = delete;
+        [[nodiscard]] HELENA_FORCEINLINE auto Decrypt() const && noexcept = delete;
+        [[nodiscard]] HELENA_FORCEINLINE auto operator*() const && noexcept = delete;
 
     private:
         T m_Data[N];
