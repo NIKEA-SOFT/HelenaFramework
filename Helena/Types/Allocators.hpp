@@ -1,9 +1,10 @@
 #ifndef HELENA_TYPES_ALLOCATORS_HPP
 #define HELENA_TYPES_ALLOCATORS_HPP
 
+#include <Helena/Engine/Log.hpp>
 #include <Helena/Traits/NameOf.hpp>
+#include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Util/Math.hpp>
 
@@ -492,7 +493,7 @@ namespace Helena::Types
     protected:
         void* Allocate(std::size_t bytes, std::size_t alignment) override
         {
-            if(m_Buffer = Align(m_Buffer, m_Space, bytes, alignment); !m_Buffer) {
+            if(m_Buffer = Align(m_Buffer, m_Space, bytes, alignment); !m_Buffer) [[unlikely]] {
                 RequestMemory(bytes, alignment);
             }
 
@@ -575,6 +576,112 @@ namespace Helena::Types
             std::byte m_Empty;
             std::byte m_Buffer[Stack];
         };
+    };
+
+    class NodeAllocator : public IMemoryResource
+    {
+        struct Node {
+            struct Node* m_Next;
+            struct Node* m_Prev;
+
+            std::size_t m_Size;
+            std::size_t m_Alignment;
+
+            [[nodiscard]] void* Base() noexcept {
+                return std::bit_cast<std::byte*>(this + 1) - m_Size;
+            }
+        };
+
+    public:
+        explicit NodeAllocator(IMemoryResource* upstreamResource = DefaultAllocator::Get()) noexcept
+            : m_UpstreamResource{upstreamResource}
+            , m_Last{} {
+            HELENA_ASSERT(upstreamResource, "Resource is nullptr!");
+        }
+
+        ~NodeAllocator() noexcept {
+            Clear();
+        }
+
+        NodeAllocator(const NodeAllocator&) = delete;
+        NodeAllocator(NodeAllocator&& other) noexcept {
+            m_UpstreamResource = other.m_UpstreamResource;
+            m_Last = std::exchange(other.m_Last, nullptr);
+        }
+
+        NodeAllocator& operator=(const NodeAllocator&) = delete;
+        NodeAllocator& operator=(NodeAllocator&& other) noexcept {
+            Clear();
+            m_UpstreamResource = other.m_UpstreamResource;
+            m_Last = std::exchange(other.m_Last, nullptr);
+            return *this;
+        }
+
+    protected:
+        void* Allocate(std::size_t bytes, std::size_t alignment) override
+        {
+            const auto [requiredSize, requiredAlignment] = CalculateSizeAndAlignment(bytes, alignment);
+            auto memory = m_UpstreamResource->AllocateMemory(requiredSize, requiredAlignment);
+            HELENA_ASSERT(AlignDistance(memory, requiredAlignment) == 0, "Upstream resource did not respect alignment requirement!");
+            const auto freeSpace = requiredSize - sizeof(Node);
+            auto newNode = new (static_cast<std::byte*>(memory) + freeSpace) Node{
+                .m_Next = nullptr,
+                .m_Prev = m_Last,
+                .m_Size = requiredSize,
+                .m_Alignment = requiredAlignment
+            };
+
+            if(auto prevNode = std::exchange(m_Last, newNode)) {
+                prevNode->m_Next = newNode;
+            }
+
+            return memory;
+        }
+
+        void Free(void* ptr, std::size_t bytes, std::size_t alignment) override
+        {
+            const auto [requiredSize, requiredAlignment] = CalculateSizeAndAlignment(bytes, alignment);
+            const auto freeSpace = requiredSize - sizeof(Node);
+            const auto currentNode = std::bit_cast<Node*>(static_cast<std::byte*>(ptr) + freeSpace);
+
+            if(currentNode->m_Next) {
+                currentNode->m_Next->m_Prev = currentNode->m_Prev;
+            }
+
+            if(currentNode->m_Prev) {
+                currentNode->m_Prev->m_Next = currentNode->m_Next;
+            }
+
+            if(m_Last == currentNode) {
+                m_Last = currentNode->m_Prev;
+            }
+
+            m_UpstreamResource->FreeMemory(ptr, requiredSize, requiredAlignment);
+        }
+
+        bool Equal(const IMemoryResource& other) const override {
+            return this == &other;
+        }
+
+    private:
+        void Clear() noexcept
+        {
+            while(m_Last) {
+                m_Last = m_Last->m_Prev;
+                m_UpstreamResource->FreeMemory(m_Last->Base(), m_Last->m_Size, m_Last->m_Alignment);
+            }
+        }
+
+        static std::pair<std::size_t, std::size_t> CalculateSizeAndAlignment(std::size_t bytes, std::size_t alignment) noexcept {
+            return {
+                (bytes + sizeof(Node) + alignof(Node) - 1) & ~(alignof(Node) - 1),
+                (std::max)(alignof(Node), alignment)
+            };
+        }
+
+    private:
+        IMemoryResource* m_UpstreamResource;
+        Node* m_Last;
     };
 
     /**
@@ -970,7 +1077,7 @@ namespace Helena::Types
 
             auto& chunks = *chunkBucket;
             const auto blockSize = (memoryIndex + 1) * MemoryBucketsGrowthFactor;
-            HELENA_ASSERT(ptr >= chunks.m_Memory && ptr <= (chunks.m_Memory + blockSize * ChunkBucketsMaxChunks - MemoryBucketsGrowthFactor),
+            HELENA_ASSERT(ptr >= chunks.m_Memory && ptr < (chunks.m_Memory + blockSize * ChunkBucketsMaxChunks - MemoryBucketsGrowthFactor),
                 "Memory pointer out of range, possible your ptr not allocated using current allocator!");
             if(chunks.m_Memory > ptr || ptr > (chunks.m_Memory + blockSize * ChunkBucketsMaxChunks - MemoryBucketsGrowthFactor)) [[unlikely]] {
                 throw std::runtime_error("Memory pointer out of range, possible your ptr not allocated using current allocator!");
@@ -1078,7 +1185,7 @@ namespace Helena::Types
         return m_Resource;
     }
 
-    DefaultAllocator DefaultAllocator::Default{};
-    NulledAllocator NulledAllocator::Default{};
+    inline DefaultAllocator DefaultAllocator::Default{};
+    inline NulledAllocator NulledAllocator::Default{};
 }
 #endif // HELENA_TYPES_STACKALLOCATOR_HPP
