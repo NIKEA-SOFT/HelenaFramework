@@ -78,6 +78,9 @@ namespace Helena::Types
         using base_first = Internal::Storage<T1, 0>;
         using base_second = Internal::Storage<T2, 1>;
 
+        template <typename T>
+        using base_same_type = std::conditional_t<std::is_same_v<T, T1>, base_first, base_second>;
+
     public:
         using first_type = T1;
         using second_type = T2;
@@ -96,6 +99,13 @@ namespace Helena::Types
 
         constexpr CompressedPair(CompressedPair&&)
             noexcept(std::is_nothrow_move_constructible_v<base_first> && std::is_nothrow_move_constructible_v<base_second>) = default;
+
+        template <typename T, typename... Args>
+        requires (!std::same_as<T1, T2> && (std::same_as<T, T1> || std::same_as<T, T2>) && std::is_constructible_v<base_same_type<T>, Args...>)
+        constexpr CompressedPair(std::in_place_type_t<T>, Args&&... args)
+            noexcept(std::is_nothrow_constructible_v<base_same_type<T>, Args...>)
+            : base_same_type<T>{std::forward_as_tuple(std::forward<Args>(args)...), std::index_sequence_for<Args...>{}} {
+        }
 
         template <typename First, typename Second>
         requires (std::is_constructible_v<base_first, const First&> && std::is_constructible_v<base_second, const Second&>)
@@ -224,4 +234,5 @@ namespace Helena::Types
     template<typename First, typename Second>
     CompressedPair(CompressedPair<First, Second>) -> CompressedPair<std::decay_t<First>, std::decay_t<Second>>;
 }
+
 #endif // HELENA_TYPES_COMPRESSEDPAIR_HPP
