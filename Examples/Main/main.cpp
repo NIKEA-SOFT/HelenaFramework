@@ -693,14 +693,13 @@ int main(int argc, char** argv)
     //return 0;
 }
 
-#include <memory_resource>
 // TODO: Wrapper's for containers in Helena with allocators
 void test_allocators()
 {
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    using LoggingAllocator = Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::MonotonicAllocator,
+    using LoggingAllocator = Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::NodeAllocator,
         [](auto name, auto allocated, auto ptr, auto bytes, auto alignment) {
             HELENA_MSG_MEMORY("Allocator: {}, {} addr: {}, bytes: {}, align: {}", name, allocated ? "alloc" : "free", ptr, bytes, alignment);
     }>;
@@ -760,7 +759,7 @@ template <>
 struct Helena::Log::CustomPrint<Helena::Log::Warning>
 {
     template <typename Char>
-    static void Message(std::basic_string<Char>& message) {
+    static void Message(std::basic_string_view<Char> message) {
         Print<Char>::Message(message);
         ColorStyle::RemoveColor(message); // remove color style from message before write to file (for example)
     }
