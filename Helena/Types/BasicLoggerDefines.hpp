@@ -7,9 +7,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <format>
-#include <type_traits>
 #include <concepts>
+#include <format>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 namespace Helena::Log
 {
@@ -34,18 +36,109 @@ namespace Helena::Log
         BrightWhite
     };
 
+    class LoggerBuffer
+    {
+        static constexpr auto m_BufferCapacity{4000};
+
+    public:
+        LoggerBuffer()
+            : m_InitData{new std::byte[m_BufferCapacity]}
+            , m_Data{m_InitData}
+            , m_Size{}
+            , m_Capacity{m_BufferCapacity} {}
+        LoggerBuffer(const LoggerBuffer&) = delete;
+        LoggerBuffer(LoggerBuffer&&) = delete;
+        LoggerBuffer& operator=(const LoggerBuffer&) = delete;
+        LoggerBuffer& operator=(LoggerBuffer&& other) = delete;
+        ~LoggerBuffer() {}
+
+        template <typename Char>
+        void push_back(Char&& value) {
+            reallocate(m_Size + sizeof(Char));
+            std::memcpy(static_cast<std::byte*>(m_Data) + m_Size, &value, sizeof(Char));
+            m_Size += sizeof(Char);
+        }
+
+        template <typename Char>
+        void append(const Char* data, std::size_t size) {
+            const auto bytes = size * sizeof(Char);
+            reallocate(m_Size + bytes);
+            std::memcpy(static_cast<std::byte*>(m_Data) + m_Size, data, bytes);
+            m_Size += bytes;
+        }
+
+        void resize(std::size_t size) {
+            reallocate(size);
+            m_Size = size;
+        }
+
+        void erase(std::size_t offset, std::size_t size) {
+            if(!offset && size == 10) { // specific impl for colors (needed for optimize)
+                m_Data = static_cast<std::byte*>(m_Data) + offset;
+                m_Capacity -= offset;
+            } else {
+                std::memmove(static_cast<std::byte*>(m_Data) + offset, static_cast<std::byte*>(m_Data) + offset + size, m_Size - offset - size);
+            }
+            m_Size -= size;
+        }
+
+        template <typename Char>
+        std::size_t size() const noexcept {
+            return m_Size / sizeof(Char);
+        }
+
+        std::size_t bytes() const noexcept {
+            return m_Size;
+        }
+
+        template <typename Char>
+        void Reset() noexcept
+        {
+            if(m_Data < m_InitData || m_Data >= static_cast<std::byte*>(m_InitData) + m_BufferCapacity) [[unlikely]] {
+                delete[] static_cast<std::byte*>(m_Data);
+            }
+
+            m_Data = m_InitData;
+            m_Size = 0;
+            m_Capacity = m_BufferCapacity;
+        }
+
+        template <typename Char>
+        [[nodiscard]] std::basic_string_view<Char> View() noexcept {
+            push_back<Char>(Char{}); m_Size -= sizeof(Char);
+            return std::basic_string_view<Char>{static_cast<Char*>(m_Data), m_Size / sizeof(Char)};
+        }
+
+    private:
+        void reallocate(std::size_t requiredBytes) {
+            if(requiredBytes > m_Capacity) [[unlikely]] {
+                m_Capacity = (std::max)(m_Capacity * 2, requiredBytes);
+                std::memcpy(m_Data, std::exchange(m_Data, new std::byte[m_Capacity]), m_Size);
+            }
+        }
+
+    private:
+        void* m_InitData;
+        void* m_Data;
+        std::size_t m_Size;
+        std::size_t m_Capacity;
+    };
+
+    template <typename>
+    struct Print;
+
     class ColorStyle
     {
     public:
-        static constexpr auto ColorSize = 10;
-        static constexpr auto ColorSizeEnd = 4;
+        static constexpr std::size_t ColorSize = 10;
+        static constexpr std::size_t ColorSizeEnd = 4;
 
     public:
         constexpr ColorStyle(Color front = Color::Default, Color back = Color::Default)
             : m_Front{front}, m_Back{back} {}
 
         template <typename Char>
-        void BeginColor(std::basic_string<Char>& buffer) const
+        void BeginColor(LoggerBuffer& buffer) const
         {
             if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
                 return;
@@ -62,7 +155,7 @@ namespace Helena::Log
         }
 
         template <typename Char>
-        static void EndColor(std::basic_string<Char>& buffer)
+        void EndColor(LoggerBuffer& buffer) const
         {
             if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
                 return;
@@ -72,25 +165,28 @@ namespace Helena::Log
             buffer.append(colorReset, std::size(colorReset));
         }
 
-        template <typename Char>
-        static void RemoveColor(std::basic_string<Char>& buffer)
+        template <typename Char, typename Traits>
+        static void RemoveColor(std::basic_string_view<Char, Traits>& str)
         {
             if(!HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING)
                 return;
 
-            if(buffer.size() < ColorSize + ColorSizeEnd)
+            if(str.size() < ColorSize + ColorSizeEnd)
                 return;
 
-            constexpr Char colorEnd[]{0x1B, 0x5B, 0x30, 0x6D};
-            const auto offsetEnd = buffer.size() - ColorSizeEnd - 1;
-            if(std::memcmp(buffer.c_str() + offsetEnd, colorEnd, sizeof(colorEnd)) == 0) {
-                buffer[offsetEnd] = buffer.back();
-                buffer.resize(offsetEnd + 1);
+            constexpr Char colorHeader[]{0x1B, 0x5B, 0x30, 0x3B};
+            if(std::memcmp(str.data(), colorHeader, sizeof(colorHeader)) == 0) {
+                str = std::basic_string_view<Char, Traits>(str.data() + ColorSize, str.size() - ColorSize);
             }
 
-            constexpr Char colorHeader[]{0x1B, 0x5B, 0x30, 0x3B};
-            if(std::memcmp(buffer.c_str(), colorHeader, sizeof(colorHeader)) == 0) {
-                buffer.erase(0, ColorSize);
+            constexpr Char colorEnd[]{0x1B, 0x5B, 0x30, 0x6D};
+            const auto hasEndline = *str.rbegin() == Print<Char>::Endline;
+            if(std::memcmp(str.data() + str.size() - (ColorSizeEnd + hasEndline), colorEnd, sizeof(colorEnd)) == 0) {
+                str = std::basic_string_view<Char, Traits>(str.data(), str.size() - ColorSizeEnd);
+                *(const_cast<Char*>(str.data()) + str.size()) = Char{};
+                if(hasEndline) [[likely]] {
+                    const_cast<Char&>(str.back()) = Print<Char>::Endline;
+                }
             }
         }
 
@@ -117,7 +213,8 @@ namespace Helena::Log
             , m_Message{message} {}
 
         // the message must meet lvalue reference requirements because the formatter uses a string view for m_Message member
-        constexpr Formatter(const std::basic_string<Char>& message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
+        template <typename Traits, typename Allocator>
+        constexpr Formatter(const std::basic_string<Char, Traits, Allocator>& message, const Types::SourceLocation location = Types::SourceLocation::Create()) noexcept
             : m_Location{location}
             , m_Message{message} {}
 
@@ -198,7 +295,7 @@ namespace Helena::Log
         using DefaultFingerprint = void;
 
         template <typename Char>
-        static void Message(std::basic_string<Char>& message) {
+        static void Message(std::basic_string_view<Char> message) {
             Print<Char>::Message(message);
         }
     };
@@ -280,22 +377,75 @@ namespace Helena::Log
     };
 }
 
-
 // Forward declaration and specialization
 namespace Helena::Log
 {
-    template <DefinitionLogger Logger, typename Char, typename... Args>
+    template <DefinitionLogger Logger, bool Endline = true, typename Char, typename... Args>
     void Message(const Formatter<Char> format, Args&&... args);
 
-    template <DefinitionLogger Logger, typename... Args>
+    template <DefinitionLogger Logger, bool Endline = true, typename... Args>
     void Message(const Formatter<char> format, Args&&... args) {
-        Message<Logger, char>(format, std::forward<Args>(args)...);
+        Message<Logger, Endline, char>(format, std::forward<Args>(args)...);
     }
 
-    template <DefinitionLogger Logger, typename... Args>
+    template <DefinitionLogger Logger, bool Endline = true, typename... Args>
     void Message(const Formatter<wchar_t> format, Args&&... args) {
-        Message<Logger, wchar_t>(format, std::forward<Args>(args)...);
+        Message<Logger, Endline, wchar_t>(format, std::forward<Args>(args)...);
     }
 }
+
+namespace Helena::Log::Internal
+{
+    inline thread_local LoggerBuffer m_LoggerBuffer;
+
+    template <typename Char>
+    LoggerBuffer& GetCachedBuffer() noexcept {
+        auto& buffer = m_LoggerBuffer; buffer.Reset<Char>();
+        return buffer;
+    }
+}
+
+template <>
+class std::back_insert_iterator<Helena::Log::LoggerBuffer>
+{
+public:
+    using iterator_category = output_iterator_tag;
+    using value_type = void;
+    using pointer = void;
+    using reference = void;
+
+    using container_type = Helena::Log::LoggerBuffer;
+    using difference_type = ptrdiff_t;
+
+    constexpr explicit back_insert_iterator(container_type& container) noexcept
+        : m_Container(std::addressof(container)) {}
+
+    template <typename T>
+    constexpr back_insert_iterator& operator=(const T& value) {
+        m_Container->push_back(value);
+        return *this;
+    }
+
+    template <typename T>
+    constexpr back_insert_iterator& operator=(T&& value) {
+        m_Container->push_back(std::move(value));
+        return *this;
+    }
+
+    [[nodiscard]] constexpr back_insert_iterator& operator*() noexcept {
+        return *this;
+    }
+
+    constexpr back_insert_iterator& operator++() noexcept {
+        return *this;
+    }
+
+    constexpr back_insert_iterator operator++(int) noexcept {
+        return *this;
+    }
+
+protected:
+    container_type* m_Container;
+};
 
 #endif // HELENA_TYPES_BASICLOGGERSDEF_HPP
