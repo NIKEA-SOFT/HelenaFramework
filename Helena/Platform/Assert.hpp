@@ -3,16 +3,16 @@
 
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Types/BasicLoggerDefines.hpp>
-#include <tuple>
 
 #define HELENA_ASSERT_RUNTIME(cond, ...)                                        \
-if(!std::is_constant_evaluated()) {                                             \
-    if(!(cond)) {                                                               \
+if(!std::is_constant_evaluated() && !(cond)) {                                  \
+    [](auto&&... args) HELENA_NOINLINE HELENA_NORETURN {                        \
         Helena::Log::Message<Helena::Log::Assert>("Condition: " #cond);         \
                                                                                 \
-        using tuple = decltype(std::forward_as_tuple(__VA_ARGS__));             \
-        if constexpr(std::tuple_size_v<tuple> > 0) {                            \
-            Helena::Log::Message<Helena::Log::Assert>("Message: " __VA_ARGS__); \
+        if constexpr(sizeof...(args)) {                                         \
+            Helena::Log::Message<Helena::Log::Assert, false>("Message: ");      \
+            Helena::Log::Message<Helena::Log::Assert>(                          \
+                std::forward<decltype(args)>(args)...);                         \
         }                                                                       \
                                                                                 \
         if(HELENA_DEBUGGING()) {                                                \
@@ -20,7 +20,7 @@ if(!std::is_constant_evaluated()) {                                             
         }                                                                       \
                                                                                 \
         std::exit(EXIT_FAILURE);                                                \
-    }                                                                           \
+    }(__VA_ARGS__);\
 }                                                                               \
 
 
