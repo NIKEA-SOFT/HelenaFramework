@@ -27,11 +27,11 @@ namespace Helena
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
         const auto dateTime  = Types::DateTime::FromLocalTime();
-        const auto& dumpName = Util::String::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
+        const auto dumpName = Util::String::FormatView("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
                                 dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
                                 dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
-        const auto hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+        const auto hFile = ::CreateFileA(dumpName.data(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
         if(!hFile || hFile == INVALID_HANDLE_VALUE) {
@@ -49,7 +49,7 @@ namespace Helena
         };
 
         if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
-            (void)::DeleteFileA(dumpName.c_str());
+            (void)::DeleteFileA(dumpName.data());
             HELENA_MSG_EXCEPTION("Create dump failed, error: {}", ::GetLastError());
         } else {
             HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName);
@@ -492,11 +492,9 @@ namespace Helena
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
         auto pool = MainContext().m_Signals.template Ptr<Event>();
-        if(!pool) [[unlikely]] {
-            return;
-        }
+        const auto listeners = pool && !pool->empty();
 
-        if(!pool->empty())
+        if(listeners) [[likely]]
         {
             if constexpr(std::is_empty_v<Event>) {
                 union { Event event; };
