@@ -41,6 +41,23 @@ namespace Helena::Types
 
     public:
         StateMachine() = default;
+
+        template <typename State>
+        requires Traits::AnyOf<State, States...>
+        StateMachine(State&& state)
+            noexcept(std::is_nothrow_constructible_v<State, decltype(std::forward<State>(state))>)
+            requires std::is_constructible_v<State, decltype(std::forward<State>(state))> {
+            SetState<std::remove_reference_t<State>>(std::forward<State>(state));
+        }
+
+        template <typename State, typename... Args>
+        requires Traits::AnyOf<State, States...>
+        StateMachine(std::in_place_type_t<State>, Args&&... args)
+            noexcept(std::is_nothrow_constructible_v<State, Args...>)
+            requires std::is_constructible_v<State, Args...> {
+            SetState<State>(std::forward<Args>(args)...);
+        }
+
         ~StateMachine() = default;
         StateMachine(const StateMachine&) = default;
         StateMachine(StateMachine&&) noexcept = default;
@@ -48,14 +65,18 @@ namespace Helena::Types
         StateMachine& operator=(StateMachine&&) noexcept = default;
 
         template <typename State, typename... Args>
-        requires (Traits::AnyOf<State, States...> && std::is_constructible_v<State, Args...>)
-        constexpr void SetState(Args&&... args) noexcept(std::is_nothrow_constructible_v<State, Args...>) {
+        requires Traits::AnyOf<State, States...>
+        constexpr void SetState(Args&&... args)
+            noexcept(std::is_nothrow_constructible_v<State, Args...>)
+            requires std::is_constructible_v<State, Args...> {
             m_States.template emplace<State>(std::forward<Args>(args)...);
         }
 
         template <typename State>
-        requires (Traits::AnyOf<State, States...> && std::is_constructible_v<std::decay_t<State>, State>)
-        constexpr void SetState(State&& state) noexcept(std::is_nothrow_constructible_v<std::decay_t<State>, State>) {
+        requires Traits::AnyOf<State, States...>
+        constexpr void SetState(State&& state)
+            noexcept(std::is_nothrow_constructible_v<State, decltype(std::forward<State>(state))>)
+            requires std::is_constructible_v<State, decltype(std::forward<State>(state))> {
             m_States.template emplace<std::decay_t<State>>(std::forward<State>(state));
         }
 
@@ -98,7 +119,7 @@ namespace Helena::Types
         }
 
         template <typename Dispatcher>
-        requires (std::is_default_constructible_v<Dispatcher>) && (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...)
+        requires (std::is_default_constructible_v<Dispatcher> && (std::is_invocable_v<Dispatcher, StateMachine&, States&> && ...))
         constexpr void Dispatch() const {
             VisitOverloads<Dispatcher>();
         }
