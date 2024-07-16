@@ -18,7 +18,7 @@ namespace Helena::Traits
     };
 
     template <template <typename... > typename T, typename... Args>
-    struct Arguments<T<Args...>> : Arguments<Args...> {};
+    struct ArgumentsOfTemplate : Arguments<Args...> {};
 }
 
 #endif // HELENA_TRAITS_ARGUMENTS_HPP
