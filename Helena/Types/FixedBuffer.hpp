@@ -21,7 +21,7 @@ namespace Helena::Types
         {
             constexpr auto fnLengthTruncated = [](const Char* data, std::size_t max) -> std::size_t {
                 if(!data || !max) return 0;
-                const auto found = Trait::find(data, max, 0);
+                const auto found = Trait::find(data, max, Char{});
                 return found ? std::distance(data, found) : max;
             };
 
