@@ -63,6 +63,14 @@
 
 /* ----------- [Features] ----------- */
 #if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+    #define HELENA_LINUX_FASTCALL               __attribute__((fastcall))
+    #define HELENA_WIN_FASTCALL
+#elif defined(HELENA_COMPILER_MSVC)
+    #define HELENA_WIN_FASTCALL                 __fastcall
+    #define HELENA_LINUX_FASTCALL
+#endif
+
+#if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
     #define HELENA_FORCEINLINE                  __attribute__((always_inline))
 #elif defined(HELENA_COMPILER_MSVC)
     #define HELENA_FORCEINLINE                  __forceinline
@@ -127,32 +135,6 @@
     #define HELENA_NO_UNIQUE_ADDRESS
 #endif
 
-//#if defined(HELENA_STANDARD_CPP11_OR_GREATER)
-//    #define HELENA_NOEXCEPT           noexcept
-//    #define HELENA_CONSTEXPR          constexpr
-//    #define HELENA_FINAL              final
-//#else
-//    #define HELENA_NOEXCEPT           throw()
-//    #define HELENA_CONSTEXPR
-//    #define HELENA_FINAL
-//#endif
-
-//#if defined(HELENA_STANDARD_CPP17_OR_GREATER)
-//    #define HELENA_NODISCARD          [[nodiscard]]
-//#else
-//    #define HELENA_NODISCARD
-//#endif
-
-//#if defined(HELENA_STANDARD_CPP20)
-//    #define HELENA_NODISCARD_MSG(msg) [[nodiscard(msg)]]
-//#endif
-
-//#if defined(HELENA_COMPILER_MSVC)
-//    #define HELENA_CONSTEVAL          consteval
-//#elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-//    #define HELENA_CONSTEVAL          constexpr
-//#endif
-
 #if defined(HELENA_COMPILER_MSVC)
     #include <immintrin.h>
     #pragma intrinsic(_mm_pause)
@@ -160,28 +142,6 @@
 #elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
     #define HELENA_PROCESSOR_YIELD()            __builtin_ia32_pause()
 #endif
-
-//#if defined(HELENA_PROCESSOR_AMD64) || defined(HELENA_PROCESSOR_X86)
-//    #if defined(HELENA_COMPILER_MSVC)
-//        #include <immintrin.h>
-//        #pragma intrinsic(_mm_pause)
-//        #define HELENA_PROCESSOR_YIELD()        _mm_pause()
-//    #elif defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
-//        #if __has_builtin (__builtin_ia32_pause)
-//            #define HELENA_PROCESSOR_YIELD()    __builtin_ia32_pause()
-//        #else
-//            #define HELENA_PROCESSOR_YIELD()    __asm__ __volatile__ ("pause")
-//        #endif
-//    #endif
-//#elif defined(HELENA_PROCESSOR_ARM)
-//    #define HELENA_PROCESSOR_YIELD()            __asm__ __volatile__ ("isb" ::: "memory")
-//#elif defined(HELENA_PROCESSOR_PPC64)
-//    #define HELENA_PROCESSOR_YIELD()            __asm__ __volatile__ ("or 27,27,27" ::: "memory")
-//#elif defined(HELENA_PROCESSOR_IA64)
-//    #define HELENA_PROCESSOR_YIELD()            __asm__ __volatile__ ("hint @pause")
-//#elif defined(HELENA_PROCESSOR_SPARC)
-//    #define HELENA_PROCESSOR_YIELD()            __asm__ __volatile__ ("nop;");
-//#endif
 
 #define HELENA_NEW(type)                        new type
 #define HELENA_NEW_NOTHROW(type)                new (std::nothrow) type
