@@ -32,12 +32,8 @@ namespace Helena::Types
 
         void Lock() noexcept
         {
-            while(true)
+            if(!TryLock())
             {
-                if(!m_Lock.exchange(true, std::memory_order_acquire)) {
-                    return;
-                }
-
                 while(m_Lock.load(std::memory_order_relaxed)) {
                     HELENA_PROCESSOR_YIELD();
                 }
@@ -45,7 +41,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] bool TryLock() noexcept {
-            return !m_Lock.load(std::memory_order_relaxed) && !m_Lock.exchange(true, std::memory_order_acquire);
+            return !m_Lock.exchange(true, std::memory_order_acquire);
         }
 
         void Unlock() noexcept {
@@ -53,7 +49,7 @@ namespace Helena::Types
         }
 
     private:
-        std::atomic<bool> m_Lock {};
+        std::atomic_long m_Lock{};
     };
 }
 #endif // HELENA_TYPES_SPINLOCK_HPP
