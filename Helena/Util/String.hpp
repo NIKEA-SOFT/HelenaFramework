@@ -4,6 +4,7 @@
 #include <Helena/Engine/Log.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 #include <format>
 #include <iterator>
@@ -57,9 +58,9 @@ namespace Helena::Util
         * @note This function is effective for cases when you need to immediately use the formatting result and forget about it.
         * The implementation is built around a ring cached buffer, which can be overwritten if you store the result of a FormatView,
         * so you should never do this.
-        * Implementation: Each thread has 20 ring buffers with a cache size of 512 bytes.
+        * Implementation: Each thread has 25 ring buffers with a cache size of 4096 bytes (summary: 100kb).
         * This is efficient, you won't have to allocate memory for formatting, but this implementation has a side effect - you should
-        * not store the result returned by this function, otherwise after 20 calls to FormatView the memory may be overwritten because ring buffer.
+        * not store the result returned by this function, otherwise after 25 calls to FormatView the memory may be overwritten because ring buffer.
         * @warning You should not store the result returned by this function, it is unsafe.
         */
         template <typename Char, typename Traits, typename... Args>
@@ -148,16 +149,15 @@ namespace Helena::Util::Internal::FormatImpl
     */
     class FormatBuffer
     {
-        static constexpr auto m_BufferCapacity{512};
-        static constexpr auto m_BufferCount{20};
+        // 100 kb for cache
+        static constexpr auto m_BufferCapacity{4096};
+        static constexpr auto m_BufferCount{25};
 
     public:
         FormatBuffer()
-            : m_InitData{new std::byte[m_BufferCount * m_BufferCapacity]}
-            , m_Data{m_InitData}
+            : m_Data{new std::byte[m_BufferCount * m_BufferCapacity]}
             , m_RingID{}
-            , m_Size{}
-            , m_Capacity{m_BufferCapacity} {}
+            , m_Size{} {}
         FormatBuffer(const FormatBuffer&) = delete;
         FormatBuffer(FormatBuffer&&) = delete;
         FormatBuffer& operator=(const FormatBuffer&) = delete;
@@ -165,61 +165,50 @@ namespace Helena::Util::Internal::FormatImpl
         ~FormatBuffer() {}
 
         template <typename Char>
-        void push_back(Char&& value) {
-            reallocate(m_Size + sizeof(Char));
-            std::memcpy(static_cast<std::byte*>(m_Data) + m_Size, &value, sizeof(Char));
-            m_Size += sizeof(Char);
+        void push_back(const Char& value) {
+            append(&value, sizeof(Char));
         }
 
         template <typename Char>
         void append(const Char* data, std::size_t size) {
             const auto bytes = size * sizeof(Char);
-            reallocate(m_Size + bytes);
-            std::memcpy(static_cast<std::byte*>(m_Data) + m_Size, data, bytes);
+            checkOverflow(m_Size + bytes);
+            std::memcpy(m_Data + m_Size, data, bytes);
             m_Size += bytes;
         }
 
-        template <typename Char>
-        void Reset()
-        {
-            if(m_Capacity != m_BufferCapacity) [[unlikely]] {
-                delete[] static_cast<std::byte*>(m_Data);
-                m_Data = m_InitData;
-                m_Capacity = m_BufferCapacity;
-            }
-
-            const auto id = std::exchange(m_RingID, (m_RingID + 1) % m_BufferCount);
-            m_Data = static_cast<std::byte*>(m_InitData) + id * m_BufferCapacity;
+        void NextSpin() noexcept {
+            m_RingID = (m_RingID + 1) % m_BufferCount;
+            m_Data += !m_RingID ? -((m_BufferCount - 1) * m_BufferCapacity) : m_BufferCapacity;
             m_Size = 0;
         }
 
         template <typename Char, typename Traits = std::char_traits<Char>>
         [[nodiscard]] std::basic_string_view<Char, Traits> View() noexcept {
             push_back<Char>(Char{}); m_Size -= sizeof(Char);
-            return std::basic_string_view<Char, Traits>{static_cast<Char*>(m_Data), m_Size / sizeof(Char)};
+            return std::basic_string_view<Char, Traits>{std::bit_cast<Char*>(m_Data), m_Size / sizeof(Char)};
         }
 
     private:
-        void reallocate(std::size_t requiredBytes) {
-            if(requiredBytes > m_Capacity) [[unlikely]] {
-                m_Capacity = (std::max)(m_Capacity * 2, requiredBytes);
-                std::memcpy(m_Data, std::exchange(m_Data, new std::byte[m_Capacity]), m_Size);
+        void checkOverflow(std::size_t requiredBytes) {
+            if(requiredBytes > m_BufferCapacity) [[unlikely]] {
+                // Required buffer size exceeds capacity!
+                throw std::bad_alloc();
             }
         }
 
     private:
-        void* m_InitData;
-        void* m_Data;
+        std::byte* m_Data;
         std::size_t m_RingID;
         std::size_t m_Size;
-        std::size_t m_Capacity;
     };
 
     inline thread_local FormatBuffer m_RingBuffer;
 
     template <typename Char>
     [[nodiscard]] auto& GetCachedBuffer() noexcept {
-        auto& buffer = m_RingBuffer; buffer.Reset<Char>();
+        auto& buffer = m_RingBuffer;
+        buffer.NextSpin();
         return buffer;
     }
 }
