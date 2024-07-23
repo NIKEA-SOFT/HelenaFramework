@@ -26,36 +26,110 @@ namespace Helena
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
+        const auto stacktrace = Util::Process::Stacktrace(); // ordering is important
         const auto dateTime  = Types::DateTime::FromLocalTime();
-        const auto dumpName = Util::String::FormatView("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
+        auto dumpName = Util::String::FormatView("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
                                 dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
                                 dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
         const auto hFile = ::CreateFileA(dumpName.data(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
-        if(!hFile || hFile == INVALID_HANDLE_VALUE) {
-            HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
-            return EXCEPTION_EXECUTE_HANDLER;
-        }
+        if(hFile && hFile != INVALID_HANDLE_VALUE)
+        {
+            const auto hProcess = ::GetCurrentProcess();
+            const auto processId = ::GetProcessId(hProcess);
+            const auto flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
+            auto exceptionInfo = MINIDUMP_EXCEPTION_INFORMATION{
+                .ThreadId = ::GetCurrentThreadId(),
+                .ExceptionPointers = pException,
+                .ClientPointers = TRUE
+            };
 
-        const auto hProcess     = ::GetCurrentProcess();
-        const auto processId    = ::GetProcessId(hProcess);
-        const auto flag         = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
-        auto exceptionInfo      = MINIDUMP_EXCEPTION_INFORMATION {
-            .ThreadId = ::GetCurrentThreadId(),
-            .ExceptionPointers = pException,
-            .ClientPointers = TRUE
+            if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
+                (void)::DeleteFileA(dumpName.data());
+                dumpName = Util::String::FormatView("Create dump: {} -> FAIL!", dumpName);
+            } else {
+                dumpName = Util::String::FormatView("Create dump: {} -> OK!", dumpName);
+            }
+
+            (void)::CloseHandle(hFile);
+        } else HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
+
+        const auto fnExceptionNameFromCode = [](auto code) noexcept
+        {
+            switch(code)
+            {
+                case EXCEPTION_ACCESS_VIOLATION:        return "EXCEPTION_ACCESS_VIOLATION";
+                case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:   return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED";
+                case EXCEPTION_BREAKPOINT:              return "EXCEPTION_BREAKPOINT";
+                case EXCEPTION_DATATYPE_MISALIGNMENT:   return "EXCEPTION_DATATYPE_MISALIGNMENT";
+                case EXCEPTION_FLT_DENORMAL_OPERAND:    return "EXCEPTION_FLT_DENORMAL_OPERAND";
+                case EXCEPTION_FLT_DIVIDE_BY_ZERO:      return "EXCEPTION_FLT_DIVIDE_BY_ZERO";
+                case EXCEPTION_FLT_INEXACT_RESULT:      return "EXCEPTION_FLT_INEXACT_RESULT";
+                case EXCEPTION_FLT_INVALID_OPERATION:   return "EXCEPTION_FLT_INVALID_OPERATION";
+                case EXCEPTION_FLT_OVERFLOW:            return "EXCEPTION_FLT_OVERFLOW";
+                case EXCEPTION_FLT_STACK_CHECK:         return "EXCEPTION_FLT_STACK_CHECK";
+                case EXCEPTION_FLT_UNDERFLOW:           return "EXCEPTION_FLT_UNDERFLOW";
+                case EXCEPTION_ILLEGAL_INSTRUCTION:     return "EXCEPTION_ILLEGAL_INSTRUCTION";
+                case EXCEPTION_IN_PAGE_ERROR:           return "EXCEPTION_IN_PAGE_ERROR";
+                case EXCEPTION_INT_DIVIDE_BY_ZERO:      return "EXCEPTION_INT_DIVIDE_BY_ZERO";
+                case EXCEPTION_INT_OVERFLOW:            return "EXCEPTION_INT_OVERFLOW";
+                case EXCEPTION_INVALID_DISPOSITION:     return "EXCEPTION_INVALID_DISPOSITION";
+                case EXCEPTION_NONCONTINUABLE_EXCEPTION:return "EXCEPTION_NONCONTINUABLE_EXCEPTION";
+                case EXCEPTION_PRIV_INSTRUCTION:        return "EXCEPTION_PRIV_INSTRUCTION";
+                case EXCEPTION_SINGLE_STEP:             return "EXCEPTION_SINGLE_STEP";
+                case EXCEPTION_STACK_OVERFLOW:          return "EXCEPTION_STACK_OVERFLOW";
+                default:                                return "Unknown Exception";
+            }
         };
 
-        if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
-            (void)::DeleteFileA(dumpName.data());
-            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", ::GetLastError());
-        } else {
-            HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName);
+        const auto fnExceptionOperationNameFromCode = [](auto code) noexcept
+        {
+            switch(code) {
+                case 0: return "Read";
+                case 1: return "Write";
+                case 8: return "User-mode data execution prevention (DEP) violation";
+                default: return "Unknown";
+            }
+        };
+
+        const auto exceptionCode = pException->ExceptionRecord->ExceptionCode;
+        const auto exceptionName = fnExceptionNameFromCode(exceptionCode);
+        const auto exceptionAddress = reinterpret_cast<std::uintptr_t>(pException->ExceptionRecord->ExceptionAddress);
+
+        auto exceptionOperationInfo = typename Traits::Function<decltype(Util::String::FormatView<char>)>::Return{};
+        if(exceptionCode == EXCEPTION_ACCESS_VIOLATION || exceptionCode == EXCEPTION_IN_PAGE_ERROR) {
+            exceptionOperationInfo = Util::String::FormatView("\n->Invalid operation: {} at "
+            #if defined(HELENA_PROCESSOR_X86)
+                "{:#010x}"
+            #else
+                "{:#018x}",
+            #endif // HELENA_PROCESSOR_X86
+                fnExceptionOperationNameFromCode(pException->ExceptionRecord->ExceptionInformation[0]),
+                pException->ExceptionRecord->ExceptionInformation[1]);
         }
 
-        (void)::CloseHandle(hFile);
+    #if defined(HELENA_PROCESSOR_X86)
+        const auto exceptionIP = pException->ContextRecord->Eip;
+    #else
+        const auto exceptionIP = pException->ContextRecord->Rip;
+    #endif // HELENA_PROCESSOR_X86
+
+        Shutdown("\n-------- [FATAL CRASH] --------\n"
+        #if defined(HELENA_PROCESSOR_X86)
+            "-> Crash EIP: {:#010x}\n-> {}({:#010x}) at {:#010x}"
+        #else
+            "-> Crash RIP: {:#018x}\n-> {}({:#018x}) at {:#018x}"
+        #endif // HELENA_PROCESSOR_X86
+            "{}\n-> {}\n-> {}",
+            exceptionIP, exceptionName, exceptionCode, exceptionAddress,
+            exceptionOperationInfo, dumpName, stacktrace);
+
+        if(GetState() == EState::Undefined) {
+            (void)Heartbeat();
+        }
+
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
@@ -85,6 +159,35 @@ namespace Helena
         signal(SIGINT,  SigHandler);
         signal(SIGKILL, SigHandler);
         signal(SIGHUP,  SigHandler);
+
+        struct sigaction sigact{};
+        sigemptyset(&sigact.sa_mask);
+        sigact.sa_sigaction = +[](int signal, siginfo_t* info, void* ptr) {
+            struct sigaction sigact {};
+            sigact.sa_handler = SIG_DFL;
+            sigaction(SIGSEGV, &sigact, NULL);
+            const auto context = static_cast<const ucontext_t*>(ptr);
+            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[
+            #if defined(HELENA_PROCESSOR_X86)
+                REG_EIP
+            #else
+                REG_RIP
+            #endif // HELENA_PROCESSOR_X86
+            ]);
+            const auto address = reinterpret_cast<std::uintptr_t>(info->si_addr);
+
+            Shutdown("\n-------- [FATAL CRASH] --------\n"
+            #if defined(HELENA_PROCESSOR_X86)
+                "-> Crash EIP: {:#010x}\n-> {} at {:#010x}"
+            #else
+                "-> Crash RIP: {:#018x}\n-> {} at {:#018x}"
+            #endif // HELENA_PROCESSOR_X86
+                "\n-> {}",
+                ip, strsignal(signal), address, Util::Process::Stacktrace());
+            (void)Heartbeat();
+        };
+        sigact.sa_flags = SA_RESTART | SA_SIGINFO;
+        (void)sigaction(SIGSEGV, &sigact, nullptr);
     }
 #endif
 
@@ -250,15 +353,8 @@ namespace Helena
                 return false;
             }
         }
-
     #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
-        } __except (MiniDumpSEH(GetExceptionInformation())) {
-            if(GetState() == EState::Shutdown) {
-                return false;
-            }
-
-            Shutdown("Unhandled Exception");
-        }
+        } __except (MiniDumpSEH(GetExceptionInformation())) {}
     #endif
 
         return true;
