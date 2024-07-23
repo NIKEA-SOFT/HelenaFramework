@@ -6,6 +6,7 @@
     #include <sys/ioctl.h>
     #include <sys/time.h>
     #include <sys/socket.h>
+    #include <sys/ptrace.h>
     #include <poll.h>
     #include <arpa/inet.h>
     #include <netinet/in.h>
@@ -17,7 +18,9 @@
     #include <errno.h>
     #include <stdio.h>
     #include <fcntl.h>
-    #include <sys/ptrace.h>
+    #include <execinfo.h>
+    #include <cxxabi.h>
+    #include <ucontext.h>
 
     inline constexpr auto HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING = true;
     inline auto HELENA_PLATFORM_HAS_CONSOLE = []() {
