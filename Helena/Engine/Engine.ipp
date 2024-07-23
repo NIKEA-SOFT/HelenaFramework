@@ -102,7 +102,7 @@ namespace Helena
         if(exceptionCode == EXCEPTION_ACCESS_VIOLATION || exceptionCode == EXCEPTION_IN_PAGE_ERROR) {
             exceptionOperationInfo = Util::String::FormatView("\n->Invalid operation: {} at "
             #if defined(HELENA_PROCESSOR_X86)
-                "{:#010x}"
+                "{:#010x}",
             #else
                 "{:#018x}",
             #endif // HELENA_PROCESSOR_X86
