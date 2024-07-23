@@ -61,10 +61,9 @@ namespace Helena::Util
             const auto frames = ::CaptureStackBackTrace(0, static_cast<DWORD>(maxFrames), stack, nullptr);
             constexpr auto symbolSize = sizeof(SYMBOL_INFO) + 256 * sizeof(TCHAR);
             const auto symbolMemory = allocator.AllocateBytes(symbolSize);
-            auto symbol = new (symbolMemory) SYMBOL_INFO{
-                .SizeOfStruct = sizeof(SYMBOL_INFO),
-                .MaxNameLen = 255
-            };
+            auto symbol = new (symbolMemory) SYMBOL_INFO{};
+            symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+            symbol->MaxNameLen = 255;
 
             const auto process = ::GetCurrentProcess();
             if(frames && ::SymInitialize(process, nullptr, TRUE))
