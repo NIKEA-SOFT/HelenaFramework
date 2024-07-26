@@ -690,7 +690,7 @@ int main(int argc, char** argv)
 
     // Engine loop
     while(Helena::Engine::Heartbeat()) {}
-    //return 0;
+    return 0;
 }
 
 // TODO: Wrapper's for containers in Helena with allocators
@@ -756,7 +756,7 @@ void test_allocators()
 
 // Test specialization for logger
 template <>
-struct Helena::Log::CustomPrint<Helena::Log::Warning>
+struct Helena::Logging::CustomPrint<Helena::Logging::Warning>
 {
     template <typename Char>
     static void Message(std::basic_string_view<Char> message) {
@@ -766,7 +766,7 @@ struct Helena::Log::CustomPrint<Helena::Log::Warning>
 };
 
 template <>
-struct Helena::Log::MuteController<Helena::Log::Warning> {
+struct Helena::Logging::MuteController<Helena::Logging::Warning> {
     static bool Muted() {
         return false;
     }
