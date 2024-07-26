@@ -25,7 +25,17 @@
 // Engine
 #include <Helena/Engine/Events.hpp>
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Engine/Log.hpp>
+
+// Logging
+#include <Helena/Logging/Internal/LoggerBuffer.hpp>
+#include <Helena/Logging/ColorStyle.hpp>
+#include <Helena/Logging/CustomPrint.hpp>
+#include <Helena/Logging/Formatter.hpp>
+#include <Helena/Logging/Logging.hpp>
+#include <Helena/Logging/Message.hpp>
+#include <Helena/Logging/MuteController.hpp>
+#include <Helena/Logging/Prefix.hpp>
+#include <Helena/Logging/Print.hpp>
 
 // Traits
 #include <Helena/Traits/Add.hpp>
@@ -54,8 +64,6 @@
 // Types
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
-#include <Helena/Types/BasicLogger.hpp>
-#include <Helena/Types/BasicLoggerDefines.hpp>
 #include <Helena/Types/BenchmarkScoped.hpp>
 #include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Types/DateTime.hpp>

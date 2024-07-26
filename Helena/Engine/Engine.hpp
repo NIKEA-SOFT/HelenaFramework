@@ -1,6 +1,7 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constructible.hpp>

@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include <Helena/Engine/Log.hpp>
+#include <Helena/Logging/Logging.hpp>
 #include <Helena/Platform/Assert.hpp>
 
 namespace Helena::Types

@@ -1,7 +1,7 @@
 #ifndef HELENA_UTIL_STRING_HPP
 #define HELENA_UTIL_STRING_HPP
 
-#include <Helena/Engine/Log.hpp>
+#include <Helena/Logging/Logging.hpp>
 
 #include <algorithm>
 #include <bit>
@@ -33,11 +33,11 @@ namespace Helena::Util
         static auto Format(const std::basic_string_view<Char, Traits> msg, Args&&... args) noexcept
         {
             try {
-                return std::vformat(msg, std::make_format_args<typename Log::Print<Char>::Context>(args...));
+                return std::vformat(msg, std::make_format_args<typename Logging::Print<Char>::Context>(args...));
             } catch(const std::format_error&) {
-                Log::Message<Log::Exception>(Log::Print<Char>::FormatError, msg);
+                HELENA_MSG_EXCEPTION(Logging::Print<Char>::FormatError, msg);
             } catch(const std::bad_alloc&) {
-                Log::Message<Log::Exception>(Log::Print<Char>::AllocateError, msg);
+                HELENA_MSG_EXCEPTION(Logging::Print<Char>::AllocateError, msg);
             }
 
             return std::basic_string<Char, Traits>{};
@@ -68,12 +68,12 @@ namespace Helena::Util
         {
             try {
                 auto& buffer = Internal::FormatImpl::GetCachedBuffer<Char>();
-                std::vformat_to(std::back_inserter(buffer), msg, std::make_format_args<typename Log::Print<Char>::Context>(args...));
+                std::vformat_to(std::back_inserter(buffer), msg, std::make_format_args<typename Logging::Print<Char>::Context>(args...));
                 return buffer.template View<Char, Traits>();
             } catch(const std::format_error&) {
-                Log::Message<Log::Exception>(Log::Print<Char>::FormatError, msg);
+                HELENA_MSG_EXCEPTION(Logging::Print<Char>::FormatError, msg);
             } catch(const std::bad_alloc&) {
-                Log::Message<Log::Exception>(Log::Print<Char>::AllocateError, msg);
+                HELENA_MSG_EXCEPTION(Logging::Print<Char>::AllocateError, msg);
             }
 
             return std::basic_string_view<Char, Traits>{};

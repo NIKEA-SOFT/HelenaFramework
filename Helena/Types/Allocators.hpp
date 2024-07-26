@@ -1,10 +1,11 @@
 #ifndef HELENA_TYPES_ALLOCATORS_HPP
 #define HELENA_TYPES_ALLOCATORS_HPP
 
-#include <Helena/Engine/Log.hpp>
+#include <Helena/Logging/Logging.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Traits/PowerOf2.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
 #include <Helena/Util/Math.hpp>
 

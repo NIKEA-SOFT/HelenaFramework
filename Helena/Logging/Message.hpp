@@ -1,13 +1,19 @@
-#ifndef HELENA_TYPES_BASICLOGGER_HPP
-#define HELENA_TYPES_BASICLOGGER_HPP
+#ifndef HELENA_LOGGING_MESSAGE_HPP
+#define HELENA_LOGGING_MESSAGE_HPP
 
-#include <Helena/Types/BasicLoggerDefines.hpp>
+#include <Helena/Platform/Platform.hpp>
+#include <Helena/Logging/Internal/LoggerBuffer.hpp>
+#include <Helena/Logging/ColorStyle.hpp>
+#include <Helena/Logging/CustomPrint.hpp>
+#include <Helena/Logging/Formatter.hpp>
+#include <Helena/Logging/MuteController.hpp>
+#include <Helena/Logging/Print.hpp>
+#include <Helena/Logging/Prefix.hpp>
 #include <Helena/Types/DateTime.hpp>
-
-#include <array>
 #include <locale>
+#include <utility>
 
-namespace Helena::Log
+namespace Helena::Logging
 {
     template <DefinitionLogger Logger, bool Endline, typename Char, typename... Args>
     void Message(const Formatter<Char> format, Args&&... args)
@@ -83,6 +89,16 @@ namespace Helena::Log
 
         CustomPrint<Logger>::Message(buffer.template View<Char>());
     }
+
+    template <DefinitionLogger Logger, bool Endline = true, typename... Args>
+    void Message(const Formatter<char> format, Args&&... args) {
+        Message<Logger, Endline, char>(format, std::forward<Args>(args)...);
+    }
+
+    template <DefinitionLogger Logger, bool Endline = true, typename... Args>
+    void Message(const Formatter<wchar_t> format, Args&&... args) {
+        Message<Logger, Endline, wchar_t>(format, std::forward<Args>(args)...);
+    }
 }
 
-#endif // HELENA_TYPES_BASICLOGGER_HPP
+#endif // HELENA_LOGGING_MESSAGE_HPP

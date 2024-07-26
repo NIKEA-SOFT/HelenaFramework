@@ -345,7 +345,7 @@ namespace Helena
 
                 if(!ctx.m_ShutdownMessage->m_Message.empty()) {
                     const auto& [message, location] = *ctx.m_ShutdownMessage;
-                    Log::Message<Log::Shutdown>({message, location});
+                    Logging::Message<Logging::Shutdown>({message, location});
                 }
 
                 ctx.m_State.store(EState::Undefined, std::memory_order_release);
