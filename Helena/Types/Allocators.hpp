@@ -579,6 +579,11 @@ namespace Helena::Types
         };
     };
 
+    /**
+    * @brief NodeAllocator
+    * Node-based allocator supports with dynamic memory allocation sizes.
+    * Effective when used in conjunction with other allocators.
+    */
     class NodeAllocator : public IMemoryResource
     {
         struct Node {
@@ -932,7 +937,7 @@ namespace Helena::Types
     *           ...
     */
     template <
-        std::size_t AlignmentBucketsGrowthFactor = 8,
+        std::size_t AlignmentBucketsGrowthFactor = alignof(std::max_align_t),
         std::size_t MemoryBucketsGrowthFactor = 32,
         std::size_t MemoryBucketsMaxSize = 1024,
         std::size_t ChunkBucketsMaxChunks = 128,
@@ -967,7 +972,7 @@ namespace Helena::Types
         using StorageContainers = AlignmentsBuckets<MemoryBuckets<ChunkBuckets*>>;
 
     public:
-        ArenaAllocator(IMemoryResource* upstreamResource = DefaultAllocator::Get()) noexcept
+        explicit ArenaAllocator(IMemoryResource* upstreamResource = DefaultAllocator::Get()) noexcept
             : m_Storage{}
             , m_UpstreamResource{upstreamResource} {}
 
@@ -1008,13 +1013,12 @@ namespace Helena::Types
     protected:
         void* Allocate(std::size_t bytes, std::size_t alignment) override
         {
-            auto& alignmentBuckets = m_Storage;
-
             const auto memoryIndex = (bytes - 1) / MemoryBucketsGrowthFactor;
             if(memoryIndex >= (MemoryBucketsMaxSize / MemoryBucketsGrowthFactor)) [[unlikely]] {
                 return m_UpstreamResource->AllocateMemory(bytes, alignment);
             }
 
+            auto& alignmentBuckets = m_Storage;
             const auto alignmentIndex = Util::Math::Log2((std::max)(alignment, AlignmentBucketsGrowthFactor) / AlignmentBucketsGrowthFactor);
             if(alignmentIndex >= alignmentBuckets.size()) [[unlikely]] {
                 Reallocate(alignmentBuckets, alignmentIndex);
