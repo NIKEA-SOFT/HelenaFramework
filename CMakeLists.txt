@@ -40,6 +40,17 @@ set(CMAKE_CONFIGURATION_TYPES "${HELENA_SUPPORTED_BUILD_TYPES}" CACHE STRING "" 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeBuild")
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(CMAKE_COMPILER_IS_CLANG 1)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
+    set(CMAKE_COMPILER_IS_GCC 1)
+elseif(MSVC)
+    set(CMAKE_COMPILER_IS_MSVC 1)
+elseif(MINGW)
+    set(CMAKE_COMPILER_IS_MINGW 1)
+endif()
+
+
 #|--------------------------------
 #| CMake modules
 #|--------------------------------
@@ -153,6 +164,7 @@ if(HELENA_FLAG_VIEW_HELENA)
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/RWLock.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/ReferencePointer.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/SourceLocation.hpp"
+        #"${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/SparseSet.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/Spinlock.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/SPSCVector.hpp"
         "${HELENA_PROJECT_DIR}/${HELENA_PROJECT_FRAMEWORK_DIR}/Types/StateMachine.hpp"
@@ -189,22 +201,26 @@ if(NOT UNIX AND NOT WIN32)
     message(FATAL_ERROR "Current platform is not supported!")
 endif()
 
-if(UNIX OR MINGW)
+if(UNIX OR CMAKE_COMPILER_IS_MINGW)
 	target_compile_options(Helena INTERFACE -Wall -Wextra #-fvisibility=hidden
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
         $<$<CONFIG:Release>:-O3>
 	)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_COMPILER_IS_GCC)
     target_compile_options(Helena INTERFACE -Wno-interference-size)
 endif()
 
+if(CMAKE_COMPILER_IS_CLANG OR CMAKE_COMPILER_IS_GCC OR CMAKE_COMPILER_IS_MINGW)
+    #-static -static-libgcc -static-libstdc++
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
+    target_link_libraries(Helena INTERFACE Threads::Threads)
+endif()
+
 if(WIN32)
-    if(MINGW)
-        #-static -static-libgcc -static-libstdc++
-        target_link_libraries(Helena INTERFACE winpthread)
-    else()
+    if(CMAKE_COMPILER_IS_MSVC)
         target_compile_options(Helena INTERFACE /Zc:preprocessor)
     endif()
     target_link_libraries(Helena INTERFACE winmm.lib dbghelp.lib ws2_32.lib iphlpapi.lib userenv.lib)
