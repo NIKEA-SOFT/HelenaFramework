@@ -6,6 +6,7 @@
 	#define HELENA_PROCESSOR_NAME	"Intel x86-64"
 	#define HELENA_PROCESSOR_BITS	64
 	#define HELENA_PROCESSOR_AMD64
+	#define HELENA_PROCESSOR_X64
 #elif defined(__i386__) || defined(_M_IX86)
 	#define HELENA_PROCESSOR_NAME	"Intel x86"
 	#define HELENA_PROCESSOR_BITS	32
