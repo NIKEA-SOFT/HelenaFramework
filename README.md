@@ -7,7 +7,7 @@
 `HelenaFramework` is a Universal Modern Framework written in **C++20**  
   
 Integrate `Engine` as a kernel and get access to `signals`, `components`, `systems`, logs and crash handling right out of the box.  
-The `Engine` class provides functional to take care of the main things I listed above, and also supports across boundary,  
+The `Engine` class provides functional to take care of the main things I listed above, and also supports across boundary, 
 you can access your `components`, `systems`, `context`, signals anywhere in the code, including plugins (dll/so).  
 Everything else is a collection of `types`, `traits` and `util` functions for solving everyday tasks with minimal overhead.  
   
