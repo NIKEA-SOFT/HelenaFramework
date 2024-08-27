@@ -1,9 +1,10 @@
 #ifndef HELENA_LOGGING_PRINT_HPP
 #define HELENA_LOGGING_PRINT_HPP
 
+#include <Helena/Logging/ColorStyle.hpp>
 #include <cstdio>
+#include <cwchar>
 #include <format>
-#include <string_view>
 
 namespace Helena::Logging
 {

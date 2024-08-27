@@ -31,6 +31,7 @@
 #include <Helena/Logging/ColorStyle.hpp>
 #include <Helena/Logging/CustomPrint.hpp>
 #include <Helena/Logging/Formatter.hpp>
+#include <Helena/Logging/FileLogger.hpp>
 #include <Helena/Logging/Logging.hpp>
 #include <Helena/Logging/Message.hpp>
 #include <Helena/Logging/MuteController.hpp>

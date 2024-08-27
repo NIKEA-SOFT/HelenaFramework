@@ -44,7 +44,6 @@ namespace Helena::Logging
     struct Exception {
         static constexpr auto Prefix = CreatePrefix("EXCEPTION");
         static constexpr auto Style = CreateStyle(Color::BrightWhite, Color::Red);
-
     };
 
     struct Memory {

@@ -20,17 +20,18 @@ namespace Helena::Logging::Internal
             : m_InitData{new std::byte[m_BufferCapacity]}
             , m_Data{m_InitData}
             , m_Size{}
-            , m_Capacity{m_BufferCapacity} {}
-        ~LoggerBuffer() {}
+            , m_Capacity{m_BufferCapacity} {
+        }
+        ~LoggerBuffer() = default;
         LoggerBuffer(const LoggerBuffer&) = delete;
         LoggerBuffer(LoggerBuffer&&) = delete;
         LoggerBuffer& operator=(const LoggerBuffer&) = delete;
         LoggerBuffer& operator=(LoggerBuffer&& other) = delete;
 
         template <typename Char>
-        void push_back(Char&& value) {
+        void push_back(const Char value) {
             reallocate(m_Size + sizeof(Char));
-            std::memcpy(static_cast<std::byte*>(m_Data) + m_Size, &value, sizeof(Char));
+            std::memcpy(m_Data + m_Size, std::addressof(value), sizeof(Char));
             m_Size += sizeof(Char);
         }
 
@@ -58,6 +59,11 @@ namespace Helena::Logging::Internal
         }
 
         template <typename Char>
+        Char* data() const noexcept {
+            return reinterpret_cast<Char*>(m_Data);
+        }
+
+        template <typename Char>
         std::size_t size() const noexcept {
             return m_Size / sizeof(Char);
         }
@@ -79,7 +85,6 @@ namespace Helena::Logging::Internal
 
         template <typename Char>
         [[nodiscard]] std::basic_string_view<Char> View() noexcept {
-            push_back<Char>(Char{}); m_Size -= sizeof(Char);
             return std::basic_string_view<Char>{reinterpret_cast<Char*>(m_Data), m_Size / sizeof(Char)};
         }
 
