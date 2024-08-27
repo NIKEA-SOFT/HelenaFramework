@@ -141,7 +141,7 @@ namespace Helena::Logging
                 dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds(),
                 dateTime.GetMilliseconds());
 
-        #if defined(HELENA_PLATFORM_WIN)
+        #if defined(HELENA_PLATFORM_WIN) && !defined(HELENA_COMPILER_MINGW)
             const auto lastError = ::GetLastError();
             (void)::CreateDirectoryA(logsDir.data(), nullptr);
             ::SetLastError(lastError);

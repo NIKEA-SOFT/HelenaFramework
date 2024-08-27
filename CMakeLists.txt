@@ -202,14 +202,10 @@ if(NOT UNIX AND NOT WIN32)
 endif()
 
 if(UNIX OR CMAKE_COMPILER_IS_MINGW)
-	target_compile_options(Helena INTERFACE -Wall -Wextra #-fvisibility=hidden
+	target_compile_options(Helena INTERFACE -Wall -Wextra -Wno-interference-size #-fvisibility=hidden
         $<$<CONFIG:Debug>:-O0 -g -ggdb>
         $<$<CONFIG:Release>:-O3>
 	)
-endif()
-
-if(CMAKE_COMPILER_IS_GCC)
-    target_compile_options(Helena INTERFACE -Wno-interference-size)
 endif()
 
 if(CMAKE_COMPILER_IS_CLANG OR CMAKE_COMPILER_IS_GCC OR CMAKE_COMPILER_IS_MINGW)
