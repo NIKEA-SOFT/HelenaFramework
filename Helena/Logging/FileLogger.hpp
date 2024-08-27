@@ -141,11 +141,11 @@ namespace Helena::Logging
                 dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds(),
                 dateTime.GetMilliseconds());
 
-        #if defined(HELENA_PLATFORM_WIN) && !defined(HELENA_COMPILER_MINGW)
+        #if defined(HELENA_PLATFORM_WIN)
             const auto lastError = ::GetLastError();
             (void)::CreateDirectoryA(logsDir.data(), nullptr);
             ::SetLastError(lastError);
-            const auto file = _fsopen(fileName.data(), "wb", _SH_DENYWR);
+            const auto file = _fsopen(fileName.data(), "wb", /*_SH_DENYWR*/0x20);
         #else
             auto lastErrno = errno;
             (void)mkdir(logsDir.data(), 0755);
