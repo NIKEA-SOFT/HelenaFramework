@@ -2,10 +2,12 @@
 #define HELENA_UTIL_PROCESS_HPP
 
 #include <Helena/Platform/Defines.hpp>
+#include <Helena/Platform/Platform.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Util/String.hpp>
 
+#include <cstdlib>
 #include <cstddef>
 #include <chrono>
 #include <thread>
@@ -37,6 +39,10 @@ namespace Helena::Util
             return m_ExecutablePath;
         }
 
+        static void SchedYield() noexcept {
+            std::this_thread::yield();
+        }
+
         static void Sleep(const std::uint64_t milliseconds) {
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
         }
@@ -49,34 +55,37 @@ namespace Helena::Util
         HELENA_NOINLINE
         static auto Stacktrace(std::size_t maxFrames = 64)
         {
-            Types::StackAllocator<2048> memoryResource;
+            Types::StackAllocator<4096> memoryResource;
             Types::MemoryAllocator allocator{&memoryResource};
+
             auto stack = allocator.AllocateObjects<void*>(maxFrames);
-            auto result = typename Traits::Function<decltype(&Util::String::FormatView<char>)>::Return{};
+            auto result = typename Traits::Function<decltype(&Util::String::Format<char>)>::Return{};
 
             static constexpr const char* header = "--- Stacktrace [frames: {}] ---\n";
             static constexpr const char* endchar[]{"\n", ""};
 
         #if defined(HELENA_PLATFORM_WIN)
             const auto frames = ::CaptureStackBackTrace(0, static_cast<DWORD>(maxFrames), stack, nullptr);
-            constexpr auto symbolSize = sizeof(SYMBOL_INFO) + 256 * sizeof(TCHAR);
+            constexpr auto symbolSize = sizeof(SYMBOL_INFO) + 2047 * sizeof(TCHAR);
             const auto symbolMemory = allocator.AllocateBytes(symbolSize);
             auto symbol = new (symbolMemory) SYMBOL_INFO{};
             symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-            symbol->MaxNameLen = 255;
+            symbol->MaxNameLen = 2048;
 
             const auto process = ::GetCurrentProcess();
             if(frames && ::SymInitialize(process, nullptr, TRUE))
             {
-                result = Util::String::FormatView(header, frames - 1);
+                result = Util::String::Format(header, frames - 1);
+                result.reserve(8192);
                 for(std::remove_const_t<decltype(frames)> i = 0; i < frames; ++i)
                 {
                     auto moduleHandle = HMODULE{};
                     char modulePath[MAX_PATH];
 
                     (void)::SymFromAddr(process, reinterpret_cast<DWORD64>(stack[i]), nullptr, symbol);
-                    (void)::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                        reinterpret_cast<LPCTSTR>(stack[i]), &moduleHandle);
+                    (void)::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+                        | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT
+                        , reinterpret_cast<LPCTSTR>(stack[i]), &moduleHandle);
                     auto length = ::GetModuleFileName(moduleHandle, modulePath, sizeof(modulePath));
 
                     // Extract module name
@@ -87,16 +96,16 @@ namespace Helena::Util
                     const auto position = moduleNameView.find_last_of(Separator);
                     const auto found = position != moduleNameView.npos;
                     const auto moduleName = moduleNameView.data() + position * found + found;
-
                     const auto isFinish = frames == i + 1;
-                    result = Util::String::FormatView(
+                    const auto info = Util::String::FormatView(
                     #if defined(HELENA_PROCESSOR_X86)
-                        "{}{:#10x} | Module: {} | {}{}",
+                        "{:#010x} | Module: {} | {}{}",
                     #else
-                        "{}{:#018x} | Module: {} | {}{}",
+                        "{:#018x} | Module: {} | {}{}",
                     #endif // HELENA_PROCESSOR_X86
-                        result, reinterpret_cast<std::uintptr_t>(stack[i]),
-                        moduleName, symbol->Name, endchar[isFinish]);
+                        reinterpret_cast<std::uintptr_t>(stack[i]), moduleName, symbol->Name,
+                        endchar[isFinish]);
+                    result.append(info);
                 }
 
                 (void)::SymCleanup(process);
@@ -107,41 +116,58 @@ namespace Helena::Util
             const auto frames = ::backtrace(stack, static_cast<int>(maxFrames));
             const auto symbols = ::backtrace_symbols(stack, frames);
 
-            result = Util::String::FormatView(header, frames);
+            result = Util::String::Format(header, frames);
+            result.reserve(8192);
             if(frames)
             {
-                for(std::remove_const_t<decltype(frames)> i = 0; i < frames; ++i)
+                for(int i = 0; i < frames && symbols != nullptr; ++i)
                 {
-                    std::string_view name{symbols[i]};
-                    auto begin = name.find_first_of('(');
-                    if(begin != name.npos) {
-                        auto end = name.find_first_of(')', begin);
-                        auto plus = name.find_first_of('+', begin);
-
-                        if(plus != name.npos && plus < end) {
-                            end = plus;
-                            name = name.substr(begin + 1, end - begin - 1);
-                            const_cast<char*>(name.data())[name.size()] = '\0';
-                            if(name.empty()) {
-                                name = "Unknown";
-                            }
-                        } else {
-                            name = "Unknown";
+                    char* mangledName{}, *offsetBegin{}, *offsetEnd{};
+                    for(char* p = symbols[i]; *p; ++p)
+                    {
+                        if(*p == '(') {
+                            mangledName = p;
+                        } else if(*p == '+') {
+                            offsetBegin = p;
+                        } else if(*p == ')') {
+                            offsetEnd = p;
+                            break;
                         }
                     }
 
+                    int status{-1};
+                    const char* resultName{};
                     const auto isFinish = frames == i + 1;
-                    result = Util::String::FormatView(
+                    if(mangledName && offsetBegin && offsetEnd && mangledName < offsetBegin)
+                    {
+                        *mangledName++ = '\0';
+                        *offsetBegin++ = '\0';
+                        *offsetEnd++ = '\0';
+
+                        const char* realName = abi::__cxa_demangle(mangledName, 0, 0, &status);
+                        resultName = !status ? realName : mangledName;
+                    } else {
+                        resultName = "Unknown";
+                    }
+
+                    const auto info = Util::String::FormatView(
                     #if defined(HELENA_PROCESSOR_X86)
-                        "{}{:#10x} | {}{}",
+                        "{:#010x} | {}{}",
                     #else
-                        "{}{:#018x} | {}{}",
+                        "{:#018x} | {}{}",
                     #endif // HELENA_PROCESSOR_X86
-                        result, reinterpret_cast<std::uintptr_t>(stack[i]),
-                        name.data(), endchar[isFinish]);
+                        reinterpret_cast<std::uintptr_t>(stack[i]), resultName, endchar[isFinish]);
+                    result.append(info);
+
+                    if(!status) {
+                        free(const_cast<char*>(resultName));
+                    }
                 }
             }
+
+            free(symbols);
         #endif
+
             allocator.FreeObjects(stack, maxFrames);
             return result;
         }
