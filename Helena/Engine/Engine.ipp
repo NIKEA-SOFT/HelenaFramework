@@ -20,17 +20,21 @@ namespace Helena
 
 #if defined(HELENA_PLATFORM_WIN)
     inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType) {
-        if(GetState() == EState::Init) Shutdown();
+        if(GetState() != EState::Shutdown) Shutdown();
         return TRUE;
     }
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
+        if(GetState() == EState::Shutdown) {
+            return EXCEPTION_EXECUTE_HANDLER;
+        }
+
         const auto stacktrace = Util::Process::Stacktrace(); // ordering is important
-        const auto dateTime  = Types::DateTime::FromLocalTime();
-        auto dumpName = Util::String::FormatView("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
-                                dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
-                                dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
+        const auto dateTime = Types::DateTime::FromLocalTime();
+        auto dumpName = Util::String::FormatView("Crash_{:04}{:02}{:02}_{:02}_{:02}_{:02}.dmp",
+            dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
+            dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
 
         const auto hFile = ::CreateFileA(dumpName.data(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -112,23 +116,21 @@ namespace Helena
 
     #if defined(HELENA_PROCESSOR_X86)
         const auto exceptionIP = pException->ContextRecord->Eip;
-    #else
+    #elif defined(HELENA_PROCESSOR_X64)
         const auto exceptionIP = pException->ContextRecord->Rip;
+    #else
+    #error Unknown architecture
     #endif // HELENA_PROCESSOR_X86
 
         Shutdown("\n-------- [FATAL CRASH] --------\n"
         #if defined(HELENA_PROCESSOR_X86)
             "-> Crash EIP: {:#010x}\n-> {}({:#010x}) at {:#010x}"
-        #else
+        #elif defined(HELENA_PROCESSOR_X64)
             "-> Crash RIP: {:#018x}\n-> {}({:#018x}) at {:#018x}"
-        #endif // HELENA_PROCESSOR_X86
+        #endif
             "{}\n-> {}\n-> {}",
             exceptionIP, exceptionName, exceptionCode, exceptionAddress,
             exceptionOperationInfo, dumpName, stacktrace);
-
-        if(GetState() == EState::Undefined) {
-            (void)Heartbeat();
-        }
 
         return EXCEPTION_EXECUTE_HANDLER;
     }
@@ -150,44 +152,95 @@ namespace Helena
 
 #elif defined(HELENA_PLATFORM_LINUX)
     inline void Engine::SigHandler([[maybe_unused]] int signal) {
-        if(GetState() == EState::Init) Shutdown();
+        if(GetState() != EState::Shutdown) Shutdown();
     }
 
-    inline void Engine::RegisterHandlers() {
-        signal(SIGTERM, SigHandler);
-        signal(SIGSTOP, SigHandler);
-        signal(SIGINT,  SigHandler);
-        signal(SIGKILL, SigHandler);
-        signal(SIGHUP,  SigHandler);
+    inline void Engine::RegisterHandlers()
+    {
+        const auto exitSignals = {
+            SIGTERM,    // Process termination
+            SIGSTOP,    // Stop process execution, Ctrl-Z
+            SIGINT,     // Interrupt from keyboard, Control-C
+            SIGKILL,    // Forced-process termination
+            SIGHUP      // Hang up controlling terminal or process
+        };
 
-        struct sigaction sigact{};
-        sigemptyset(&sigact.sa_mask);
+        const auto errorSignals = {
+            // Signals for which the default action is "Core".
+            SIGABRT,    // Abort signal from abort(3)
+            SIGBUS,     // Bus error (bad memory access)
+            SIGFPE,     // Floating point exception
+            SIGILL,     // Illegal Instruction
+            SIGIOT,     // IOT trap. A synonym for SIGABRT
+            SIGQUIT,    // Quit from keyboard
+            SIGSEGV,    // Invalid memory reference
+            SIGSYS,     // Bad argument to routine (SVr4)
+            SIGTRAP,    // Trace/breakpoint trap
+            SIGXCPU,    // CPU time limit exceeded (4.2BSD)
+            SIGXFSZ     // File size limit exceeded (4.2BSD)
+        };
+
+        for(auto sig : exitSignals) {
+            signal(sig, +[](int) {
+                if(GetState() != EState::Shutdown)
+                    Shutdown();
+            });
+        }
+
+        struct sigaction sigact {};
+        sigact.sa_flags = SA_SIGINFO | SA_NODEFER | SA_RESETHAND;
         sigact.sa_sigaction = +[](int signal, siginfo_t* info, void* ptr) {
-            struct sigaction sigact {};
-            sigact.sa_handler = SIG_DFL;
-            sigaction(SIGSEGV, &sigact, NULL);
             const auto context = static_cast<const ucontext_t*>(ptr);
-            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[
-            #if defined(HELENA_PROCESSOR_X86)
-                REG_EIP
-            #else
-                REG_RIP
-            #endif // HELENA_PROCESSOR_X86
-            ]);
+        #if defined(HELENA_PROCESSOR_X86)
+            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[REG_EIP]);
+        #elif defined(HELENA_PROCESSOR_X64)
+            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[REG_RIP]);
+        #else
+        #error Unknown architecture
+        #endif
             const auto address = reinterpret_cast<std::uintptr_t>(info->si_addr);
 
             Shutdown("\n-------- [FATAL CRASH] --------\n"
             #if defined(HELENA_PROCESSOR_X86)
                 "-> Crash EIP: {:#010x}\n-> {} at {:#010x}"
-            #else
+            #elif defined(HELENA_PROCESSOR_X86)
                 "-> Crash RIP: {:#018x}\n-> {} at {:#018x}"
-            #endif // HELENA_PROCESSOR_X86
-                "\n-> {}",
-                ip, strsignal(signal), address, Util::Process::Stacktrace());
-            (void)Heartbeat();
+            #endif
+                "\n-> {}", ip, strsignal(signal), address, Util::Process::Stacktrace());
+
+            (void)Heartbeat(); // try to shutdown correctly with framework events
+            Util::Process::Sleep(3000); // give 3 second for threads
+
+        #if (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700) || \
+            (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200809L)
+            psiginfo(info, nullptr);
+        #endif
+
+            raise(info->si_signo);
         };
-        sigact.sa_flags = SA_RESTART | SA_SIGINFO;
-        (void)sigaction(SIGSEGV, &sigact, nullptr);
+
+        static constexpr std::size_t stackSize = 1024 * 1024;
+        auto& stackMemory = MainContext().m_StackMemory;
+        stackMemory.reset(new std::byte[stackSize]);
+
+        stack_t sigStack{};
+        sigStack.ss_sp = stackMemory.get();
+        sigStack.ss_size = stackSize;
+        sigStack.ss_flags = 0;
+
+        if(const auto result = sigaltstack(&sigStack, nullptr); result < 0) {
+            HELENA_MSG_ERROR("Set (sigaltstack) stack memory error: {}", result);
+        } else sigact.sa_flags |= SA_ONSTACK;
+
+        for(auto sig : errorSignals)
+        {
+            sigfillset(&sigact.sa_mask);
+            sigdelset(&sigact.sa_mask, sig);
+
+            if(const auto result = sigaction(sig, &sigact, nullptr); result < 0) {
+                HELENA_MSG_ERROR("Set (sigaction) handler for signal: {} error: {}", sig, result);
+            }
+        }
     }
 #endif
 
@@ -256,6 +309,7 @@ namespace Helena
     requires Engine::RequiresConfig<HeartbeatConfig>
     [[nodiscard]] bool Engine::Heartbeat()
     {
+        bool result = true;
         auto& ctx = MainContext();
         const auto state = GetState();
         const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, [[maybe_unused]] Args&&... args) {
@@ -264,6 +318,8 @@ namespace Helena
 
     #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         __try {
+    #else
+        try {
     #endif
         switch(state)
         {
@@ -329,6 +385,7 @@ namespace Helena
 
             case EState::Shutdown: [[unlikely]]
             {
+                result = false;
                 signal(Signals<
                     Events::Engine::PreFinalize,
                     Events::Engine::Finalize,
@@ -337,27 +394,50 @@ namespace Helena
                     Events::Engine::Shutdown,
                     Events::Engine::PostShutdown
                 >{});
-
-                ctx.m_Signals.Clear();
-                ctx.m_DeferredSignals.clear();
-                ctx.m_Systems.Clear();
-                ctx.m_Components.Clear();
-
-                if(!ctx.m_ShutdownMessage->m_Message.empty()) {
-                    const auto& [message, location] = *ctx.m_ShutdownMessage;
-                    Logging::Message<Logging::Shutdown>({message, location});
-                }
-
-                ctx.m_State.store(EState::Undefined, std::memory_order_release);
-
-                return false;
             }
         }
     #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         } __except (MiniDumpSEH(GetExceptionInformation())) {}
+    #else
+        } catch(...) {
+            if(GetState() == EState::Shutdown) {
+                result = false;
+            } else {
+                std::exception_ptr exceptionPtr = std::current_exception();
+                if(exceptionPtr) {
+                    const char* what{};
+                    try {
+                        std::rethrow_exception(exceptionPtr);
+                    } catch(const std::exception& err) {
+                        what = err.what();
+                    } catch(...) {
+                        what = "Unknown exception";
+                    }
+
+                    Shutdown("\n-------- [FATAL CRASH] --------\n"
+                        "-> Exception: {}\n-> {}",
+                        what, Util::Process::Stacktrace());
+                }
+            }
+        }
     #endif
 
-        return true;
+        if(!result)
+        {
+            ctx.m_Signals.Clear();
+            ctx.m_DeferredSignals.clear();
+            ctx.m_Systems.Clear();
+            ctx.m_Components.Clear();
+
+            if(!ctx.m_ShutdownMessage->m_Message.empty()) {
+                const auto& [message, location] = *ctx.m_ShutdownMessage;
+                Logging::Message<Logging::Shutdown>({"{}", location}, message);
+            }
+
+            ctx.m_State.store(EState::Undefined, std::memory_order_release);
+        }
+
+        return result;
     }
 
     [[nodiscard]] inline bool Engine::Running() noexcept {
@@ -386,6 +466,22 @@ namespace Helena
         }
 
         return std::string{};
+    }
+
+    template <typename Logger>
+    void Engine::RegisterLogger(Logger* instance, void (*deleter)(const void*)) {
+        MainContext().m_Logger = CustomLogger{instance, deleter};
+    }
+
+    [[nodiscard]] inline bool Engine::HasLogger() noexcept {
+        return static_cast<bool>(MainContext().m_Logger);
+    }
+
+    template <typename Logger>
+    [[nodiscard]] Logger& Engine::GetLogger() {
+        auto& logger = MainContext().m_Logger;
+        HELENA_ASSERT(logger, "Instance of logger is nullptr");
+        return *static_cast<Logger*>(logger.get());
     }
 
     template <typename T, typename... Args>
