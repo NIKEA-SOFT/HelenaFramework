@@ -32,7 +32,7 @@ namespace Helena::Types
 
         void Lock() noexcept
         {
-            if(!TryLock())
+            while(!TryLock())
             {
                 while(m_Lock.load(std::memory_order_relaxed)) {
                     HELENA_PROCESSOR_YIELD();
