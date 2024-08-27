@@ -60,10 +60,12 @@
     }();
 
     inline auto HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING = false;
-    inline auto HELENA_ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() noexcept
-#if defined(HELENA_COMPILER_MSVC)
+    inline auto HELENA_ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []()
+#if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+    __attribute__ ((noinline))
+#elif defined(HELENA_COMPILER_MSVC)
     __declspec(noinline)
-#endif // HELENA_COMPILER_MSVC
+#endif
     {
         // Enable virtual terminal processing for support colors in terminal
         HANDLE hStdOut = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -90,7 +92,7 @@
 
     inline auto HELENA_VIRTUAL_CONSOLE_STATUS = false;
     inline auto HELENA_PLATFORM_HAS_CONSOLE = []() {
-        if(::GetConsoleWindow()) {
+        if(::_isatty(::_fileno(stdout)) || ::_isatty(::_fileno(stderr))) {
             if(!HELENA_VIRTUAL_CONSOLE_STATUS) [[unlikely]]
                 HELENA_VIRTUAL_CONSOLE_STATUS = HELENA_ENABLE_UNICODE_AND_VIRTUAL_TERMINAL();
         } else HELENA_VIRTUAL_CONSOLE_STATUS = false;
@@ -112,6 +114,8 @@
     #define HELENA_MODULE_EXTENSION     ".dll"
 
     #define HELENA_SEPARATOR            '\\'
+    #define HELENA_SEPARATOR_QUOTED     "\\"
+    #define HELENA_MAX_PATH_LENGTH      MAX_PATH
 
 #endif // HELENA_PLATFORM_WIN
 #endif // HELENA_OS_WINDOWS_HPP
