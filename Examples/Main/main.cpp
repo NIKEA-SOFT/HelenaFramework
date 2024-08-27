@@ -755,13 +755,26 @@ void test_allocators()
 }
 
 // Test specialization for logger
-template <>
-struct Helena::Logging::CustomPrint<Helena::Logging::Warning>
+template <Helena::Logging::DefinitionLogger Logger>
+requires Helena::Traits::AnyOf<Logger,
+    Helena::Logging::Debug,
+    Helena::Logging::Info,
+    Helena::Logging::Notice,
+    Helena::Logging::Warning,
+    Helena::Logging::Error,
+    Helena::Logging::Fatal,
+    Helena::Logging::Assert,
+    Helena::Logging::Exception,
+    Helena::Logging::Shutdown
+>
+struct Helena::Logging::CustomPrint<Logger>
 {
     template <typename Char>
     static void Message(std::basic_string_view<Char> message) {
         Print<Char>::Message(message);
-        ColorStyle::RemoveColor(message); // remove color style from message before write to file (for example)
+        if(Engine::HasContext()) {
+            Engine::GetLogger().template Write<Logger>(message);
+        }
     }
 };
 
