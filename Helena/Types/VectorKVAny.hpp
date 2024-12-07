@@ -1,21 +1,24 @@
 #ifndef HELENA_TYPES_VECTORKVANY_HPP
 #define HELENA_TYPES_VECTORKVANY_HPP
 
+#include <Helena/Platform/Defines.hpp>
 #include <Helena/Traits/Arguments.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 
 #include <vector>
 #include <memory>
+#include <tuple>
 
 namespace Helena::Types
 {
     template <typename UniqueKey>
-    class VectorKVAny final
+    class VectorKVAny : public UniqueIndexer<UniqueKey>
     {
-    public:
+        using UniqueIndexer = UniqueIndexer<UniqueKey>;
         using UniquePointer = std::unique_ptr<void, void (*)(const void*)>;
 
+    public:
         template <typename T>
         static constexpr bool AllowedParam = std::conjunction_v<
             std::is_same<std::remove_cvref_t<std::remove_pointer_t<T>>, T>,
@@ -32,7 +35,7 @@ namespace Helena::Types
                 std::is_constructible<std::decay_t<T>, Args...>>>;
 
     public:
-        VectorKVAny() : m_TypeIndexer{}, m_Storage{} {}
+        VectorKVAny() = default;
         ~VectorKVAny() = default;
         VectorKVAny(const VectorKVAny&) = delete;
         VectorKVAny(VectorKVAny&&) noexcept = default;
@@ -43,13 +46,19 @@ namespace Helena::Types
         requires RequiredParams<Key, T, Args...>
         void Create(Args&&... args)
         {
-            const auto index = m_TypeIndexer.template Get<Key>();
+            const auto index = UniqueIndexer::template Get<Key>();
             if(index >= m_Storage.size()) {
-                m_Storage.emplace_back(nullptr, nullptr);
+                ResizeStorage();
             }
 
-            HELENA_ASSERT(!m_Storage[index], "Type: {} already exist!", Traits::NameOf<T>);
-            m_Storage[index] = UniquePointer(new T(std::forward<Args>(args)...), +[](const void* ptr) {
+            T* instance;
+            if constexpr(std::is_aggregate_v<T>) {
+                instance = new T{std::forward<Args>(args)...};
+            } else {
+                instance = new T(std::forward<Args>(args)...);
+            }
+
+            m_Storage[index] = UniquePointer(instance, +[](const void* ptr) {
                 delete static_cast<const T*>(ptr);
             });
         }
@@ -58,7 +67,7 @@ namespace Helena::Types
         requires (!Traits::Arguments<Key...>::Orphan && (AllowedParam<Key> && ...))
         [[nodiscard]] bool Has() const {
             if constexpr(Traits::Arguments<Key...>::Single) {
-                const auto index = m_TypeIndexer.template Get<Key...>();
+                const auto index = UniqueIndexer::template Get<Key...>();
                 return index < m_Storage.size() && m_Storage[index];
             } else return (Has<Key>() && ...);
         }
@@ -72,7 +81,7 @@ namespace Helena::Types
         template <typename Key, typename T>
         requires (AllowedParam<Key> && AllowedParam<T>)
         [[nodiscard]] decltype(auto) Get() {
-            const auto index = m_TypeIndexer.template Get<Key>();
+            const auto index = UniqueIndexer::template Get<Key>();
             HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>);
             return *static_cast<T*>(m_Storage[index].get());
         }
@@ -80,7 +89,7 @@ namespace Helena::Types
         template <typename Key, typename T>
         requires (AllowedParam<Key> && AllowedParam<T>)
         [[nodiscard]] decltype(auto) Get() const {
-            const auto index = m_TypeIndexer.template Get<Key>();
+            const auto index = UniqueIndexer::template Get<Key>();
             HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Type: {} not exist!", Traits::NameOf<T>);
             return *static_cast<const T*>(m_Storage[index].get());
         }
@@ -90,7 +99,7 @@ namespace Helena::Types
         void Remove()
         {
             if constexpr(Traits::Arguments<Key...>::Single) {
-                const auto index = m_TypeIndexer.template Get<Key...>();
+                const auto index = UniqueIndexer::template Get<Key...>();
                 HELENA_ASSERT(index < m_Storage.size() && m_Storage[index], "Key: {} not exist!", Traits::NameOf<Key...>);
                 m_Storage[index].reset();
             } else (Remove<Key>(), ...);
@@ -102,9 +111,12 @@ namespace Helena::Types
                 value.reset();
             }
         }
+    private:
+        HELENA_NOINLINE void ResizeStorage() {
+            m_Storage.emplace_back(nullptr, nullptr);
+        }
 
     private:
-        UniqueIndexer<UniqueKey> m_TypeIndexer;
         std::vector<UniquePointer> m_Storage;
     };
 }
