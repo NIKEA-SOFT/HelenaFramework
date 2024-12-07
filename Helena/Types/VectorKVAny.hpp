@@ -3,6 +3,7 @@
 
 #include <Helena/Platform/Defines.hpp>
 #include <Helena/Traits/Arguments.hpp>
+#include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/NameOf.hpp>
 #include <Helena/Types/UniqueIndexer.hpp>
 
@@ -32,7 +33,7 @@ namespace Helena::Types
             std::bool_constant<AllowedParam<T>>,
             std::conditional_t<Traits::Arguments<Args...>::Orphan,
                 std::is_default_constructible<std::decay_t<T>>,
-                std::is_constructible<std::decay_t<T>, Args...>>>;
+                std::bool_constant<Traits::ConstructibleAggregateFrom<std::decay_t<T>, Args...>>>>;
 
     public:
         VectorKVAny() = default;
@@ -51,6 +52,7 @@ namespace Helena::Types
                 ResizeStorage();
             }
 
+            // Clang doesn't support aggregate initialization
             T* instance;
             if constexpr(std::is_aggregate_v<T>) {
                 instance = new T{std::forward<Args>(args)...};
