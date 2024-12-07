@@ -1,24 +1,10 @@
-![HelenaFramework](https://user-images.githubusercontent.com/57288440/231351795-b1588eeb-c3ad-4c6a-bb47-76bd68a211f6.png)
+![HelenaFramework](https://github.com/user-attachments/assets/56c233c8-7cfb-4966-85f0-b34da7d81bd9)
 
 ---
 
 ## Introduction  
 
-`HelenaFramework` is a Universal Modern Framework written in **C++20**  
-  
-Integrate `Engine` as a kernel and get access to `signals`, `components`, `systems`, logs and crash handling right out of the box.  
-The `Engine` class provides functional to take care of the main things I listed above, and also supports across boundary, 
-you can access your `components`, `systems`, `context`, signals anywhere in the code, including plugins (dll/so).  
-Everything else is a collection of `types`, `traits` and `util` functions for solving everyday tasks with minimal overhead.  
-  
-As for `Systems`, this term means a class that implements some logic.  
-The idea is to divide logic into classes independent from each other.  
-`Components` can be used as common data and `signals` are a way to inform other logical systems about any events.  
-  
-As a result, we have a core (`Engine`) that allows us to implement an architecture with minimal code dependencies,  
-this will allow you to refactor your code without having to rewrite a lot of logic (the spaghetti code problem).  
-  
-Status: ready to use, but still developing.  
+HelenaFramework is a modern and universal framework **C++20**   
 
 ## Features  
 
@@ -27,6 +13,71 @@ Status: ready to use, but still developing.
 * Scalable and Flexible
 * Cross-Platform
 * Clean and Friendly API  
+***
+- ##### Engine:   
+  `Systems`, `Components`, `Signals` (events/observer), `Logging`: console, file (async), `Crash Handling` (dump, logs, stacktrace), `Support Across Boundary` (dll,so)   
+  `Main Loop Managing (optional)`: tickrate, sleep time, update delta, accumulator of update load.   
+  `Main Loop Events (pre/post)`: Init, Config, Execute, Tick, Update, Render, Finalize, Shutdown.   
+  
+- ##### Platform:   
+  `Macros for Asserts (Debug, Runtime)`   
+  `Macros for detect Compiler: MSVC, Clang (win, linux), GCC, MINGW`   
+  `Macros for detect Platform: Windows, Linux`   
+  `Macros for attributes and diagnostics`   
+  
+- ##### Logging:
+  `Built-in log types`: Debug, Info, Notice, Warning, Error, Fatal, Assert, Exception, Memory, Benchmark, Shutdown   
+  `Custom logging types and styles`   
+  `Console and async file logging`   
+  `Runtime mute`   
+  `Runtime redirect logging`   
+  `Replacing file logger with custom`   
+  `Separate logging file for each type or all in one file.`   
+  
+- ##### Types:
+  `Allocators`   
+  `Any`   
+  `BenchmarkScoped`   
+  `CompressedPair`   
+  `DateTime`   
+  `Delegate`   
+  `EncryptedString`   
+  `FixedBuffer`   
+  `Function`   
+  `Hash`   
+  `Monostate`   
+  `Mutex`   
+  `ReferencePointer`   
+  `RWLock`   
+  `SourceLocation`   
+  `Spinlock`   
+  `StateMachine`   
+  `TaskScheduler`   
+  `TimeSpan`   
+  
+- ##### Traits:   
+  `AnyOf`   
+  `Arguments`   
+  `Cacheline`   
+  `Constructible`   
+  `FNV1a`   
+  `Function`   
+  `NameOf`   
+  `PowerOf2`   
+  `SameAll`   
+  `SameAs`   
+  `ScopedEnum`   
+  
+- ##### Util:
+  `Cast`   
+  `Math`   
+  `Process`   
+  `String`   
+***
+
+Note:   
+Using the `Engine` class is optional.   
+This means that to use logging, types, traits, util you don't have to initialize the Engine or use it.  
 
 ## Platforms
 - Windows
