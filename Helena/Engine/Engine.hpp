@@ -7,20 +7,20 @@
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/Function.hpp>
-#if defined(HELENA_THREADSAFE_SYSTEMS) || defined(HELENA_THREADSAFE_COMPONENTS)
-    #include <Helena/Types/Spinlock.hpp>
-#endif
+#include <Helena/Types/Any.hpp>
+#include <Helena/Types/CompressedPair.hpp>
+#include <Helena/Types/Function.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Util/Process.hpp>
-#include <Helena/Util/Function.hpp>
 
 #include <atomic>
 #include <cstring>
 #include <exception>
 #include <functional>
 #include <string>
+#include <tuple>
 
 namespace Helena
 {
@@ -43,10 +43,13 @@ namespace Helena
         using UKMessages    = IUniqueKey<3>;
 
         template <typename T>
-        using EventsPool = std::vector<T>;
-        using SignalsPool = EventsPool<std::function<void ()>>;
+        using EventsPool    = std::vector<T>;
 
-        using CustomLogger = std::unique_ptr<void, void (*)(const void*)>;
+        using DeferredCtx   = Types::Any<46>;
+        using DeferredPool  = EventsPool<Types::CompressedPair<DeferredCtx, void(*)(DeferredCtx&)>>;
+
+
+        using CustomLogger  = std::unique_ptr<void, void (*)(const void*)>;
 
         template <auto Fn>
         static constexpr bool NotTemplateFunction = requires {
@@ -142,12 +145,12 @@ namespace Helena
 
         //! Default Heartbeat configuration
         struct DefaultConfig {
-            static constexpr auto Sleep = Util::Function::BindFront(
+            static constexpr auto Sleep = Types::Function::BindFront(
                 static_cast<void (*)(const std::uint64_t)>(Util::Process::Sleep), 1 /* msec */);
             static constexpr auto Accumulate = 5;
         };
 
-        //! Structure for control engine heartbeat behaviour
+        //! Structure used to do something without throw a signal (event)
         static constexpr struct {} NoSignal{};
 
         //! Context for storage framework data
@@ -177,12 +180,6 @@ namespace Helena
                 , m_TickRate{m_DefaultTickRate}
                 , m_TimeDelta{}
                 , m_TimeElapsed{}
-            #if defined(HELENA_THREADSAFE_SYSTEMS)
-                , m_LockSystems{}
-            #endif
-            #if defined(HELENA_THREADSAFE_COMPONENTS)
-                , m_LockComponents{}
-            #endif
                 , m_State{EState::Undefined} {}
 
             virtual ~Context() {
@@ -206,7 +203,7 @@ namespace Helena
 
             // Signals
             Types::VectorUnique<UKSignals, EventsPool<Delegate>> m_Signals;
-            SignalsPool m_DeferredSignals;
+            DeferredPool m_DeferredSignals;
 
             // Reason
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
@@ -222,16 +219,6 @@ namespace Helena
             double m_TickRate;
             double m_TimeDelta;
             double m_TimeElapsed;
-
-        #if defined(HELENA_THREADSAFE_SYSTEMS)
-            // Thread safe systems
-            Types::Spinlock m_LockSystems;
-        #endif
-
-        #if defined(HELENA_THREADSAFE_COMPONENTS)
-            // Thread safe components
-            Types::Spinlock m_LockComponents;
-        #endif
 
             // Engine state
             std::atomic<EState> m_State;

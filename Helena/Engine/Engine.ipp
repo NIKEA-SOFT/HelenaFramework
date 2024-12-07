@@ -351,8 +351,8 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
-                for(const auto& message : ctx.m_DeferredSignals) {
-                    message();
+                for(auto& pair : ctx.m_DeferredSignals) {
+                    pair.Second()(pair.First());
                 } ctx.m_DeferredSignals.clear();
 
                 signal(Signals<
@@ -488,9 +488,6 @@ namespace Helena
     requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterSystem(decltype(NoSignal), Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
     }
 
@@ -505,33 +502,21 @@ namespace Helena
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasSystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnySystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetSystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveSystem(decltype(NoSignal)) {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         MainContext().m_Systems.template Remove<T...>();
     }
 
@@ -553,9 +538,6 @@ namespace Helena
     template <typename T, typename... Args>
     requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterComponent(decltype(NoSignal), Args&&... args) {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         MainContext().m_Components.template Create<T>(std::forward<Args>(args)...);
     }
 
@@ -569,33 +551,21 @@ namespace Helena
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnyComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveComponent(decltype(NoSignal)) {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         MainContext().m_Components.template Remove<T...>();
     }
 
@@ -735,10 +705,14 @@ namespace Helena
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::EnqueueSignal(Args&&... args) {
-        MainContext().m_DeferredSignals.emplace_back([... args = std::forward<Args>(args)]() mutable {
-            SignalEvent<Event>(std::forward<Args>(args)...);
-        });
+    void Engine::EnqueueSignal(Args&&... args)
+    {
+        MainContext().m_DeferredSignals.emplace_back(std::piecewise_construct,
+            std::forward_as_tuple(std::in_place_type<Event>, std::forward<Args>(args)...),
+            std::forward_as_tuple([](DeferredCtx& data) {
+                const auto event = data.template As<Event*>();
+                SignalEvent(*event);
+            }));
     }
 
     template <typename Event, auto Callback>
