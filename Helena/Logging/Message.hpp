@@ -34,30 +34,16 @@ namespace Helena::Logging
 
         std::size_t resultOffset{};
         auto& buffer = Internal::GetCachedBuffer<Char>();
-        const auto fnFormatTo = [&out = buffer](const auto style, const std::basic_string_view<Char> fmt, auto&&... args)
+        const auto fnFormatTo =
+        [&out = buffer](const std::string_view file, const auto style, const std::basic_string_view<Char> fmt, auto&&... args)
         {
             static constexpr auto formatLength = std::char_traits<Char>::length(Print<Char>::FormatStyle);
-
-            out.append(Print<Char>::FormatStyle, formatLength);
-            out.append(fmt.data(), fmt.size());
-
-            std::size_t result = out.template size<Char>();
-            const auto formatView = out.template View<Char>();
-            const auto formatDateTime = Types::DateTime::FromLocalTime();
-            out.push_back(Char{});
-            style.template BeginColor<Char>(out);
-            std::vformat_to(std::back_inserter(out), formatView,
-                std::make_format_args<typename Print<Char>::Context>(formatDateTime, args...));
-            style.template EndColor<Char>(out);
-
-            return result + 1;
-        };
-
-        try {
-            // Convert Prefix and Location from const char* to wchar_t* using stack memory
-            // The complexity of the conversion is approximately equal to the
-            // length of the file name (where the log was called from) + the length of the prefix.
-            // Average: 30 loop iterations + overhead of use_facet (mbrtowc)
+            [[maybe_unused]] struct Uninitialized {
+                Uninitialized() = default;
+                Char data[512];
+            } tmp;
+            const Char* formatFile{};
+            const Char* formatPrefix{};
             if constexpr(!std::is_same_v<Char, char>)
             {
                 const auto fnConvert = [&facet = std::use_facet<std::ctype<Char>>(std::locale())]
@@ -70,24 +56,40 @@ namespace Helena::Logging
                     return ++i;
                 };
 
-                std::array<Char, 512> tmp;
-                std::size_t offset = fnConvert(tmp.data(), tmp.size(), format.File());
-                fnConvert(tmp.data() + offset, tmp.size() - offset, Logger::Prefix.data());
-
-                const auto formatFile = tmp.data();
-                const auto formatPrefix = std::basic_string_view<Char>(tmp.data() + offset);
-                resultOffset = fnFormatTo(Logger::Style, format.m_Message, formatPrefix, formatFile,
-                    format.Line(), std::forward<Args>(args)...);
+                static constexpr auto tmpCapacity = sizeof(Uninitialized::data) / sizeof(Uninitialized::data[0]);
+                const auto offset = fnConvert(tmp.data, tmpCapacity, file.data());
+                fnConvert(tmp.data + offset, tmpCapacity - offset, Logger::Prefix.data());
+                formatFile = tmp.data;
+                formatPrefix = tmp.data + offset;
             } else {
-                resultOffset = fnFormatTo(Logger::Style, format.m_Message, Logger::Prefix, format.File(),
-                    format.Line(), std::forward<Args>(args)...);
+                formatFile = file.data();
+                formatPrefix = Logger::Prefix.data();
             }
 
+            out.append(Print<Char>::FormatStyle, formatLength);
+            out.append(fmt.data(), fmt.size());
+
+            std::size_t result = out.template size<Char>();
+            const auto formatView = out.template View<Char>();
+            const auto formatDateTime = Types::DateTime::FromLocalTime();
+            out.push_back(Char{});
+            style.template BeginColor<Char>(out);
+            std::vformat_to(std::back_inserter(out), formatView,
+                std::make_format_args<typename Print<Char>::Context>(formatDateTime, formatPrefix,
+                    formatFile, args...));
+            style.template EndColor<Char>(out);
+
+            return result + 1;
+        };
+
+        try {
+            resultOffset = fnFormatTo(format.File(), Logger::Style, format.Message(),
+                format.Line(), std::forward<Args>(args)...);
         } catch(const std::format_error&) {
-            resultOffset = fnFormatTo(Exception::Style, Print<Char>::FormatError, Logger::Prefix, format.File(),
+            resultOffset = fnFormatTo(format.File(), Exception::Style, Print<Char>::FormatError,
                 format.Line(), format.Message());
         } catch(const std::bad_alloc&) {
-            resultOffset = fnFormatTo(Exception::Style, Print<Char>::AllocateError, Logger::Prefix, format.File(),
+            resultOffset = fnFormatTo(format.File(), Exception::Style, Print<Char>::AllocateError,
                 format.Line(), format.Message());
         }
 
