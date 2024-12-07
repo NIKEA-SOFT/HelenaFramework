@@ -5,6 +5,7 @@
 #include <Helena/Traits/FNV1a.hpp>
 #include <Helena/Traits/AnyOf.hpp>
 #include <Helena/Traits/Specialization.hpp>
+#include <string>
 
 namespace Helena::Types
 {
@@ -81,9 +82,9 @@ namespace Helena::Types
         using hash_type = std::hash<string_view>;
         using is_transparent = void;
 
-        [[nodiscard]] std::size_t operator()(const char_type* str) const { return hash_type{}(str); }
-        [[nodiscard]] std::size_t operator()(string_view str) const { return hash_type{}(str); }
-        [[nodiscard]] std::size_t operator()(const T& str) const { return hash_type{}(str); }
+        [[nodiscard]] std::size_t operator()(const char_type* str) const noexcept { return hash_type{}(str); }
+        [[nodiscard]] std::size_t operator()(string_view str) const noexcept { return hash_type{}(str); }
+        [[nodiscard]] std::size_t operator()(const T& str) const noexcept { return hash_type{}(str); }
     };
 }
 

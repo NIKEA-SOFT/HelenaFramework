@@ -16,6 +16,9 @@ namespace Helena::Traits
         requires (Index < Size)
         using Get = typename TypeIndex<Index, Args...>::Type;
     };
+
+    template <template <typename... > typename T, typename... Args>
+    struct ArgumentsOfTemplate : Arguments<Args...> {};
 }
 
 #endif // HELENA_TRAITS_ARGUMENTS_HPP

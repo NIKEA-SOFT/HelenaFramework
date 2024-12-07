@@ -2,24 +2,19 @@
 #define HELENA_TYPES_UNIQUEINDEXER_HPP
 
 #include <Helena/Platform/Defines.hpp>
-#include <Helena/Platform/Assert.hpp>
 #include <Helena/Types/Hash.hpp>
-#include <Helena/Types/Spinlock.hpp>
 
 #include <algorithm>
 #include <vector>
-#include <array>
+#include <memory>
 
 namespace Helena::Types
 {
     template <typename UniqueKey>
-    class UniqueIndexer final
+    class UniqueIndexer
     {
         using Hasher = Hash<std::uint64_t>;
-
-        struct Container {
-            std::vector<typename Hasher::value_type> m_Keys;
-        };
+        using Container = std::vector<typename Hasher::value_type>;
 
         template <typename T>
         static inline std::size_t m_TypeIndex{(std::numeric_limits<std::size_t>::max)()};
@@ -43,7 +38,7 @@ namespace Helena::Types
         }
 
         [[nodiscard]] std::size_t Size() const noexcept {
-            return m_Indexes->m_Keys.size();
+            return m_Indexes->size();
         }
 
     private:
@@ -52,11 +47,11 @@ namespace Helena::Types
         {
             HELENA_NOINLINE static void CacheIndex(const std::unique_ptr<Container>& storage) noexcept
             {
-                if(const auto it = std::find(storage->m_Keys.cbegin(), storage->m_Keys.cend(), m_Key); it != storage->m_Keys.cend()) {
-                    m_TypeIndex<T> = std::distance(storage->m_Keys.cbegin(), it);
+                if(const auto it = std::find(storage->cbegin(), storage->cend(), m_Key); it != storage->cend()) {
+                    m_TypeIndex<T> = std::distance(storage->cbegin(), it);
                 } else {
-                    storage->m_Keys.emplace_back(m_Key);
-                    m_TypeIndex<T> = storage->m_Keys.size() - 1;
+                    storage->emplace_back(m_Key);
+                    m_TypeIndex<T> = storage->size() - 1;
                 }
             }
 

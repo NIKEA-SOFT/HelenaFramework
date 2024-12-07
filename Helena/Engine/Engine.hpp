@@ -1,23 +1,26 @@
 #ifndef HELENA_ENGINE_ENGINE_HPP
 #define HELENA_ENGINE_ENGINE_HPP
 
+#include <Helena/Platform/Assert.hpp>
 #include <Helena/Platform/Platform.hpp>
+#include <Helena/Logging/FileLogger.hpp>
 #include <Helena/Traits/Conditional.hpp>
 #include <Helena/Traits/Constructible.hpp>
 #include <Helena/Traits/Function.hpp>
-#if defined(HELENA_THREADSAFE_SYSTEMS)
-    #include <Helena/Types/Spinlock.hpp>
-#endif
+#include <Helena/Types/Any.hpp>
+#include <Helena/Types/CompressedPair.hpp>
+#include <Helena/Types/Function.hpp>
 #include <Helena/Types/VectorAny.hpp>
 #include <Helena/Types/VectorUnique.hpp>
 #include <Helena/Types/LocationString.hpp>
-#include <Helena/Util/Sleep.hpp>
-#include <Helena/Util/Function.hpp>
+#include <Helena/Util/Process.hpp>
 
 #include <atomic>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <string>
+#include <tuple>
 
 namespace Helena
 {
@@ -30,7 +33,7 @@ namespace Helena
         //! Unique key for storage systems type index
         using UKSystems     = IUniqueKey<0>;
 
-        //! Unique key for storage systems type index
+        //! Unique key for storage components type index
         using UKComponents  = IUniqueKey<1>;
 
         //! Unique key for storage signals type index
@@ -38,6 +41,15 @@ namespace Helena
 
         //! Unique key for storage messages type index
         using UKMessages    = IUniqueKey<3>;
+
+        template <typename T>
+        using EventsPool    = std::vector<T>;
+
+        using DeferredCtx   = Types::Any<46>;
+        using DeferredPool  = EventsPool<Types::CompressedPair<DeferredCtx, void(*)(DeferredCtx&)>>;
+
+
+        using CustomLogger  = std::unique_ptr<void, void (*)(const void*)>;
 
         template <auto Fn>
         static constexpr bool NotTemplateFunction = requires {
@@ -57,7 +69,8 @@ namespace Helena
                     return std::is_invocable_v<decltype(Fn), typename Traits::Function<decltype(Fn)>::Class&, Event&>;
                 } return false;
             } return false;
-        }() && Traits::SameAs<Event, Traits::RemoveCVRP<Event>> && (std::is_member_function_pointer_v<decltype(Fn)> == Member);
+        }() && Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+            && (std::is_member_function_pointer_v<decltype(Fn)> == Member);
 
         template <typename T>
         static constexpr auto RequiresConfig =
@@ -71,10 +84,11 @@ namespace Helena
             {
                 if constexpr(std::is_member_function_pointer_v<decltype(Callback)>) {
                     HELENA_ASSERT(instance, "Instance is nullptr");
+                    using Class = typename Traits::Function<decltype(Callback)>::Class;
                     if constexpr(std::is_empty_v<Event>) {
-                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)();
+                        ((*static_cast<Class*>(instance)).*Callback)();
                     } else {
-                        ((*static_cast<typename Traits::Function<decltype(Callback)>::Class*>(instance)).*Callback)(*static_cast<Event*>(ev));
+                        ((*static_cast<Class*>(instance)).*Callback)(*static_cast<Event*>(ev));
                     }
                 } else {
                     if constexpr(std::is_empty_v<Event>) {
@@ -131,21 +145,17 @@ namespace Helena
 
         //! Default Heartbeat configuration
         struct DefaultConfig {
-            static constexpr auto Sleep = Util::Function::BindFront(
-                static_cast<void (*)(const std::uint64_t)>(Util::Sleep), 1 /* msec */);
+            static constexpr auto Sleep = Types::Function::BindFront(
+                static_cast<void (*)(const std::uint64_t)>(Util::Process::Sleep), 1 /* msec */);
             static constexpr auto Accumulate = 5;
         };
 
-        //! Structure for control engine heartbeat behaviour
+        //! Structure used to do something without throw a signal (event)
         static constexpr struct {} NoSignal{};
 
         //! Context for storage framework data
         class Context
         {
-            template <typename T>
-            using Pool = std::vector<T>;
-            using SignalsPool = Pool<std::function<void ()>>;
-
             friend class Engine;
             struct ShutdownMessage {
                 std::string m_Message;
@@ -161,18 +171,15 @@ namespace Helena
                 , m_Signals{}
                 , m_DeferredSignals{}
                 , m_ShutdownMessage{std::make_unique<ShutdownMessage>()}
+                , m_Logger{new Logging::FileLogger(), +[](const void* ptr) {
+                        delete static_cast<const Logging::FileLogger*>(ptr);
+                    }}
                 , m_TimeStart{GetTickTime()}
                 , m_TimeNow{}
                 , m_TimePrev{}
                 , m_TickRate{m_DefaultTickRate}
                 , m_TimeDelta{}
                 , m_TimeElapsed{}
-            #if defined(HELENA_THREADSAFE_SYSTEMS)
-                , m_LockSystems{}
-            #endif
-            #if defined(HELENA_THREADSAFE_COMPONENTS)
-                , m_LockComponents{}
-            #endif
                 , m_State{EState::Undefined} {}
 
             virtual ~Context() {
@@ -190,16 +197,19 @@ namespace Helena
             virtual void Main() {}
 
         private:
-            // Systems
+            // Systems and Components
             Types::VectorAny<UKSystems> m_Systems;
             Types::VectorAny<UKComponents> m_Components;
 
             // Signals
-            Types::VectorUnique<UKSignals, Pool<Delegate>> m_Signals;
-            SignalsPool m_DeferredSignals;
+            Types::VectorUnique<UKSignals, EventsPool<Delegate>> m_Signals;
+            DeferredPool m_DeferredSignals;
 
             // Reason
             std::unique_ptr<ShutdownMessage> m_ShutdownMessage;
+
+            // Logger
+            CustomLogger m_Logger;
 
             // Timers for Heartbeat
             std::uint64_t m_TimeStart;
@@ -210,18 +220,13 @@ namespace Helena
             double m_TimeDelta;
             double m_TimeElapsed;
 
-        #if defined(HELENA_THREADSAFE_SYSTEMS)
-            // Thread safe systems
-            Types::Spinlock m_LockSystems;
-        #endif
-
-        #if defined(HELENA_THREADSAFE_COMPONENTS)
-            // Thread safe components
-            Types::Spinlock m_LockComponents;
-        #endif
-
             // Engine state
             std::atomic<EState> m_State;
+
+        #if defined(HELENA_PLATFORM_LINUX)
+            // Used on Linux for signal handling;
+            std::unique_ptr<std::byte[]> m_StackMemory;
+        #endif // HELENA_PLATFORM_LINUX
         };
 
     private:
@@ -355,7 +360,58 @@ namespace Helena
         * @return Reason string if the engine State == EState::Shutdown and has a reason, empty otherwise
         * @warning No point in calling this function if State != EState::Shutdown
         */
-        [[nodiscard]] static auto ShutdownReason() noexcept;
+        [[nodiscard]] static std::string ShutdownReason() noexcept;
+
+        /**
+        * @brief Register the custom logger in the engine
+        * 
+        * @param logger Custom logger pointer
+        * @param deleter Custom deleter (by default: delete logger)
+        * @note The framework has an independent logging system (see: Helena/Logging/Logging.hpp).
+        * Registering a logger does not redirect the logging system, to redirect the output
+        * see Helena/Logging/CustomPrint.hpp.
+        * The problem is that logging in a multi-threaded environment requires synchronizations,
+        * I wondered what would be the best solution if we want to be able to log to a file.
+        * Components and systems? No, for this you need to enable thread safety for them,
+        * and this is unreasonable, since you pay more for synchronize, this option was
+        * immediately eliminated for me, what other options did I have?
+        * Forcing the developer to create his own context? This is possible,
+        * but this solution is not very convenient for developers.
+        * Therefore, the best way out with minimal costs is to provide the ability to
+        * register custom loggers inside the default context so that the developer can retrieve it
+        * at any time, and he can store all the synchronization primitives inside his logging class.
+        * This explains why registering a logger has nothing to do with redirecting logs to that registered logger.
+        * You have to redirect output manually by getting your logger instance from the Context.
+        * There are reasons for that:
+        *   1) You don't pay for synchronization.
+        *      I mean, this approach allows you to avoid the need to make systems and components thread-safe.
+        *   2) Logging is independent of the Engine.
+        *      You can use logging even if you haven't registered the Engine.
+        *   3) Shared context.
+        *      Your logger should be able to share states between exe/elf and dll/so,
+        *      this is the main reason why I chose this solution.
+        */
+        template <typename Logger>
+        static void RegisterLogger(Logger* logger, void (*deleter)(const void*) =
+            +[](const void* ptr) {
+                delete static_cast<Logger*>(ptr);
+            }
+        );
+
+        /*
+        * @brief Check the exist of logger
+        * @return True if logger exist, or false
+        */
+        [[nodiscard]] static bool HasLogger() noexcept;
+
+        /*
+        * @brief Check the exist of logger
+        * 
+        * @tparam T Type of logger derived from IFileLogger.
+        * @return Instance of logger if exist or exception/crash.
+        */
+        template <typename Logger = Logging::FileLogger>
+        [[nodiscard]] static Logger& GetLogger();
 
         /**
         * @brief Register the system in the engine
@@ -458,7 +514,7 @@ namespace Helena
         * Helena::Engine::RegisterSystem<MySystemA>();
         * Helena::Engine::RegisterSystem<MySystemB>();
         *
-        * Helena::Engine::RemoveSystem<MySystemA, MySystemB>();
+        * Helena::Engine::RemoveSystem<MySystemA, MySystemB>(Helena::Engine::NoSignal);
         * @endcode
         * 
         * @tparam T Types of systems
@@ -767,6 +823,10 @@ namespace Helena
         static void UnsubscribeEvent(typename Traits::Function<decltype(Callback)>::Class* instance);
 
     private:
+        template <typename Event>
+        requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+        static void SignalEvent(EventsPool<Delegate>& pool, Event& event);
+
         template <typename Event, auto Callback>
         requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
         static void SubscribeEvent(Delegate::Args<Event, Callback>, void* instance);

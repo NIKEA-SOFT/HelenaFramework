@@ -56,8 +56,9 @@ namespace Helena::Types
         }
 
         [[nodiscard]] static HELENA_SOURCE_CONSTEXPREVAL const char* TruncatePath(const std::string_view file) noexcept {
-            const auto it = std::find_first_of(file.crbegin(), file.crend(), Separator.cbegin(), Separator.cend());
-            return it == file.crend() ? std::addressof(*file.cbegin()) : std::addressof(*it.base());
+            const auto position = file.find_last_of(Separator);
+            const auto found = position != file.npos;
+            return file.data() + position * found + found;
         }
 
     private:

@@ -54,42 +54,50 @@
         }();
     #endif
 
-    inline auto ENABLE_TIME_BEGIN_PERIOD_1MS = []() noexcept  {
+    inline auto HELENA_ENABLE_TIME_BEGIN_PERIOD_1MS = []() noexcept  {
         ::timeBeginPeriod(1);
         return 0;
     }();
 
-    inline auto ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []() noexcept {
-
-        if(!::GetConsoleWindow()) {
-            return 0;
+    inline auto HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING = false;
+    inline auto HELENA_ENABLE_UNICODE_AND_VIRTUAL_TERMINAL = []()
+#if defined(HELENA_COMPILER_GCC) || defined(HELENA_COMPILER_CLANG)
+    __attribute__ ((noinline))
+#elif defined(HELENA_COMPILER_MSVC)
+    __declspec(noinline)
+#endif
+    {
+        // Enable virtual terminal processing for support colors in terminal
+        HANDLE hStdOut = ::GetStdHandle(STD_OUTPUT_HANDLE);
+        if(!hStdOut || hStdOut == INVALID_HANDLE_VALUE) {
+            ::MessageBoxA(nullptr, "Get console handle failed!", "Helena", MB_OK | MB_ICONWARNING);
+            return false;
         }
+
+        DWORD mode{};
+        if(!::GetConsoleMode(hStdOut, &mode)) {
+            ::MessageBoxA(nullptr, "Get console mode failed!", "Helena", MB_OK | MB_ICONWARNING);
+            return false;
+        }
+
+        // Windows 7 not support virtual terminal processing
+        HELENA_ENABLE_VIRTUAL_TERMINAL_PROCESSING = (mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) || ::SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
         // Set UTF-8
         ::SetConsoleCP(CP_UTF8);
         ::SetConsoleOutputCP(CP_UTF8);
 
-        // Fix Windows fmt.print, enable virtual terminal processing
-        if(HANDLE hStdOut = ::GetStdHandle(STD_OUTPUT_HANDLE); hStdOut != INVALID_HANDLE_VALUE)
-        {
-            DWORD mode{};
-            if(!::GetConsoleMode(hStdOut, &mode)) {
-                ::MessageBoxA(nullptr, "Get console mode failed!", "Error", MB_OK | MB_ICONERROR);
-                std::terminate();
-            }
+        return true;
+    };
 
-            if(!::SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-                ::MessageBoxA(nullptr, "Set console handle virtual terminal processing failed!", "Error", MB_OK | MB_ICONERROR);
-                std::terminate();
-            }
-
-        } else {
-            ::MessageBoxA(nullptr, "Get console handle failed!", "Error", MB_OK | MB_ICONERROR);
-            std::terminate();
-        }
-
-        return 0;
-    }();
+    inline auto HELENA_VIRTUAL_CONSOLE_STATUS = false;
+    inline auto HELENA_PLATFORM_HAS_CONSOLE = []() {
+        if(::_isatty(::_fileno(stdout)) || ::_isatty(::_fileno(stderr))) {
+            if(!HELENA_VIRTUAL_CONSOLE_STATUS) [[unlikely]]
+                HELENA_VIRTUAL_CONSOLE_STATUS = HELENA_ENABLE_UNICODE_AND_VIRTUAL_TERMINAL();
+        } else HELENA_VIRTUAL_CONSOLE_STATUS = false;
+        return HELENA_VIRTUAL_CONSOLE_STATUS;
+    };
 
     // Definition
     #define HELENA_SLEEP(ms)            ::Sleep(ms)
@@ -105,7 +113,9 @@
     #define HELENA_MODULE_UNLOAD(a)     ::FreeLibrary(a)
     #define HELENA_MODULE_EXTENSION     ".dll"
 
-    #define HELENA_SEPARATOR '\\'
+    #define HELENA_SEPARATOR            '\\'
+    #define HELENA_SEPARATOR_QUOTED     "\\"
+    #define HELENA_MAX_PATH_LENGTH      MAX_PATH
 
 #endif // HELENA_PLATFORM_WIN
 #endif // HELENA_OS_WINDOWS_HPP

@@ -45,6 +45,8 @@ namespace Example01
 		}
 
 	public:
+		using Helena::Engine::Context::Context;
+
 		void Main() override
 		{
 			m_WindowClassEx.cbSize = sizeof(WNDCLASSEX);
@@ -65,7 +67,7 @@ namespace Example01
 			Helena::Engine::SubscribeEvent<Helena::Events::Engine::Shutdown, []() {
 				auto reason = Helena::Engine::ShutdownReason();
 				if(!reason.empty()) {
-					reason = Helena::Util::Format("Error:\n{}", reason);
+					reason = Helena::Util::String::Format("Error:\n{}", reason);
 					::MessageBoxA(nullptr, reason.c_str(), "Shutdown with error!", MB_ICONERROR | MB_OK);
 				}
 			}>();
@@ -85,7 +87,7 @@ namespace Example01
 
 			::ShowWindow(m_WindowHWND, SW_SHOW);
 			::UpdateWindow(m_WindowHWND);
-		};
+		}
 
 		static void OnTick(Helena::Events::Engine::Tick) 
 		{

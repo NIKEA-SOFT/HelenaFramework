@@ -38,12 +38,12 @@ namespace Helena::Types
                 if constexpr(Type == EGuard::Writer) {
                     auto rwCounter = m_RWCounter.load(std::memory_order_relaxed);
                     while(!m_RWCounter.compare_exchange_weak(rwCounter, WritersInc(rwCounter),
-                        std::memory_order_release, std::memory_order_relaxed));
+                        std::memory_order_release, std::memory_order_acquire));
                     while(true) {
                         rwCounter = m_RWCounter.load(std::memory_order_relaxed);
                         while(Writable(rwCounter)) {
                             if(m_RWCounter.compare_exchange_strong(rwCounter, WritingInc(rwCounter),
-                                std::memory_order_release, std::memory_order_relaxed)) {
+                                std::memory_order_release, std::memory_order_acquire)) {
                                 return;
                             }
                         } HELENA_PROCESSOR_YIELD();
@@ -52,7 +52,7 @@ namespace Helena::Types
                     auto rwCounter = m_RWCounter.load(std::memory_order_relaxed);
                     while(Readable(rwCounter)) {
                         if(m_RWCounter.compare_exchange_strong(rwCounter, ReadersInc(rwCounter),
-                            std::memory_order_release, std::memory_order_relaxed)) {
+                            std::memory_order_release, std::memory_order_acquire)) {
                             return;
                         }
                     } HELENA_PROCESSOR_YIELD();
@@ -64,10 +64,10 @@ namespace Helena::Types
                 auto rwCounter = m_RWCounter.load(std::memory_order_relaxed);
                 if constexpr(Type == EGuard::Writer) {
                     while(!m_RWCounter.compare_exchange_weak(rwCounter, WritersDec(rwCounter),
-                        std::memory_order_release, std::memory_order_relaxed));
+                        std::memory_order_release, std::memory_order_acquire));
                 } else {
                     while(!m_RWCounter.compare_exchange_weak(rwCounter, ReadersDec(rwCounter),
-                        std::memory_order_release, std::memory_order_relaxed));
+                        std::memory_order_release, std::memory_order_acquire));
                 }
             }
 

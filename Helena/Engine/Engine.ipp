@@ -5,7 +5,7 @@
 #include <Helena/Engine/Events.hpp>
 #include <Helena/Traits/Function.hpp>
 #include <Helena/Types/DateTime.hpp>
-#include <Helena/Util/Format.hpp>
+#include <Helena/Util/String.hpp>
 
 namespace Helena
 {
@@ -20,42 +20,118 @@ namespace Helena
 
 #if defined(HELENA_PLATFORM_WIN)
     inline BOOL WINAPI Engine::CtrlHandler([[maybe_unused]] DWORD dwCtrlType) {
-        if(GetState() == EState::Init) Shutdown();
+        if(GetState() != EState::Shutdown) Shutdown();
         return TRUE;
     }
 
     inline LONG WINAPI Engine::MiniDumpSEH(EXCEPTION_POINTERS* pException)
     {
-        const auto dateTime  = Types::DateTime::FromLocalTime();
-        const auto& dumpName = Util::Format("Crash_{:04d}{:02d}{:02d}_{:02d}_{:02d}_{:02d}.dmp",
-                                dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
-                                dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
-
-        const auto hFile = ::CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-        if(!hFile || hFile == INVALID_HANDLE_VALUE) {
-            HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
+        if(GetState() == EState::Shutdown) {
             return EXCEPTION_EXECUTE_HANDLER;
         }
 
-        const auto hProcess     = ::GetCurrentProcess();
-        const auto processId    = ::GetProcessId(hProcess);
-        const auto flag         = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
-        auto exceptionInfo      = MINIDUMP_EXCEPTION_INFORMATION {
-            .ThreadId = ::GetCurrentThreadId(),
-            .ExceptionPointers = pException,
-            .ClientPointers = TRUE
+        const auto stacktrace = Util::Process::Stacktrace(); // ordering is important
+        const auto dateTime = Types::DateTime::FromLocalTime();
+        auto dumpName = Util::String::FormatView("Crash_{:04}{:02}{:02}_{:02}_{:02}_{:02}.dmp",
+            dateTime.GetYear(), dateTime.GetMonth(), dateTime.GetDay(),
+            dateTime.GetHours(), dateTime.GetMinutes(), dateTime.GetSeconds());
+
+        const auto hFile = ::CreateFileA(dumpName.data(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+        if(hFile && hFile != INVALID_HANDLE_VALUE)
+        {
+            const auto hProcess = ::GetCurrentProcess();
+            const auto processId = ::GetProcessId(hProcess);
+            const auto flag = MINIDUMP_TYPE::MiniDumpWithIndirectlyReferencedMemory;
+            auto exceptionInfo = MINIDUMP_EXCEPTION_INFORMATION{
+                .ThreadId = ::GetCurrentThreadId(),
+                .ExceptionPointers = pException,
+                .ClientPointers = TRUE
+            };
+
+            if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
+                (void)::DeleteFileA(dumpName.data());
+                dumpName = Util::String::FormatView("Create dump: {} -> FAIL!", dumpName);
+            } else {
+                dumpName = Util::String::FormatView("Create dump: {} -> OK!", dumpName);
+            }
+
+            (void)::CloseHandle(hFile);
+        } else HELENA_MSG_EXCEPTION("Create file for dump failed, error: {}", ::GetLastError());
+
+        const auto fnExceptionNameFromCode = [](auto code) noexcept
+        {
+            switch(code)
+            {
+                case EXCEPTION_ACCESS_VIOLATION:        return "EXCEPTION_ACCESS_VIOLATION";
+                case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:   return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED";
+                case EXCEPTION_BREAKPOINT:              return "EXCEPTION_BREAKPOINT";
+                case EXCEPTION_DATATYPE_MISALIGNMENT:   return "EXCEPTION_DATATYPE_MISALIGNMENT";
+                case EXCEPTION_FLT_DENORMAL_OPERAND:    return "EXCEPTION_FLT_DENORMAL_OPERAND";
+                case EXCEPTION_FLT_DIVIDE_BY_ZERO:      return "EXCEPTION_FLT_DIVIDE_BY_ZERO";
+                case EXCEPTION_FLT_INEXACT_RESULT:      return "EXCEPTION_FLT_INEXACT_RESULT";
+                case EXCEPTION_FLT_INVALID_OPERATION:   return "EXCEPTION_FLT_INVALID_OPERATION";
+                case EXCEPTION_FLT_OVERFLOW:            return "EXCEPTION_FLT_OVERFLOW";
+                case EXCEPTION_FLT_STACK_CHECK:         return "EXCEPTION_FLT_STACK_CHECK";
+                case EXCEPTION_FLT_UNDERFLOW:           return "EXCEPTION_FLT_UNDERFLOW";
+                case EXCEPTION_ILLEGAL_INSTRUCTION:     return "EXCEPTION_ILLEGAL_INSTRUCTION";
+                case EXCEPTION_IN_PAGE_ERROR:           return "EXCEPTION_IN_PAGE_ERROR";
+                case EXCEPTION_INT_DIVIDE_BY_ZERO:      return "EXCEPTION_INT_DIVIDE_BY_ZERO";
+                case EXCEPTION_INT_OVERFLOW:            return "EXCEPTION_INT_OVERFLOW";
+                case EXCEPTION_INVALID_DISPOSITION:     return "EXCEPTION_INVALID_DISPOSITION";
+                case EXCEPTION_NONCONTINUABLE_EXCEPTION:return "EXCEPTION_NONCONTINUABLE_EXCEPTION";
+                case EXCEPTION_PRIV_INSTRUCTION:        return "EXCEPTION_PRIV_INSTRUCTION";
+                case EXCEPTION_SINGLE_STEP:             return "EXCEPTION_SINGLE_STEP";
+                case EXCEPTION_STACK_OVERFLOW:          return "EXCEPTION_STACK_OVERFLOW";
+                default:                                return "Unknown Exception";
+            }
         };
 
-        if(!::MiniDumpWriteDump(hProcess, processId, hFile, flag, &exceptionInfo, nullptr, nullptr)) {
-            (void)::DeleteFileA(dumpName.c_str());
-            HELENA_MSG_EXCEPTION("Create dump failed, error: {}", ::GetLastError());
-        } else {
-            HELENA_MSG_EXCEPTION("SEH Handler Dump: \"{}\" created!", dumpName);
+        const auto fnExceptionOperationNameFromCode = [](auto code) noexcept
+        {
+            switch(code) {
+                case 0: return "Read";
+                case 1: return "Write";
+                case 8: return "User-mode data execution prevention (DEP) violation";
+                default: return "Unknown";
+            }
+        };
+
+        const auto exceptionCode = pException->ExceptionRecord->ExceptionCode;
+        const auto exceptionName = fnExceptionNameFromCode(exceptionCode);
+        const auto exceptionAddress = reinterpret_cast<std::uintptr_t>(pException->ExceptionRecord->ExceptionAddress);
+
+        auto exceptionOperationInfo = typename Traits::Function<decltype(Util::String::FormatView<char>)>::Return{};
+        if(exceptionCode == EXCEPTION_ACCESS_VIOLATION || exceptionCode == EXCEPTION_IN_PAGE_ERROR) {
+            exceptionOperationInfo = Util::String::FormatView("\n->Invalid operation: {} at "
+            #if defined(HELENA_PROCESSOR_X86)
+                "{:#010x}",
+            #else
+                "{:#018x}",
+            #endif // HELENA_PROCESSOR_X86
+                fnExceptionOperationNameFromCode(pException->ExceptionRecord->ExceptionInformation[0]),
+                pException->ExceptionRecord->ExceptionInformation[1]);
         }
 
-        (void)::CloseHandle(hFile);
+    #if defined(HELENA_PROCESSOR_X86)
+        const auto exceptionIP = pException->ContextRecord->Eip;
+    #elif defined(HELENA_PROCESSOR_X64)
+        const auto exceptionIP = pException->ContextRecord->Rip;
+    #else
+    #error Unknown architecture
+    #endif // HELENA_PROCESSOR_X86
+
+        Shutdown("\n-------- [FATAL CRASH] --------\n"
+        #if defined(HELENA_PROCESSOR_X86)
+            "-> Crash EIP: {:#010x}\n-> {}({:#010x}) at {:#010x}"
+        #elif defined(HELENA_PROCESSOR_X64)
+            "-> Crash RIP: {:#018x}\n-> {}({:#018x}) at {:#018x}"
+        #endif
+            "{}\n-> {}\n-> {}",
+            exceptionIP, exceptionName, exceptionCode, exceptionAddress,
+            exceptionOperationInfo, dumpName, stacktrace);
+
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
@@ -76,15 +152,95 @@ namespace Helena
 
 #elif defined(HELENA_PLATFORM_LINUX)
     inline void Engine::SigHandler([[maybe_unused]] int signal) {
-        if(GetState() == EState::Init) Shutdown();
+        if(GetState() != EState::Shutdown) Shutdown();
     }
 
-    inline void Engine::RegisterHandlers() {
-        signal(SIGTERM, SigHandler);
-        signal(SIGSTOP, SigHandler);
-        signal(SIGINT,  SigHandler);
-        signal(SIGKILL, SigHandler);
-        signal(SIGHUP,  SigHandler);
+    inline void Engine::RegisterHandlers()
+    {
+        const auto exitSignals = {
+            SIGTERM,    // Process termination
+            SIGSTOP,    // Stop process execution, Ctrl-Z
+            SIGINT,     // Interrupt from keyboard, Control-C
+            SIGKILL,    // Forced-process termination
+            SIGHUP      // Hang up controlling terminal or process
+        };
+
+        const auto errorSignals = {
+            // Signals for which the default action is "Core".
+            SIGABRT,    // Abort signal from abort(3)
+            SIGBUS,     // Bus error (bad memory access)
+            SIGFPE,     // Floating point exception
+            SIGILL,     // Illegal Instruction
+            SIGIOT,     // IOT trap. A synonym for SIGABRT
+            SIGQUIT,    // Quit from keyboard
+            SIGSEGV,    // Invalid memory reference
+            SIGSYS,     // Bad argument to routine (SVr4)
+            SIGTRAP,    // Trace/breakpoint trap
+            SIGXCPU,    // CPU time limit exceeded (4.2BSD)
+            SIGXFSZ     // File size limit exceeded (4.2BSD)
+        };
+
+        for(auto sig : exitSignals) {
+            signal(sig, +[](int) {
+                if(GetState() != EState::Shutdown)
+                    Shutdown();
+            });
+        }
+
+        struct sigaction sigact {};
+        sigact.sa_flags = SA_SIGINFO | SA_NODEFER | SA_RESETHAND;
+        sigact.sa_sigaction = +[](int signal, siginfo_t* info, void* ptr) {
+            const auto context = static_cast<const ucontext_t*>(ptr);
+        #if defined(HELENA_PROCESSOR_X86)
+            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[REG_EIP]);
+        #elif defined(HELENA_PROCESSOR_X64)
+            const auto ip = static_cast<std::uintptr_t>(context->uc_mcontext.gregs[REG_RIP]);
+        #else
+        #error Unknown architecture
+        #endif
+            const auto address = reinterpret_cast<std::uintptr_t>(info->si_addr);
+
+            Shutdown("\n-------- [FATAL CRASH] --------\n"
+            #if defined(HELENA_PROCESSOR_X86)
+                "-> Crash EIP: {:#010x}\n-> {} at {:#010x}"
+            #elif defined(HELENA_PROCESSOR_X86)
+                "-> Crash RIP: {:#018x}\n-> {} at {:#018x}"
+            #endif
+                "\n-> {}", ip, strsignal(signal), address, Util::Process::Stacktrace());
+
+            (void)Heartbeat(); // try to shutdown correctly with framework events
+            Util::Process::Sleep(3000); // give 3 second for threads
+
+        #if (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700) || \
+            (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200809L)
+            psiginfo(info, nullptr);
+        #endif
+
+            raise(info->si_signo);
+        };
+
+        static constexpr std::size_t stackSize = 1024 * 1024;
+        auto& stackMemory = MainContext().m_StackMemory;
+        stackMemory.reset(new std::byte[stackSize]);
+
+        stack_t sigStack{};
+        sigStack.ss_sp = stackMemory.get();
+        sigStack.ss_size = stackSize;
+        sigStack.ss_flags = 0;
+
+        if(const auto result = sigaltstack(&sigStack, nullptr); result < 0) {
+            HELENA_MSG_ERROR("Set (sigaltstack) stack memory error: {}", result);
+        } else sigact.sa_flags |= SA_ONSTACK;
+
+        for(auto sig : errorSignals)
+        {
+            sigfillset(&sigact.sa_mask);
+            sigdelset(&sigact.sa_mask, sig);
+
+            if(const auto result = sigaction(sig, &sigact, nullptr); result < 0) {
+                HELENA_MSG_ERROR("Set (sigaction) handler for signal: {} error: {}", sig, result);
+            }
+        }
     }
 #endif
 
@@ -153,6 +309,7 @@ namespace Helena
     requires Engine::RequiresConfig<HeartbeatConfig>
     [[nodiscard]] bool Engine::Heartbeat()
     {
+        bool result = true;
         auto& ctx = MainContext();
         const auto state = GetState();
         const auto signal = []<typename... Args, typename... Events>(Signals<Events...>, [[maybe_unused]] Args&&... args) {
@@ -161,6 +318,8 @@ namespace Helena
 
     #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
         __try {
+    #else
+        try {
     #endif
         switch(state)
         {
@@ -192,8 +351,8 @@ namespace Helena
                     Events::Engine::PostExecute
                 >{});
 
-                for(const auto& message : ctx.m_DeferredSignals) {
-                    message();
+                for(auto& pair : ctx.m_DeferredSignals) {
+                    pair.Second()(pair.First());
                 } ctx.m_DeferredSignals.clear();
 
                 signal(Signals<
@@ -226,6 +385,7 @@ namespace Helena
 
             case EState::Shutdown: [[unlikely]]
             {
+                result = false;
                 signal(Signals<
                     Events::Engine::PreFinalize,
                     Events::Engine::Finalize,
@@ -234,33 +394,50 @@ namespace Helena
                     Events::Engine::Shutdown,
                     Events::Engine::PostShutdown
                 >{});
-
-                ctx.m_Signals.Clear();
-                ctx.m_DeferredSignals.clear();
-                ctx.m_Systems.Clear();
-
-                if(!ctx.m_ShutdownMessage->m_Message.empty()) {
-                    Log::Message<Log::Shutdown>({ctx.m_ShutdownMessage->m_Message,
-                        ctx.m_ShutdownMessage->m_Location});
-                }
-
-                ctx.m_State.store(EState::Undefined, std::memory_order_release);
-
-                return false;
             }
         }
-
     #if defined(HELENA_PLATFORM_WIN) && defined(HELENA_COMPILER_MSVC)
-        } __except (MiniDumpSEH(GetExceptionInformation())) {
+        } __except (MiniDumpSEH(GetExceptionInformation())) {}
+    #else
+        } catch(...) {
             if(GetState() == EState::Shutdown) {
-                return false;
-            }
+                result = false;
+            } else {
+                std::exception_ptr exceptionPtr = std::current_exception();
+                if(exceptionPtr) {
+                    const char* what{};
+                    try {
+                        std::rethrow_exception(exceptionPtr);
+                    } catch(const std::exception& err) {
+                        what = err.what();
+                    } catch(...) {
+                        what = "Unknown exception";
+                    }
 
-            Shutdown("Unhandled Exception");
+                    Shutdown("\n-------- [FATAL CRASH] --------\n"
+                        "-> Exception: {}\n-> {}",
+                        what, Util::Process::Stacktrace());
+                }
+            }
         }
     #endif
 
-        return true;
+        if(!result)
+        {
+            ctx.m_Signals.Clear();
+            ctx.m_DeferredSignals.clear();
+            ctx.m_Systems.Clear();
+            ctx.m_Components.Clear();
+
+            if(!ctx.m_ShutdownMessage->m_Message.empty()) {
+                const auto& [message, location] = *ctx.m_ShutdownMessage;
+                Logging::Message<Logging::Shutdown>({"{}", location}, message);
+            }
+
+            ctx.m_State.store(EState::Undefined, std::memory_order_release);
+        }
+
+        return result;
     }
 
     [[nodiscard]] inline bool Engine::Running() noexcept {
@@ -274,30 +451,43 @@ namespace Helena
         const auto state = ctx.m_State.exchange(EState::Shutdown, std::memory_order_acq_rel);
         if(state != EState::Shutdown && !msg.m_Msg.empty()) {
             ctx.m_ShutdownMessage->m_Location = msg.m_Location;
-            ctx.m_ShutdownMessage->m_Message = Util::Format(msg.m_Msg, std::forward<Args>(args)...);
+            ctx.m_ShutdownMessage->m_Message = Util::String::Format(msg.m_Msg, std::forward<Args>(args)...);
         }
     }
 
-    [[nodiscard]] inline auto Engine::ShutdownReason() noexcept
-    {;
+    [[nodiscard]] inline std::string Engine::ShutdownReason() noexcept
+    {
         if(GetState() == EState::Shutdown)
         {
             const auto& [message, location] = *MainContext().m_ShutdownMessage;
             if(!message.empty()) {
-                return Util::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), message);
+                return Util::String::Format("[{}::{}::{}] {}", location.GetFile(), location.GetFunction(), location.GetLine(), message);
             }
         }
 
         return std::string{};
     }
 
+    template <typename Logger>
+    void Engine::RegisterLogger(Logger* instance, void (*deleter)(const void*)) {
+        MainContext().m_Logger = CustomLogger{instance, deleter};
+    }
+
+    [[nodiscard]] inline bool Engine::HasLogger() noexcept {
+        return static_cast<bool>(MainContext().m_Logger);
+    }
+
+    template <typename Logger>
+    [[nodiscard]] Logger& Engine::GetLogger() {
+        auto& logger = MainContext().m_Logger;
+        HELENA_ASSERT(logger, "Instance of logger is nullptr");
+        return *static_cast<Logger*>(logger.get());
+    }
+
     template <typename T, typename... Args>
     requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterSystem(decltype(NoSignal), Args&&... args) {
         if(GetState() == EState::Shutdown) [[unlikely]] return;
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         MainContext().m_Systems.template Create<T>(std::forward<Args>(args)...);
     }
 
@@ -312,33 +502,21 @@ namespace Helena
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasSystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnySystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetSystem() {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         return MainContext().m_Systems.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveSystem(decltype(NoSignal)) {
-    #if defined(HELENA_THREADSAFE_SYSTEMS)
-        const std::lock_guard lock{MainContext().m_LockSystems};
-    #endif
         MainContext().m_Systems.template Remove<T...>();
     }
 
@@ -360,9 +538,6 @@ namespace Helena
     template <typename T, typename... Args>
     requires Traits::ConstructibleAggregateFrom<T, Args...>
     void Engine::RegisterComponent(decltype(NoSignal), Args&&... args) {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         MainContext().m_Components.template Create<T>(std::forward<Args>(args)...);
     }
 
@@ -376,33 +551,21 @@ namespace Helena
 
     template <typename... T>
     [[nodiscard]] bool Engine::HasComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Has<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] bool Engine::AnyComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Any<T...>();
     }
 
     template <typename... T>
     [[nodiscard]] decltype(auto) Engine::GetComponent() {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         return MainContext().m_Components.template Get<T...>();
     }
 
     template <typename... T>
     void Engine::RemoveComponent(decltype(NoSignal)) {
-    #if defined(HELENA_THREADSAFE_COMPONENTS)
-        const std::lock_guard lock{MainContext().m_LockComponents};
-    #endif
         MainContext().m_Components.template Remove<T...>();
     }
 
@@ -471,7 +634,10 @@ namespace Helena
     {
         const auto& ctx = MainContext();
         if constexpr(Traits::Arguments<Event...>::Single) {
-            return ctx.m_Signals.template Has<Event...>() && !ctx.m_Signals.template Get<Event...>().empty();
+            if(ctx.m_Signals.template Has<Event...>()) [[likely]] {
+                return !ctx.m_Signals.template Get<Event...>().empty();
+            }
+            return false;
         } else {
             return std::make_tuple(HasSubscribers<Event>()...);
         }
@@ -487,19 +653,25 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent([[maybe_unused]] Args&&... args)
     {
-        if constexpr(std::is_empty_v<Event>) {
-            union { Event event; };
-            SignalEvent(event);
-        } else if constexpr(requires {Event(std::forward<Args>(args)...);}) {
-            Event event(std::forward<Args>(args)...);
-            SignalEvent(event);
-        } else if constexpr(requires {Event{std::forward<Args>(args)...};}) {
-            Event event{std::forward<Args>(args)...};
-            SignalEvent(event);
-        } else {
-            []<bool Constructible = false>() {
-                static_assert(Constructible, "Event type not constructible from args");
-            }();
+        auto pool = MainContext().m_Signals.template Ptr<Event>();
+        const auto listeners = pool && !pool->empty();
+
+        if(listeners) [[likely]]
+        {
+            if constexpr(std::is_empty_v<Event>) {
+                union { Event event; };
+                SignalEvent(*pool, event);
+            } else if constexpr(requires {Event(std::forward<Args>(args)...); }) {
+                Event event(std::forward<Args>(args)...);
+                SignalEvent(*pool, event);
+            } else if constexpr(requires {Event{std::forward<Args>(args)...}; }) {
+                Event event{std::forward<Args>(args)...};
+                SignalEvent(*pool, event);
+            } else {
+                [] <bool Constructible = false>() {
+                    static_assert(Constructible, "Event type not constructible from args");
+                }();
+            }
         }
     }
 
@@ -507,32 +679,40 @@ namespace Helena
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
     void Engine::SignalEvent(Event& event)
     {
-        auto& ctx = MainContext();
-        if(auto poolStorage = ctx.m_Signals.template Ptr<Event>())
-        {
-            auto& pool = *poolStorage;
-            for(std::size_t pos = pool.size(); pos; --pos) {
-                const auto& delegate = pool[pos - 1];
-                std::invoke(delegate, &event);
-            }
+        if(auto pool = MainContext().m_Signals.template Ptr<Event>()) [[likely]] {
+            SignalEvent(*pool, event);
+        }
+    }
 
-            if constexpr(Traits::AnyOf<Event,
-                Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
-                Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
-                Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
-                Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
-                Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
-                pool.clear();
-            }
+    template <typename Event>
+    requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
+    void Engine::SignalEvent(EventsPool<Delegate>& pool, Event& event)
+    {
+        for(std::size_t pos = pool.size(); pos; --pos) {
+            const auto& delegate = pool[pos - 1];
+            std::invoke(delegate, &event);
+        }
+
+        if constexpr(Traits::AnyOf<Event,
+            Events::Engine::PreInit,        Events::Engine::Init,       Events::Engine::PostInit,
+            Events::Engine::PreConfig,      Events::Engine::Config,     Events::Engine::PostConfig,
+            Events::Engine::PreExecute,     Events::Engine::Execute,    Events::Engine::PostExecute,
+            Events::Engine::PreFinalize,    Events::Engine::Finalize,   Events::Engine::PostFinalize,
+            Events::Engine::PreShutdown,    Events::Engine::Shutdown,   Events::Engine::PostShutdown>) {
+            pool.clear();
         }
     }
 
     template <typename Event, typename... Args>
     requires Traits::SameAs<Event, Traits::RemoveCVRP<Event>>
-    void Engine::EnqueueSignal(Args&&... args) {
-        MainContext().m_DeferredSignals.emplace_back([... args = std::forward<Args>(args)]() mutable {
-            SignalEvent<Event>(std::forward<Args>(args)...);
-        });
+    void Engine::EnqueueSignal(Args&&... args)
+    {
+        MainContext().m_DeferredSignals.emplace_back(std::piecewise_construct,
+            std::forward_as_tuple(std::in_place_type<Event>, std::forward<Args>(args)...),
+            std::forward_as_tuple([](DeferredCtx& data) {
+                const auto event = data.template As<Event*>();
+                SignalEvent(*event);
+            }));
     }
 
     template <typename Event, auto Callback>

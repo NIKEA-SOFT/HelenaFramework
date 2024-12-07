@@ -1,10 +1,5 @@
 ﻿#include <Helena/Helena.hpp>
 #include <Systems/PluginManager.hpp>
-#include <Systems/ResourceManager.hpp>
-
-struct Range {
-    enum End : int {};
-};
 
 class TestSystemA
 {
@@ -314,8 +309,8 @@ void example_task_sheduler()
 // You don't need to know which system class owns them, this will reduce dependency in the code
 void example_components(int value)
 {
-    struct ComponentAudio { int value;};
-    struct ComponentTexture {int value;};
+    struct ComponentAudio{int value;};
+    struct ComponentTexture{int value;};
 
     Helena::Engine::RegisterComponent<ComponentAudio>(value);
     Helena::Engine::RegisterComponent<ComponentTexture>(value);
@@ -368,9 +363,7 @@ public:
     static void PrintMessage()
     {
         auto& self = CurrentSystem(); // O(1) for get instance (inside CurrentSystem called Helena::Engine::GetSystem<T>)
-
         HELENA_MSG_NOTICE("HELLO FROM PRINT MESSAGE OF ANIMATION MANAGER");
-        Helena::Util::Sleep(10000);
     }
 
 private:
@@ -429,7 +422,6 @@ void AnimationSpline::StaticFunc() {
 void AnimationSpline::NonStaticFunc() {
     // Nop
 }
-
 // Second method of intialization, using own Context
 class MyContext : public Helena::Engine::Context
 {
@@ -445,40 +437,7 @@ private:
         Helena::Engine::RegisterSystem<TestSystemA>();
         Helena::Engine::RegisterSystem<AnimationManager>();
 
-        sizeof(AnimationManager);
-
         /*
-        struct MyResource {
-            std::size_t value;
-        };
-
-        Helena::Engine::RegisterSystem<Helena::Systems::ResourceManager>();
-
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreCreate<MyResource>, []() {
-            HELENA_MSG_NOTICE("PreCreate");
-        }>();
-
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostCreate<MyResource>, [](Helena::Events::ResourceManager::PostCreate<MyResource> ev) {
-            HELENA_MSG_NOTICE("PostCreate {}", ev.resource.value);
-        }>();
-
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PreRemove<MyResource>, [](Helena::Events::ResourceManager::PreRemove<MyResource> ev) {
-            HELENA_MSG_NOTICE("PreRemove {}", ev.resource.value);
-        }>();
-
-        Helena::Engine::SubscribeEvent<Helena::Events::ResourceManager::PostRemove<MyResource>, []() {
-            HELENA_MSG_NOTICE("PostRemove");
-        }>();
-
-        Helena::Systems::ResourceManager::Create<MyResource>(100);
-        [[maybe_unused]] auto has_result = Helena::Systems::ResourceManager::Has<MyResource>();
-        [[maybe_unused]] auto any_result = Helena::Systems::ResourceManager::Any<MyResource, int>();
-        [[maybe_unused]] auto& resource = Helena::Systems::ResourceManager::Get<MyResource>();
-        Helena::Systems::ResourceManager::Remove<MyResource>();
-
-        Helena::Engine::RemoveSystem<Helena::Systems::ResourceManager>();
-        */
-
         if(Helena::Engine::HasSubscribers<Helena::Events::Engine::PreInit>()) {
             HELENA_MSG_WARNING("TEST: HAS SUBSCRIBERS TRUE");
         } else {
@@ -740,11 +699,16 @@ void test_allocators()
     using String = std::basic_string<char, std::char_traits<char>, Helena::Types::MemoryAllocator<char>>;
     using Vector = std::vector<String, Helena::Types::MemoryAllocator<String>>;
 
-    Helena::Types::DebuggingAllocator<"VectorOfString", Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::MonotonicAllocator>> alloc;
-    Helena::Types::IMemoryResource* memoryResource = &alloc;
-    Vector vec_of_string{memoryResource}; vec_of_string.reserve(10);
+    using LoggingAllocator = Helena::Types::LoggingAllocator<"VectorOfString", Helena::Types::NodeAllocator,
+        [](auto name, auto allocated, auto ptr, auto bytes, auto alignment) {
+            HELENA_MSG_MEMORY("Allocator: {}, {} addr: {}, bytes: {}, align: {}", name, allocated ? "alloc" : "free", ptr, bytes, alignment);
+    }>;
 
-    static constexpr auto name = alloc.Name();
+    Helena::Types::DebuggingAllocator<"VectorOfString", LoggingAllocator> alloc;
+    Helena::Types::IMemoryResource* memoryResource = &alloc;
+    Vector vec_of_string{memoryResource};
+    vec_of_string.emplace_back("Hello world");
+
     HELENA_MSG_NOTICE("Your allocator name: {}", alloc.Name());
 
     vec_of_string.emplace_back("long message for got allocation");
@@ -791,17 +755,31 @@ void test_allocators()
 }
 
 // Test specialization for logger
-template <>
-struct Helena::Log::CustomPrint<Helena::Log::Warning>
+template <Helena::Logging::DefinitionLogger Logger>
+requires Helena::Traits::AnyOf<Logger,
+    Helena::Logging::Debug,
+    Helena::Logging::Info,
+    Helena::Logging::Notice,
+    Helena::Logging::Warning,
+    Helena::Logging::Error,
+    Helena::Logging::Fatal,
+    Helena::Logging::Assert,
+    Helena::Logging::Exception,
+    Helena::Logging::Shutdown
+>
+struct Helena::Logging::CustomPrint<Logger>
 {
     template <typename Char>
-    static void Message(std::basic_string<Char>& message) {
+    static void Message(std::basic_string_view<Char> message) {
         Print<Char>::Message(message);
+        if(Engine::HasContext()) {
+            Engine::GetLogger().template Write<Logger>(message);
+        }
     }
 };
 
 template <>
-struct Helena::Log::MuteController<Helena::Log::Warning> {
+struct Helena::Logging::MuteController<Helena::Logging::Warning> {
     static bool Muted() {
         return false;
     }

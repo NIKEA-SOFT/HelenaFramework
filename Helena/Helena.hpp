@@ -11,7 +11,7 @@
 #define HELENA_HPP
 
 // Version
-#define HELENA_VERSION_MAJOR 3
+#define HELENA_VERSION_MAJOR 4
 #define HELENA_VERSION_MINOR 0
 #define HELENA_VERSION_PATCH 0
 
@@ -25,7 +25,18 @@
 // Engine
 #include <Helena/Engine/Events.hpp>
 #include <Helena/Engine/Engine.hpp>
-#include <Helena/Engine/Log.hpp>
+
+// Logging
+#include <Helena/Logging/Internal/LoggerBuffer.hpp>
+#include <Helena/Logging/ColorStyle.hpp>
+#include <Helena/Logging/CustomPrint.hpp>
+#include <Helena/Logging/Formatter.hpp>
+#include <Helena/Logging/FileLogger.hpp>
+#include <Helena/Logging/Logging.hpp>
+#include <Helena/Logging/Message.hpp>
+#include <Helena/Logging/MuteController.hpp>
+#include <Helena/Logging/Prefix.hpp>
+#include <Helena/Logging/Print.hpp>
 
 // Traits
 #include <Helena/Traits/Add.hpp>
@@ -54,14 +65,13 @@
 // Types
 #include <Helena/Types/Allocators.hpp>
 #include <Helena/Types/Any.hpp>
-#include <Helena/Types/BasicLogger.hpp>
-#include <Helena/Types/BasicLoggerDefines.hpp>
 #include <Helena/Types/BenchmarkScoped.hpp>
 #include <Helena/Types/CompressedPair.hpp>
 #include <Helena/Types/DateTime.hpp>
 #include <Helena/Types/Delegate.hpp>
 #include <Helena/Types/EncryptedString.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
+#include <Helena/Types/Function.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Monostate.hpp>
@@ -84,9 +94,8 @@
 
 // Util
 #include <Helena/Util/Cast.hpp>
-#include <Helena/Util/Format.hpp>
-#include <Helena/Util/Function.hpp>
-#include <Helena/Util/Sleep.hpp>
+#include <Helena/Util/Math.hpp>
+#include <Helena/Util/Process.hpp>
 #include <Helena/Util/String.hpp>
 
 #endif // HELENA_HPP
