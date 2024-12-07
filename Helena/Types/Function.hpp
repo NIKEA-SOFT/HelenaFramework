@@ -1,10 +1,10 @@
-#ifndef HELENA_UTIL_FUNCTION_HPP
-#define HELENA_UTIL_FUNCTION_HPP
+#ifndef HELENA_TYPES_FUNCTION_HPP
+#define HELENA_TYPES_FUNCTION_HPP
 
 #include <Helena/Types/CompressedPair.hpp>
 #include <functional>
 
-namespace Helena::Util
+namespace Helena::Types
 {
     class Function
     {
@@ -103,4 +103,4 @@ namespace Helena::Util
     };
 }
 
-#endif // HELENA_UTIL_FUNCTION_HPP
+#endif // HELENA_TYPES_FUNCTION_HPP
