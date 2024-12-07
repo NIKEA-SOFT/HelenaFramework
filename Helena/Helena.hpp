@@ -71,6 +71,7 @@
 #include <Helena/Types/Delegate.hpp>
 #include <Helena/Types/EncryptedString.hpp>
 #include <Helena/Types/FixedBuffer.hpp>
+#include <Helena/Types/Function.hpp>
 #include <Helena/Types/Hash.hpp>
 #include <Helena/Types/LocationString.hpp>
 #include <Helena/Types/Monostate.hpp>
@@ -93,7 +94,6 @@
 
 // Util
 #include <Helena/Util/Cast.hpp>
-#include <Helena/Util/Function.hpp>
 #include <Helena/Util/Math.hpp>
 #include <Helena/Util/Process.hpp>
 #include <Helena/Util/String.hpp>
