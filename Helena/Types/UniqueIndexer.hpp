@@ -6,7 +6,7 @@
 
 #include <algorithm>
 #include <vector>
-#include <utility>
+#include <memory>
 
 namespace Helena::Types
 {
@@ -21,27 +21,17 @@ namespace Helena::Types
 
     public:
         UniqueIndexer() = default;
-        ~UniqueIndexer() {
-            delete m_Indexes;
-        }
-
+        ~UniqueIndexer() = default;
         UniqueIndexer(const UniqueIndexer&) = delete;
-        UniqueIndexer(UniqueIndexer&& other) noexcept {
-            m_Indexes = std::exchange(other.m_Indexes, nullptr);
-        }
-
+        UniqueIndexer(UniqueIndexer&&) noexcept = default;
         UniqueIndexer& operator=(const UniqueIndexer&) = delete;
-        UniqueIndexer& operator=(UniqueIndexer&& other) noexcept {
-            delete m_Indexes;
-            m_Indexes = std::exchange(other.m_Indexes, nullptr);
-            return *this;
-        }
+        UniqueIndexer& operator=(UniqueIndexer&&) noexcept = default;
 
         template <typename T>
         [[nodiscard]] HELENA_FORCEINLINE std::size_t Get() const noexcept
         {
             if(m_TypeIndex<T> == (std::numeric_limits<std::size_t>::max)()) [[unlikely]] {
-                TypeIndexer<T>::CacheIndex(*m_Indexes);
+                TypeIndexer<T>::CacheIndex(m_Indexes);
             }
 
             return m_TypeIndex<T>;
@@ -55,20 +45,20 @@ namespace Helena::Types
         template <typename T>
         struct TypeIndexer
         {
-            HELENA_NOINLINE static void CacheIndex(Container& indexes) noexcept
+            HELENA_NOINLINE static void CacheIndex(const std::unique_ptr<Container>& storage) noexcept
             {
-                if(const auto it = std::find(indexes.cbegin(), indexes.cend(), m_Key); it != indexes.cend()) {
-                    m_TypeIndex<T> = std::distance(indexes.cbegin(), it);
+                if(const auto it = std::find(storage->cbegin(), storage->cend(), m_Key); it != storage->cend()) {
+                    m_TypeIndex<T> = std::distance(storage->cbegin(), it);
                 } else {
-                    indexes.emplace_back(m_Key);
-                    m_TypeIndex<T> = indexes.size() - 1;
+                    storage->emplace_back(m_Key);
+                    m_TypeIndex<T> = storage->size() - 1;
                 }
             }
 
             static constexpr auto m_Key = Hasher::template From<T>();
         };
 
-        Container* const m_Indexes{new (std::nothrow) Container()};
+        std::unique_ptr<Container> m_Indexes{std::make_unique<Container>()};
     };
 
 }
