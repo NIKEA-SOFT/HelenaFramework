@@ -32,7 +32,7 @@ HelenaFramework is a modern and universal framework **C++20**
   `Runtime mute`   
   `Runtime redirect logging`   
   `Replacing file logger with custom`   
-  `Separate logging file for each type or all in one file.`   
+  `Separate logging file for each type or all in one file`   
   
 - ##### Types:
   `Allocators`   
