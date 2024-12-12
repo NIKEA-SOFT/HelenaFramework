@@ -34,10 +34,6 @@ namespace Helena::Types
         using Hasher            = Hash<std::uint64_t>;
         using HasherValue       = Hasher::value_type;
 
-        static constexpr std::size_t DefaultCapacity = sizeof(void*);
-        static constexpr std::size_t DefaultAlignment = alignof(void*);
-        static constexpr std::size_t DisableSBO = 0;
-
         template <typename T>
         static constexpr bool AllowedParam = std::conjunction_v<
             std::negation<std::is_same<std::decay_t<T>, void>>,
@@ -310,9 +306,10 @@ namespace Helena::Types
 
         // Check the type that is stored in Any
         template <typename T>
+        requires AllowedParam<T>
         [[nodiscard]] constexpr bool Contain() const noexcept {
             if(!Empty()) [[likely]] {
-                constexpr auto hash = HashOf<std::decay_t<T>>;
+                constexpr auto hash = HashOf<T>;
                 return m_Pair.First()->TypeHash() == hash;
             }
             return false;
@@ -345,30 +342,26 @@ namespace Helena::Types
         template <typename T>
         [[nodiscard]] constexpr decltype(auto) As()
         {
-            void* instance = DataPtr<std::remove_cvref_t<std::remove_pointer_t<T>>>();
-            if constexpr(std::is_lvalue_reference_v<T>) {
-                CheckAndThrow(instance);
-                return *static_cast<std::remove_cvref_t<T>*>(instance);
-            } else if constexpr(std::is_pointer_v<T>) {
-                return static_cast<T>(instance);
+            if constexpr(std::is_pointer_v<T>) {
+                void* const instance = DataPtr<std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<T>>>>();
+                return static_cast<std::add_pointer_t<std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<T>>>>>(instance);
             } else {
+                void* const instance = DataPtr<std::remove_cvref_t<T>>();
                 CheckAndThrow(instance);
-                return *static_cast<std::remove_const_t<std::remove_cvref_t<T>>*>(instance);
+                return *static_cast<std::add_pointer_t<std::remove_cvref_t<T>>>(instance);
             }
         }
 
         template <typename T>
         [[nodiscard]] constexpr decltype(auto) As() const
         {
-            const void* instance = DataPtr<std::remove_cvref_t<std::remove_pointer_t<T>>>();
-            if constexpr(std::is_lvalue_reference_v<T>) {
-                CheckAndThrow(instance);
-                return *static_cast<const std::remove_cvref_t<T>*>(instance);
-            } else if constexpr(std::is_pointer_v<T>) {
-                return *static_cast<const std::remove_pointer_t<T>**>(instance);
+            if constexpr(std::is_pointer_v<T>) {
+                const void* const instance = DataPtr<std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<T>>>>();
+                return static_cast<std::add_pointer_t<std::add_const_t<std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<T>>>>>>(instance);
             } else {
+                const void* const instance = DataPtr<std::remove_cvref_t<T>>();
                 CheckAndThrow(instance);
-                return *static_cast<const std::remove_cvref_t<T>*>(instance);
+                return *static_cast<std::add_pointer_t<std::add_const_t<std::remove_cvref_t<T>>>>(instance);
             }
         }
 
